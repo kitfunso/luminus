@@ -31,7 +31,11 @@ async function loadBundled<T>(path: string): Promise<T | null> {
     const res = await fetch(path);
     if (!res.ok) return null;
     const data = await res.json();
+    // Handle both direct arrays and { prices: [...] } wrapper
     if (Array.isArray(data) && data.length > 0) return data as T;
+    if (data && typeof data === 'object' && 'prices' in data && Array.isArray(data.prices) && data.prices.length > 0) {
+      return data.prices as T;
+    }
     return null;
   } catch {
     return null;
