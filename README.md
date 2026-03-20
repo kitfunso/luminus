@@ -1,4 +1,4 @@
-# GridPulse
+# Luminus
 
 Real-time European & UK electricity grid data via MCP (Model Context Protocol).
 
@@ -6,7 +6,7 @@ Give any AI agent instant access to power generation, prices, cross-border flows
 
 ## What is this?
 
-GridPulse wraps the ENTSO-E Transparency Platform and Elexon BMRS APIs into a clean MCP server. Instead of fighting with SOAP/XML APIs and country codes, just ask:
+Luminus wraps the ENTSO-E Transparency Platform and Elexon BMRS APIs into a clean MCP server. Instead of fighting with SOAP/XML APIs and country codes, just ask:
 
 - "What's the current generation mix in Germany?"
 - "Show me day-ahead prices across all EU bidding zones"
@@ -44,7 +44,7 @@ cp .env.example .env
 ### With Claude Code
 ```bash
 # Add to your MCP config
-claude mcp add gridpulse node src/index.js
+claude mcp add Luminus node src/index.js
 ```
 
 ### With OpenClaw
@@ -69,3 +69,4 @@ Get a free ENTSO-E API key:
 ## Licence
 
 MIT
+

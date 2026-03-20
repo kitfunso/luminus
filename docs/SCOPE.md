@@ -1,4 +1,4 @@
-# GridPulse MCP Server - Scope
+# Luminus MCP Server - Scope
 
 ## Phase 1: Core MCP Tools
 
@@ -80,7 +80,7 @@ IE  = 10YIE-1001A00010   (Ireland)
 
 ## Project Structure
 ```
-gridpulse/
+Luminus/
   src/
     index.ts              # MCP server entry point
     tools/
@@ -126,3 +126,4 @@ gridpulse/
 - energy-charts.info (Fraunhofer) - Germany-focused charts
 - gridwatch.co.uk - UK-only, simple
 - None of these have MCP servers. That's the gap.
+
