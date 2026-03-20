@@ -6,6 +6,9 @@ import { generationSchema, getGenerationMix } from "./tools/generation.js";
 import { pricesSchema, getDayAheadPrices } from "./tools/prices.js";
 import { flowsSchema, getCrossBorderFlows } from "./tools/flows.js";
 import { carbonSchema, getCarbonIntensity } from "./tools/carbon.js";
+import { gasStorageSchema, getGasStorage } from "./tools/gas-storage.js";
+import { weatherSchema, getWeatherForecast } from "./tools/weather.js";
+import { usGasSchema, getUsGasData } from "./tools/us-gas.js";
 
 dotenv.config();
 
@@ -80,6 +83,63 @@ server.tool(
   async (params) => {
     try {
       const result = await getCarbonIntensity(carbonSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_gas_storage",
+  "Get European gas storage levels from GIE AGSI+. " +
+    "Returns gas in storage (TWh), fill level (%), injection/withdrawal rates, and year-on-year trend. " +
+    "Useful for energy supply security analysis and gas market fundamentals.",
+  gasStorageSchema.shape,
+  async (params) => {
+    try {
+      const result = await getGasStorage(gasStorageSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_weather_forecast",
+  "Get weather forecast for a European location with data relevant to energy markets. " +
+    "Returns hourly temperature, wind speed (for wind generation), and solar radiation (for solar generation). " +
+    "Accepts country code (uses capital city) or custom lat/lon coordinates.",
+  weatherSchema.shape,
+  async (params) => {
+    try {
+      const result = await getWeatherForecast(weatherSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_us_gas_data",
+  "Get US natural gas market data from the EIA. " +
+    "Supports weekly storage levels (Bcf) and Henry Hub futures prices (USD/MMBtu). " +
+    "Useful for transatlantic gas market analysis and LNG flow context.",
+  usGasSchema.shape,
+  async (params) => {
+    try {
+      const result = await getUsGasData(usGasSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {

@@ -32,4 +32,7 @@ export const TTL = {
   PRICES: 60 * 60 * 1000, // 1 hour
   CAPACITY: 24 * 60 * 60 * 1000, // 24 hours
   FLOWS: 5 * 60 * 1000, // 5 min
+  STORAGE: 60 * 60 * 1000, // 1 hour
+  WEATHER: 30 * 60 * 1000, // 30 min
+  EIA: 60 * 60 * 1000, // 1 hour
 } as const;
