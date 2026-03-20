@@ -1,14 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DeckGL from '@deck.gl/react';
-import { ScatterplotLayer, ArcLayer, GeoJsonLayer } from '@deck.gl/layers';
+import {
+  ScatterplotLayer,
+  ArcLayer,
+  GeoJsonLayer,
+  PathLayer,
+  TextLayer,
+} from '@deck.gl/layers';
 import { Map as MapLibre } from 'react-map-gl/maplibre';
 import type { PickingInfo } from '@deck.gl/core';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import Sidebar from './Sidebar';
+import type { LayerKey } from './Sidebar';
 import Tooltip, { type TooltipData } from './Tooltip';
+import PlantPanel from './PlantPanel';
+import PriceSparkline from './PriceSparkline';
 import {
   getFuelColor,
   normalizeFuel,
@@ -16,44 +25,88 @@ import {
   FUEL_LABELS,
   FUEL_FILTER_MAP,
   FILTER_FUELS,
+  FUEL_EMOJI,
 } from '@/lib/colors';
 import { COUNTRY_CENTROIDS, EU_COUNTRY_CODES } from '@/lib/countries';
 import {
   fetchPowerPlants,
   fetchDayAheadPrices,
   fetchCrossBorderFlows,
+  fetchTransmissionLines,
   type PowerPlant,
   type CountryPrice,
   type CrossBorderFlow,
+  type TransmissionLine,
 } from '@/lib/data-fetcher';
+import { TYNDP_PROJECTS, type TyndpProject } from '@/lib/tyndp';
 
-const INITIAL_VIEW_STATE = {
-  latitude: 50.5,
-  longitude: 10.0,
-  zoom: 4,
-  pitch: 20,
-  bearing: 0,
-};
+// --- URL hash state ---
 
-const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+function parseHashState(): {
+  lat?: number;
+  lon?: number;
+  z?: number;
+} | null {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash.slice(1);
+  if (!hash) return null;
+  const params = new URLSearchParams(hash);
+  const result: { lat?: number; lon?: number; z?: number } = {};
+  if (params.has('lat')) result.lat = parseFloat(params.get('lat')!);
+  if (params.has('lon')) result.lon = parseFloat(params.get('lon')!);
+  if (params.has('z')) result.z = parseFloat(params.get('z')!);
+  return Object.keys(result).length > 0 ? result : null;
+}
 
+function buildHash(lat: number, lon: number, zoom: number): string {
+  return `#lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}&z=${zoom.toFixed(1)}`;
+}
+
+// --- Constants ---
+
+const DEFAULTS = (() => {
+  const h = parseHashState();
+  return {
+    latitude: h?.lat ?? 50.5,
+    longitude: h?.lon ?? 10.0,
+    zoom: h?.z ?? 4,
+    pitch: 20,
+    bearing: 0,
+  };
+})();
+
+const MAP_STYLE =
+  'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 const REFRESH_INTERVAL = 5 * 60 * 1000;
 
+// --- Component ---
+
 export default function EnergyMap() {
+  // Data state
   const [plants, setPlants] = useState<PowerPlant[]>([]);
   const [prices, setPrices] = useState<CountryPrice[]>([]);
   const [flows, setFlows] = useState<CrossBorderFlow[]>([]);
+  const [transmissionLines, setTransmissionLines] = useState<TransmissionLine[]>([]);
   const [geoJson, setGeoJson] = useState<any>(null);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [lastUpdate, setLastUpdate] = useState('loading...');
   const [isLoading, setIsLoading] = useState(true);
-  const [layerVisibility, setLayerVisibility] = useState({
+
+  // View state
+  const [viewState, setViewState] = useState(DEFAULTS);
+  const [zoomLevel, setZoomLevel] = useState(DEFAULTS.zoom);
+
+  // Layer toggles
+  const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>({
     plants: true,
     prices: true,
     flows: true,
+    lines: false,
+    tyndp: false,
+    genMix: true,
   });
 
-  // Filter state
+  // Filters
   const [selectedFuels, setSelectedFuels] = useState<Set<string>>(
     () => new Set(FILTER_FUELS)
   );
@@ -62,16 +115,28 @@ export default function EnergyMap() {
     new Set()
   );
 
+  // Detail panels
+  const [selectedPlant, setSelectedPlant] = useState<PowerPlant | null>(null);
+  const [selectedCountryPrice, setSelectedCountryPrice] =
+    useState<CountryPrice | null>(null);
+
+  // URL hash debounce
+  const hashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // --- Data loading ---
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
-    const [plantsData, pricesData, flowsData] = await Promise.all([
+    const [plantsData, pricesData, flowsData, linesData] = await Promise.all([
       fetchPowerPlants(),
       fetchDayAheadPrices(),
       fetchCrossBorderFlows(),
+      fetchTransmissionLines(),
     ]);
     setPlants(plantsData);
     setPrices(pricesData);
     setFlows(flowsData);
+    setTransmissionLines(linesData);
     setLastUpdate(new Date().toLocaleTimeString());
     setIsLoading(false);
   }, []);
@@ -99,7 +164,27 @@ export default function EnergyMap() {
     return () => clearInterval(interval);
   }, [loadData]);
 
-  // Filtered plants based on fuel, capacity, and country selections
+  // --- URL hash sync (debounced) ---
+
+  useEffect(() => {
+    if (hashTimer.current) clearTimeout(hashTimer.current);
+    hashTimer.current = setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        const newHash = buildHash(
+          viewState.latitude,
+          viewState.longitude,
+          viewState.zoom
+        );
+        window.history.replaceState(null, '', newHash);
+      }
+    }, 600);
+    return () => {
+      if (hashTimer.current) clearTimeout(hashTimer.current);
+    };
+  }, [viewState.latitude, viewState.longitude, viewState.zoom]);
+
+  // --- Filtered data ---
+
   const filteredPlants = useMemo(() => {
     return plants.filter((p) => {
       const fuel = normalizeFuel(p.fuel);
@@ -112,7 +197,6 @@ export default function EnergyMap() {
     });
   }, [plants, selectedFuels, minCapacity, selectedCountries]);
 
-  // Countries that have visible plants (for stats)
   const availableCountries = useMemo(() => {
     const codes = new Set(plants.map((p) => p.country));
     return [...codes]
@@ -131,11 +215,59 @@ export default function EnergyMap() {
     return map;
   }, [prices]);
 
+  // --- Generation mix: dominant fuel emoji per country ---
+
+  const genMixData = useMemo(() => {
+    const countryFuels: Record<string, Record<string, number>> = {};
+    for (const p of filteredPlants) {
+      const fuel = normalizeFuel(p.fuel);
+      if (!countryFuels[p.country]) countryFuels[p.country] = {};
+      countryFuels[p.country][fuel] =
+        (countryFuels[p.country][fuel] || 0) + p.capacity;
+    }
+
+    return Object.entries(COUNTRY_CENTROIDS)
+      .map(([iso, { lat, lon }]) => {
+        const fuels = countryFuels[iso];
+        if (!fuels) return null;
+        const entries = Object.entries(fuels).sort(
+          (a, b) => b[1] - a[1]
+        );
+        const dominant = entries[0];
+        if (!dominant) return null;
+        const total = entries.reduce((s, [, v]) => s + v, 0);
+        const pct = Math.round((dominant[1] / total) * 100);
+        const emoji = FUEL_EMOJI[dominant[0]] || '\u26A1';
+        return {
+          position: [lon, lat] as [number, number],
+          text: `${emoji} ${pct}%`,
+          iso,
+        };
+      })
+      .filter(Boolean) as { position: [number, number]; text: string; iso: string }[];
+  }, [filteredPlants]);
+
+  // --- Zoom-responsive visibility ---
+
+  const effectiveVis = useMemo(
+    () => ({
+      plants: layerVisibility.plants && zoomLevel >= 4,
+      prices: layerVisibility.prices,
+      flows: layerVisibility.flows && zoomLevel >= 4,
+      lines: layerVisibility.lines && zoomLevel > 6,
+      tyndp: layerVisibility.tyndp && zoomLevel >= 4,
+      genMix: layerVisibility.genMix && zoomLevel < 6,
+    }),
+    [layerVisibility, zoomLevel]
+  );
+
+  // --- Layers ---
+
   const layers = useMemo(() => {
     const result: any[] = [];
 
-    // Price heatmap (GeoJSON fill)
-    if (layerVisibility.prices && geoJson) {
+    // 1. Price heatmap (GeoJSON fill)
+    if (effectiveVis.prices && geoJson) {
       result.push(
         new GeoJsonLayer({
           id: 'price-heatmap',
@@ -154,9 +286,7 @@ export default function EnergyMap() {
           pickable: true,
           autoHighlight: true,
           highlightColor: [56, 189, 248, 60],
-          updateTriggers: {
-            getFillColor: [priceLookup],
-          },
+          updateTriggers: { getFillColor: [priceLookup] },
           onHover: (info: PickingInfo) => {
             if (!info.object) {
               setTooltip(null);
@@ -178,12 +308,54 @@ export default function EnergyMap() {
               },
             });
           },
+          onClick: (info: PickingInfo) => {
+            if (!info.object) return;
+            const iso = info.object.properties?.ISO_A2 || '';
+            const priceData = priceLookup.get(iso);
+            if (priceData) {
+              setSelectedCountryPrice(priceData);
+              setSelectedPlant(null);
+            }
+          },
         })
       );
     }
 
-    // Cross-border flow arrows
-    if (layerVisibility.flows) {
+    // 2. Transmission lines (PathLayer)
+    if (effectiveVis.lines && transmissionLines.length > 0) {
+      result.push(
+        new PathLayer<TransmissionLine>({
+          id: 'transmission-lines',
+          data: transmissionLines,
+          getPath: (d) => d.path,
+          getColor: (d) =>
+            d.voltage >= 400
+              ? [255, 80, 80, 180]
+              : [255, 160, 60, 180],
+          getWidth: (d) => (d.voltage >= 400 ? 300 : 200),
+          widthMinPixels: 1,
+          widthMaxPixels: 4,
+          pickable: true,
+          onHover: (info: PickingInfo<TransmissionLine>) => {
+            if (!info.object) {
+              setTooltip(null);
+              return;
+            }
+            setTooltip({
+              x: info.x,
+              y: info.y,
+              content: {
+                Line: info.object.name,
+                Voltage: `${info.object.voltage} kV`,
+              },
+            });
+          },
+        })
+      );
+    }
+
+    // 3. Cross-border flow arrows
+    if (effectiveVis.flows) {
       result.push(
         new ArcLayer<CrossBorderFlow>({
           id: 'cross-border-flows',
@@ -220,17 +392,18 @@ export default function EnergyMap() {
       );
     }
 
-    // Power plant locations (filtered)
-    if (layerVisibility.plants) {
+    // 4. Power plant dots
+    if (effectiveVis.plants) {
       result.push(
         new ScatterplotLayer<PowerPlant>({
           id: 'power-plants',
           data: filteredPlants,
           getPosition: (d) => [d.lon, d.lat],
           getFillColor: (d) => getFuelColor(d.fuel),
-          getRadius: (d) => Math.max(800, Math.sqrt(d.capacity) * 120),
+          getRadius: (d) =>
+            Math.max(800, Math.sqrt(d.capacity) * (zoomLevel > 6 ? 150 : 120)),
           radiusMinPixels: 2,
-          radiusMaxPixels: 20,
+          radiusMaxPixels: zoomLevel > 6 ? 30 : 20,
           pickable: true,
           antialiasing: true,
           onHover: (info: PickingInfo<PowerPlant>) => {
@@ -252,19 +425,102 @@ export default function EnergyMap() {
               },
             });
           },
+          onClick: (info: PickingInfo<PowerPlant>) => {
+            if (!info.object) return;
+            setSelectedPlant(info.object);
+            setSelectedCountryPrice(null);
+          },
+        })
+      );
+    }
+
+    // 5. TYNDP pipeline (hollow circles)
+    if (effectiveVis.tyndp) {
+      result.push(
+        new ScatterplotLayer<TyndpProject>({
+          id: 'tyndp-projects',
+          data: TYNDP_PROJECTS,
+          getPosition: (d) => [d.lon, d.lat],
+          getRadius: (d) => Math.max(1200, Math.sqrt(d.capacity) * 150),
+          radiusMinPixels: 4,
+          radiusMaxPixels: 25,
+          filled: false,
+          stroked: true,
+          getLineColor: (d) =>
+            d.status === 'under_construction'
+              ? [255, 255, 255, 200]
+              : [255, 255, 255, 120],
+          getLineWidth: 2,
+          lineWidthMinPixels: 2,
+          lineWidthMaxPixels: 4,
+          pickable: true,
+          onHover: (info: PickingInfo<TyndpProject>) => {
+            if (!info.object) {
+              setTooltip(null);
+              return;
+            }
+            const d = info.object;
+            const statusLabel = d.status.replace('_', ' ');
+            setTooltip({
+              x: info.x,
+              y: info.y,
+              content: {
+                Project: d.name,
+                Fuel: d.fuel,
+                Capacity: `${d.capacity.toLocaleString()} MW`,
+                Status: statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1),
+                Expected: d.expectedYear,
+              },
+            });
+          },
+        })
+      );
+    }
+
+    // 6. Generation mix labels (TextLayer)
+    if (effectiveVis.genMix && genMixData.length > 0) {
+      result.push(
+        new TextLayer({
+          id: 'gen-mix-labels',
+          data: genMixData,
+          getPosition: (d: { position: [number, number] }) => d.position,
+          getText: (d: { text: string }) => d.text,
+          getSize: 16,
+          getColor: [255, 255, 255, 220],
+          fontFamily: 'system-ui, sans-serif',
+          fontWeight: 700,
+          outlineWidth: 3,
+          outlineColor: [10, 14, 23, 200],
+          billboard: true,
+          characterSet: 'auto',
+          getTextAnchor: 'middle',
+          getAlignmentBaseline: 'center',
         })
       );
     }
 
     return result;
-  }, [filteredPlants, flows, geoJson, priceLookup, layerVisibility]);
+  }, [
+    filteredPlants,
+    flows,
+    transmissionLines,
+    geoJson,
+    priceLookup,
+    effectiveVis,
+    genMixData,
+    zoomLevel,
+  ]);
 
-  const handleToggleLayer = useCallback(
-    (layer: 'plants' | 'prices' | 'flows') => {
-      setLayerVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }));
-    },
-    []
-  );
+  // --- Handlers ---
+
+  const handleViewStateChange = useCallback(({ viewState: vs }: any) => {
+    setViewState(vs);
+    setZoomLevel(vs.zoom);
+  }, []);
+
+  const handleToggleLayer = useCallback((layer: LayerKey) => {
+    setLayerVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }));
+  }, []);
 
   const handleToggleFuel = useCallback((fuel: string) => {
     setSelectedFuels((prev) => {
@@ -288,17 +544,61 @@ export default function EnergyMap() {
     });
   }, []);
 
+  const handleScreenshot = useCallback(() => {
+    try {
+      const canvases = document.querySelectorAll('canvas');
+      if (canvases.length === 0) return;
+      const first = canvases[0];
+      const offscreen = document.createElement('canvas');
+      offscreen.width = first.width;
+      offscreen.height = first.height;
+      const ctx = offscreen.getContext('2d');
+      if (!ctx) return;
+      for (const canvas of canvases) {
+        try {
+          ctx.drawImage(canvas, 0, 0);
+        } catch {
+          // CORS may block base map capture
+        }
+      }
+      const link = document.createElement('a');
+      link.download = `luminus-${new Date().toISOString().slice(0, 10)}.png`;
+      link.href = offscreen.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.warn('Screenshot failed:', err);
+    }
+  }, []);
+
+  const handleExportCSV = useCallback(() => {
+    const header = 'Name,Fuel,Capacity_MW,Country,Latitude,Longitude,Year\n';
+    const rows = filteredPlants
+      .map(
+        (p) =>
+          `"${p.name}","${p.fuel}",${p.capacity},"${p.country}",${p.lat},${p.lon},"${p.year}"`
+      )
+      .join('\n');
+    const blob = new Blob([header + rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `luminus-plants-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [filteredPlants]);
+
   return (
     <div className="w-screen h-screen relative">
       <DeckGL
-        initialViewState={INITIAL_VIEW_STATE}
+        viewState={viewState}
+        onViewStateChange={handleViewStateChange}
         controller={true}
         layers={layers}
       >
         <MapLibre mapStyle={MAP_STYLE} />
       </DeckGL>
 
-      {/* Edge vignette for immersive blending */}
+      {/* Edge vignette */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -326,6 +626,24 @@ export default function EnergyMap() {
         </div>
       )}
 
+      {/* Plant detail panel */}
+      {selectedPlant && (
+        <PlantPanel
+          plant={selectedPlant}
+          onClose={() => setSelectedPlant(null)}
+        />
+      )}
+
+      {/* Price sparkline panel */}
+      {selectedCountryPrice && selectedCountryPrice.hourly && (
+        <PriceSparkline
+          hourly={selectedCountryPrice.hourly}
+          countryName={selectedCountryPrice.country}
+          avgPrice={selectedCountryPrice.price}
+          onClose={() => setSelectedCountryPrice(null)}
+        />
+      )}
+
       <Sidebar
         plants={plants}
         filteredPlants={filteredPlants}
@@ -341,6 +659,9 @@ export default function EnergyMap() {
         selectedCountries={selectedCountries}
         onToggleCountry={handleToggleCountry}
         availableCountries={availableCountries}
+        zoomLevel={zoomLevel}
+        onScreenshot={handleScreenshot}
+        onExportCSV={handleExportCSV}
       />
     </div>
   );

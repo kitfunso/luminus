@@ -97,3 +97,18 @@ export const FILTER_FUEL_LABELS: Record<string, string> = {
   hydro: 'Hydro',
   other: 'Other',
 };
+
+/** Fuel type emoji for generation mix overlay */
+export const FUEL_EMOJI: Record<string, string> = {
+  nuclear: '\u269B\uFE0F',
+  wind: '\uD83D\uDCA8',
+  solar: '\u2600\uFE0F',
+  gas: '\uD83D\uDD25',
+  coal: '\u26CF\uFE0F',
+  lignite: '\u26CF\uFE0F',
+  hydro: '\uD83D\uDCA7',
+  biomass: '\uD83C\uDF3F',
+  oil: '\uD83D\uDEE2\uFE0F',
+  geothermal: '\uD83C\uDF0B',
+  other: '\u26A1',
+};

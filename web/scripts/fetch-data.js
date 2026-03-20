@@ -196,7 +196,10 @@ function extractPrices(xml) {
   const matches = [...xml.matchAll(/<price\.amount>([\d.]+)<\/price\.amount>/g)];
   if (matches.length === 0) return null;
   const values = matches.map(m => parseFloat(m[1]));
-  return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+  const avg = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+  // Keep hourly breakdown (up to 24 values)
+  const hourly = values.slice(0, 24).map(v => Math.round(v * 10) / 10);
+  return { avg, hourly };
 }
 
 async function fetchPrice(iso2) {
@@ -220,9 +223,9 @@ async function fetchPrice(iso2) {
     const res = await fetchWithTimeout(`${ENTSOE_API}?${params}`);
     if (!res.ok) return null;
     const xml = await res.text();
-    const avgPrice = extractPrices(xml);
-    if (avgPrice === null) return null;
-    return { country: COUNTRY_NAMES[iso2], iso2, price: avgPrice };
+    const priceData = extractPrices(xml);
+    if (priceData === null) return null;
+    return { country: COUNTRY_NAMES[iso2], iso2, price: priceData.avg, hourly: priceData.hourly };
   } catch {
     return null;
   }

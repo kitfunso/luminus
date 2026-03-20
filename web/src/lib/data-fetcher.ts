@@ -12,6 +12,13 @@ export interface CountryPrice {
   country: string;
   iso2: string;
   price: number;
+  hourly?: number[];
+}
+
+export interface TransmissionLine {
+  voltage: number;
+  path: [number, number][];
+  name: string;
 }
 
 export interface CrossBorderFlow {
@@ -53,8 +60,12 @@ export async function fetchPowerPlants(): Promise<PowerPlant[]> {
 /** Fetch day-ahead prices: bundled JSON -> demo fallback */
 export async function fetchDayAheadPrices(): Promise<CountryPrice[]> {
   const bundled = await loadBundled<CountryPrice[]>('/data/prices.json');
-  if (bundled) return bundled;
-  return getDemoPrices();
+  const prices = bundled ?? getDemoPrices();
+  // Ensure every price entry has hourly data (synthetic if missing)
+  return prices.map((p) => ({
+    ...p,
+    hourly: p.hourly ?? syntheticHourly(p.price),
+  }));
 }
 
 /** Fetch cross-border flows: bundled JSON -> demo fallback */
@@ -62,6 +73,22 @@ export async function fetchCrossBorderFlows(): Promise<CrossBorderFlow[]> {
   const bundled = await loadBundled<CrossBorderFlow[]>('/data/flows.json');
   if (bundled) return bundled;
   return getDemoFlows();
+}
+
+/** Fetch transmission lines: bundled JSON */
+export async function fetchTransmissionLines(): Promise<TransmissionLine[]> {
+  const bundled = await loadBundled<TransmissionLine[]>('/data/transmission-lines.json');
+  return bundled ?? [];
+}
+
+/** Generate synthetic 24h price profile from an average */
+function syntheticHourly(avg: number): number[] {
+  const profile = [
+    0.82, 0.78, 0.75, 0.74, 0.76, 0.82, 0.95, 1.12,
+    1.18, 1.14, 1.10, 1.06, 1.03, 1.00, 0.98, 1.02,
+    1.08, 1.18, 1.22, 1.15, 1.08, 1.00, 0.92, 0.86,
+  ];
+  return profile.map((p) => Math.round(avg * p * 10) / 10);
 }
 
 // --- Demo / fallback data ---
