@@ -16,6 +16,14 @@ import { renewableForecastSchema, getRenewableForecast } from "./tools/renewable
 import { demandForecastSchema, getDemandForecast } from "./tools/demand-forecast.js";
 import { powerPlantsSchema, getPowerPlants } from "./tools/power-plants.js";
 import { auctionSchema, getAuctionResults } from "./tools/auctions.js";
+import { outagesSchema, getOutages } from "./tools/outages.js";
+import { lngTerminalsSchema, getLngTerminals } from "./tools/lng-terminals.js";
+import { solarSchema, getSolarIrradiance } from "./tools/solar.js";
+import { netPositionsSchema, getNetPositions } from "./tools/net-positions.js";
+import { transferCapacitySchema, getTransferCapacity } from "./tools/transfer-capacity.js";
+import { frequencySchema, getEuFrequency } from "./tools/frequency.js";
+import { hydroSchema, getHydroReservoir } from "./tools/hydro.js";
+import { transmissionSchema, getTransmissionLines } from "./tools/transmission.js";
 
 dotenv.config();
 
@@ -280,6 +288,158 @@ server.tool(
   async (params) => {
     try {
       const result = await getAuctionResults(auctionSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_outages",
+  "Get generation or transmission outages for a European zone from ENTSO-E. " +
+    "Returns unit name, fuel type, available/unavailable MW, start/end dates, and reason. " +
+    "Useful for supply risk analysis and maintenance planning.",
+  outagesSchema.shape,
+  async (params) => {
+    try {
+      const result = await getOutages(outagesSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_lng_terminals",
+  "Get European LNG terminal data from GIE ALSI. " +
+    "Returns LNG inventory (mcm), send-out rate, capacity, and days to reach storage per terminal. " +
+    "Useful for gas supply security and LNG market analysis.",
+  lngTerminalsSchema.shape,
+  async (params) => {
+    try {
+      const result = await getLngTerminals(lngTerminalsSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_solar_irradiance",
+  "Get solar irradiance and PV yield estimates for any location from PVGIS. " +
+    "Returns monthly irradiance (kWh/m2), optimal panel angle, and annual yield estimate. " +
+    "No API key needed. Useful for solar project assessment.",
+  solarSchema.shape,
+  async (params) => {
+    try {
+      const result = await getSolarIrradiance(solarSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_net_positions",
+  "Calculate net import/export position (MW) for a European zone by summing all cross-border flows. " +
+    "Returns total net position (positive = net importer) and per-border breakdown. " +
+    "Useful for understanding a country's energy trade balance.",
+  netPositionsSchema.shape,
+  async (params) => {
+    try {
+      const result = await getNetPositions(netPositionsSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_transfer_capacities",
+  "Get net transfer capacity (NTC) in MW between two European zones from ENTSO-E. " +
+    "Returns hourly NTC values (max allowed commercial flow) with min/max/mean stats. " +
+    "Useful for interconnection utilization and congestion analysis.",
+  transferCapacitySchema.shape,
+  async (params) => {
+    try {
+      const result = await getTransferCapacity(transferCapacitySchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_eu_frequency",
+  "Get real-time European grid frequency (~50 Hz). " +
+    "Returns frequency in Hz, deviation in mHz, and status (normal/deviation). " +
+    "Deviations indicate grid stress from supply-demand imbalance.",
+  frequencySchema.shape,
+  async (params) => {
+    try {
+      const result = await getEuFrequency(frequencySchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_hydro_reservoir",
+  "Get hydro reservoir filling levels (stored energy in MWh) for a European zone from ENTSO-E. " +
+    "Returns weekly reservoir data. Best coverage: NO, SE, AT, CH, ES, PT. " +
+    "Useful for hydropower supply analysis and price forecasting.",
+  hydroSchema.shape,
+  async (params) => {
+    try {
+      const result = await getHydroReservoir(hydroSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_transmission_lines",
+  "Get high-voltage transmission line routes from OpenStreetMap. " +
+    "Returns line voltage (kV), operator, cable count, and lat/lon coordinates. " +
+    "Filter by country or bounding box. Defaults to 220kV+ lines. Rate-limited.",
+  transmissionSchema.shape,
+  async (params) => {
+    try {
+      const result = await getTransmissionLines(transmissionSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {

@@ -10,8 +10,11 @@ const parser = new XMLParser({
       "GL_MarketDocument.TimeSeries",
       "Publication_MarketDocument.TimeSeries",
       "Imbalance_MarketDocument.TimeSeries",
+      "Unavailability_MarketDocument.TimeSeries",
       "TimeSeries.Period",
       "Period.Point",
+      "TimeSeries.Available_Period",
+      "Available_Period.Point",
       "TimeSeries.MktPSRType.MktGeneratingUnit",
     ];
     const jp = String(jpath);
