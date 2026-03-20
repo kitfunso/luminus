@@ -64,7 +64,7 @@ export default function EnergyMap() {
     async function loadGeo() {
       try {
         const resp = await fetch(
-          'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
+          '/data/eu-countries.geojson'
         );
         const data = await resp.json();
         data.features = data.features.filter((f: any) => {
@@ -105,7 +105,7 @@ export default function EnergyMap() {
           filled: true,
           stroked: true,
           getFillColor: (f: any) => {
-            const iso = f.properties?.ISO_A2 || f.properties?.iso_a2 || f.properties?.['ISO3166-1-Alpha-2'] || '';
+            const iso = f.properties?.ISO_A2 || '';
             const priceData = priceLookup.get(iso);
             if (!priceData) return [30, 30, 40, 60];
             return priceToColor(priceData.price);
@@ -122,9 +122,9 @@ export default function EnergyMap() {
               return;
             }
             const props = info.object.properties || {};
-            const iso = props.ISO_A2 || props.iso_a2 || props['ISO3166-1-Alpha-2'] || '';
+            const iso = props.ISO_A2 || '';
             const priceData = priceLookup.get(iso);
-            const countryName = COUNTRY_CENTROIDS[iso]?.name || props.ADMIN || props.name || iso;
+            const countryName = COUNTRY_CENTROIDS[iso]?.name || props.name || iso;
             setTooltip({
               x: info.x,
               y: info.y,
