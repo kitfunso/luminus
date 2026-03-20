@@ -2,8 +2,7 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
-  outputFileTracingRoot: path.join(__dirname),
+  output: 'export',
   transpilePackages: ['maplibre-gl'],
 };
 
