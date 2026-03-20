@@ -1,0 +1,15 @@
+{
+  "name": "gridpulse",
+  "version": "0.1.0",
+  "description": "Real-time European & UK electricity grid data via MCP",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "test": "vitest"
+  },
+  "keywords": ["mcp", "energy", "electricity", "entsoe", "grid", "europe", "power"],
+  "author": "Keith So",
+  "license": "MIT"
+}
