@@ -11,6 +11,11 @@ import { weatherSchema, getWeatherForecast } from "./tools/weather.js";
 import { usGasSchema, getUsGasData } from "./tools/us-gas.js";
 import { ukCarbonSchema, getUkCarbonIntensity } from "./tools/uk-carbon.js";
 import { ukGridSchema, getUkGridDemand } from "./tools/uk-grid.js";
+import { balancingSchema, getBalancingPrices } from "./tools/balancing.js";
+import { renewableForecastSchema, getRenewableForecast } from "./tools/renewable-forecast.js";
+import { demandForecastSchema, getDemandForecast } from "./tools/demand-forecast.js";
+import { powerPlantsSchema, getPowerPlants } from "./tools/power-plants.js";
+import { auctionSchema, getAuctionResults } from "./tools/auctions.js";
 
 dotenv.config();
 
@@ -180,6 +185,101 @@ server.tool(
   async (params) => {
     try {
       const result = await getUkGridDemand(ukGridSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_balancing_prices",
+  "Get imbalance/balancing prices (EUR/MWh) for a European bidding zone. " +
+    "Returns settlement period prices with min/max/mean stats. " +
+    "Useful for understanding real-time balancing market costs.",
+  balancingSchema.shape,
+  async (params) => {
+    try {
+      const result = await getBalancingPrices(balancingSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_renewable_forecast",
+  "Get day-ahead wind and solar generation forecast (MW) for a European zone. " +
+    "Returns hourly forecasts per source (Wind Onshore, Wind Offshore, Solar) with peak MW. " +
+    "Useful for renewable energy planning and residual load analysis.",
+  renewableForecastSchema.shape,
+  async (params) => {
+    try {
+      const result = await getRenewableForecast(renewableForecastSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_demand_forecast",
+  "Get day-ahead total load/demand forecast (MW) for a European zone. " +
+    "Returns hourly demand with min/max/mean stats and total energy. " +
+    "Useful for supply-demand balance analysis and peak planning.",
+  demandForecastSchema.shape,
+  async (params) => {
+    try {
+      const result = await getDemandForecast(demandForecastSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_power_plants",
+  "Get European power plant data from Open Power System Data. " +
+    "Returns plant name, capacity (MW), fuel type, location, and commissioning year. " +
+    "Covers conventional and renewable plants. Filter by country, fuel type, or minimum capacity.",
+  powerPlantsSchema.shape,
+  async (params) => {
+    try {
+      const result = await getPowerPlants(powerPlantsSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_auction_results",
+  "Get cross-border capacity auction results from JAO (Joint Allocation Office). " +
+    "Returns allocated capacity (MW), auction price (EUR/MW), and offered capacity for a border corridor. " +
+    "Useful for interconnection value and congestion rent analysis.",
+  auctionSchema.shape,
+  async (params) => {
+    try {
+      const result = await getAuctionResults(auctionSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {

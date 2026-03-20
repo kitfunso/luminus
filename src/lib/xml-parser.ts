@@ -9,6 +9,7 @@ const parser = new XMLParser({
     const arrayPaths = [
       "GL_MarketDocument.TimeSeries",
       "Publication_MarketDocument.TimeSeries",
+      "Imbalance_MarketDocument.TimeSeries",
       "TimeSeries.Period",
       "Period.Point",
       "TimeSeries.MktPSRType.MktGeneratingUnit",
