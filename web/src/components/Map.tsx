@@ -39,6 +39,7 @@ export default function EnergyMap() {
   const [geoJson, setGeoJson] = useState<any>(null);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [lastUpdate, setLastUpdate] = useState('loading...');
+  const [isLoading, setIsLoading] = useState(true);
   const [layerVisibility, setLayerVisibility] = useState({
     plants: true,
     prices: true,
@@ -46,6 +47,7 @@ export default function EnergyMap() {
   });
 
   const loadData = useCallback(async () => {
+    setIsLoading(true);
     const [plantsData, pricesData, flowsData] = await Promise.all([
       fetchPowerPlants(),
       fetchDayAheadPrices(),
@@ -55,6 +57,7 @@ export default function EnergyMap() {
     setPrices(pricesData);
     setFlows(flowsData);
     setLastUpdate(new Date().toLocaleTimeString());
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -111,6 +114,8 @@ export default function EnergyMap() {
           getLineWidth: 1,
           lineWidthMinPixels: 0.5,
           pickable: true,
+          autoHighlight: true,
+          highlightColor: [56, 189, 248, 60],
           onHover: (info: PickingInfo) => {
             if (!info.object) {
               setTooltip(null);
@@ -161,7 +166,7 @@ export default function EnergyMap() {
               x: info.x,
               y: info.y,
               content: {
-                Flow: `${fromName} → ${toName}`,
+                Flow: `${fromName} \u2192 ${toName}`,
                 MW: d.flowMW.toLocaleString(),
                 'Capacity %': `${pct}%`,
               },
@@ -224,7 +229,31 @@ export default function EnergyMap() {
         <MapLibre mapStyle={MAP_STYLE} />
       </DeckGL>
 
+      {/* Edge vignette for immersive blending */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          zIndex: 5,
+          background: [
+            'linear-gradient(to right, rgba(10, 14, 23, 0.5) 0%, transparent 18%)',
+            'linear-gradient(to left, rgba(10, 14, 23, 0.2) 0%, transparent 8%)',
+            'linear-gradient(to bottom, rgba(10, 14, 23, 0.2) 0%, transparent 8%)',
+            'linear-gradient(to top, rgba(10, 14, 23, 0.3) 0%, transparent 12%)',
+          ].join(', '),
+        }}
+      />
+
       <Tooltip data={tooltip} />
+
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0e17]/70 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="inline-block w-8 h-8 border-2 border-sky-400/30 border-t-sky-400 rounded-full animate-spin mb-3" />
+            <p className="text-sm text-slate-400">Loading power plant data...</p>
+          </div>
+        </div>
+      )}
 
       <Sidebar
         plantCount={plants.length}
@@ -232,6 +261,7 @@ export default function EnergyMap() {
         lastUpdate={lastUpdate}
         layerVisibility={layerVisibility}
         onToggleLayer={handleToggleLayer}
+        isLoading={isLoading}
       />
     </div>
   );

@@ -12,31 +12,70 @@ interface SidebarProps {
     flows: boolean;
   };
   onToggleLayer: (layer: 'plants' | 'prices' | 'flows') => void;
+  isLoading: boolean;
 }
 
 function ColorDot({ color }: { color: [number, number, number, number] }) {
   return (
     <span
-      className="inline-block w-3 h-3 rounded-full mr-2 flex-shrink-0"
-      style={{ backgroundColor: `rgba(${color[0]},${color[1]},${color[2]},${color[3] / 255})` }}
+      className="inline-block w-3.5 h-3.5 rounded-full mr-2.5 flex-shrink-0"
+      style={{
+        backgroundColor: `rgba(${color[0]},${color[1]},${color[2]},${color[3] / 255})`,
+        boxShadow: `0 0 6px 1px rgba(${color[0]},${color[1]},${color[2]},0.4)`,
+      }}
     />
+  );
+}
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  return (
+    <label className="toggle-label">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="toggle-input"
+      />
+      <span className="toggle-track" />
+      <span className="text-sm text-slate-300">{label}</span>
+    </label>
   );
 }
 
 function PriceBar() {
   return (
-    <div className="flex items-center gap-2 mt-1">
-      <span className="text-xs text-slate-400">0</span>
+    <div className="mt-2 space-y-1">
       <div
-        className="flex-1 h-3 rounded-sm"
+        className="h-3.5 rounded-full"
         style={{
-          background: 'linear-gradient(to right, #00c850, #cccc00, #ff4400)',
+          background: 'linear-gradient(to right, #00c850 0%, #cccc00 50%, #ff4400 100%)',
         }}
       />
-      <span className="text-xs text-slate-400">200+</span>
+      <div className="flex justify-between text-[10px] text-slate-500 px-0.5">
+        <span>0</span>
+        <span>50</span>
+        <span>100</span>
+        <span>150</span>
+        <span>200+</span>
+      </div>
     </div>
   );
 }
+
+function Shimmer() {
+  return <div className="h-6 w-16 rounded bg-slate-800 animate-shimmer" />;
+}
+
+const CARD =
+  'bg-black/60 backdrop-blur-xl border border-white/[0.06] rounded-2xl shadow-2xl';
 
 export default function Sidebar({
   plantCount,
@@ -44,6 +83,7 @@ export default function Sidebar({
   lastUpdate,
   layerVisibility,
   onToggleLayer,
+  isLoading,
 }: SidebarProps) {
   const fuelEntries = Object.entries(FUEL_COLORS).filter(
     ([key]) => key !== 'other' && key !== 'lignite'
@@ -51,59 +91,49 @@ export default function Sidebar({
 
   return (
     <div className="absolute top-0 left-0 w-72 h-full z-10 pointer-events-none">
-      <div className="m-4 pointer-events-auto">
+      <div className="m-4 flex flex-col gap-3 pointer-events-auto">
         {/* Header */}
-        <div className="bg-[#0a0e17]/90 backdrop-blur-md border border-slate-700/50 rounded-xl p-5 mb-3">
-          <h1 className="text-lg font-bold text-sky-400 tracking-tight">
+        <div className={`${CARD} p-5`}>
+          <h1 className="text-2xl font-bold text-white tracking-tight">
             Luminus
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-white/40 mt-1 font-medium tracking-widest uppercase">
             European Energy Grid
           </p>
         </div>
 
         {/* Layer toggles */}
-        <div className="bg-[#0a0e17]/90 backdrop-blur-md border border-slate-700/50 rounded-xl p-4 mb-3">
-          <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+        <div className={`${CARD} p-4`}>
+          <h2 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
             Layers
           </h2>
-          <label className="flex items-center gap-2 cursor-pointer mb-2">
-            <input
-              type="checkbox"
+          <div className="flex flex-col gap-2.5">
+            <Toggle
               checked={layerVisibility.plants}
               onChange={() => onToggleLayer('plants')}
-              className="accent-sky-400"
+              label="Power Plants"
             />
-            <span className="text-sm">Power Plants</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer mb-2">
-            <input
-              type="checkbox"
+            <Toggle
               checked={layerVisibility.prices}
               onChange={() => onToggleLayer('prices')}
-              className="accent-sky-400"
+              label="Price Heatmap"
             />
-            <span className="text-sm">Price Heatmap</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
+            <Toggle
               checked={layerVisibility.flows}
               onChange={() => onToggleLayer('flows')}
-              className="accent-sky-400"
+              label="Cross-border Flows"
             />
-            <span className="text-sm">Cross-border Flows</span>
-          </label>
+          </div>
         </div>
 
         {/* Fuel legend */}
-        <div className="bg-[#0a0e17]/90 backdrop-blur-md border border-slate-700/50 rounded-xl p-4 mb-3">
-          <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+        <div className={`${CARD} p-4`}>
+          <h2 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
             Fuel Types
           </h2>
-          <div className="grid grid-cols-2 gap-y-1.5 gap-x-2">
+          <div className="grid grid-cols-2 gap-y-2 gap-x-2">
             {fuelEntries.map(([key, color]) => (
-              <div key={key} className="flex items-center text-xs">
+              <div key={key} className="flex items-center text-xs text-slate-300">
                 <ColorDot color={color} />
                 <span>{FUEL_LABELS[key] || key}</span>
               </div>
@@ -112,26 +142,39 @@ export default function Sidebar({
         </div>
 
         {/* Price legend */}
-        <div className="bg-[#0a0e17]/90 backdrop-blur-md border border-slate-700/50 rounded-xl p-4 mb-3">
-          <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+        <div className={`${CARD} p-4`}>
+          <h2 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-2">
             Day-Ahead Price (EUR/MWh)
           </h2>
           <PriceBar />
         </div>
 
         {/* Stats */}
-        <div className="bg-[#0a0e17]/90 backdrop-blur-md border border-slate-700/50 rounded-xl p-4">
+        <div className={`${CARD} p-4`}>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="text-lg font-bold text-sky-400">{plantCount.toLocaleString()}</div>
-              <div className="text-xs text-slate-400">Power Plants</div>
+              {isLoading ? (
+                <Shimmer />
+              ) : (
+                <div className="text-xl font-bold text-sky-400 animate-pulse-glow">
+                  {plantCount.toLocaleString()}
+                </div>
+              )}
+              <div className="text-[11px] text-slate-500 mt-0.5">Power Plants</div>
             </div>
             <div>
-              <div className="text-lg font-bold text-sky-400">{countryCount}</div>
-              <div className="text-xs text-slate-400">Countries</div>
+              {isLoading ? (
+                <Shimmer />
+              ) : (
+                <div className="text-xl font-bold text-sky-400 animate-pulse-glow">
+                  {countryCount}
+                </div>
+              )}
+              <div className="text-[11px] text-slate-500 mt-0.5">Countries</div>
             </div>
           </div>
-          <div className="text-xs text-slate-500 mt-3">
+          <div className="text-[11px] text-slate-600 mt-3 flex items-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
             Updated {lastUpdate}
           </div>
         </div>

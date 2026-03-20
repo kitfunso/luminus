@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "fetch-data": "node scripts/fetch-data.js",
+    "prebuild": "node scripts/fetch-data.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

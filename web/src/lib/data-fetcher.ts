@@ -25,68 +25,45 @@ export interface CrossBorderFlow {
   capacityMW: number;
 }
 
-const OPSD_CONVENTIONAL_URL =
-  'https://data.open-power-system-data.org/conventional_power_plants/latest/conventional_power_plants_EU.csv';
-
-/** Parse CSV text into array of objects */
-function parseCSV(text: string): Record<string, string>[] {
-  const lines = text.split('\n');
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
-  const rows: Record<string, string>[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    // Simple CSV parse (handles basic cases)
-    const values = line.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
-    const row: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      row[h] = values[idx] ?? '';
-    });
-    rows.push(row);
-  }
-  return rows;
-}
-
-/** Fetch conventional power plants from Open Power System Data */
-export async function fetchPowerPlants(): Promise<PowerPlant[]> {
+/** Try to load a bundled JSON file (generated at build time), return null on failure */
+async function loadBundled<T>(path: string): Promise<T | null> {
   try {
-    const response = await fetch(OPSD_CONVENTIONAL_URL);
-    if (!response.ok) {
-      console.warn('OPSD fetch failed, using demo data');
-      return getDemoPowerPlants();
-    }
-    const text = await response.text();
-    const rows = parseCSV(text);
-
-    const plants: PowerPlant[] = [];
-    for (const row of rows) {
-      const lat = parseFloat(row.lat || row.latitude || '');
-      const lon = parseFloat(row.lon || row.longitude || '');
-      const capacity = parseFloat(row.capacity_net_bnetza || row.capacity || row.capacity_gross_uba || '0');
-      const name = row.name || row.name_bnetza || 'Unknown';
-      const fuel = row.energy_source || row.fuel || row.energy_source_level_2 || 'other';
-      const country = row.country || '';
-      const year = row.commissioned || row.year_commission || '';
-
-      if (isNaN(lat) || isNaN(lon) || lat === 0 || lon === 0) continue;
-      if (capacity < 1) continue;
-
-      plants.push({ name, fuel, capacity, lat, lon, country, year });
-    }
-
-    return plants;
+    const res = await fetch(path);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) return data as T;
+    return null;
   } catch {
-    console.warn('Failed to fetch power plants, using demo data');
-    return getDemoPowerPlants();
+    return null;
   }
 }
 
-/** Demo power plants for offline/fallback use */
+/** Fetch power plants: bundled JSON -> demo fallback */
+export async function fetchPowerPlants(): Promise<PowerPlant[]> {
+  const bundled = await loadBundled<PowerPlant[]>('/data/power-plants.json');
+  if (bundled && bundled.length > 50) return bundled;
+  console.warn('Bundled power-plant data unavailable, using demo');
+  return getDemoPowerPlants();
+}
+
+/** Fetch day-ahead prices: bundled JSON -> demo fallback */
+export async function fetchDayAheadPrices(): Promise<CountryPrice[]> {
+  const bundled = await loadBundled<CountryPrice[]>('/data/prices.json');
+  if (bundled) return bundled;
+  return getDemoPrices();
+}
+
+/** Fetch cross-border flows: bundled JSON -> demo fallback */
+export async function fetchCrossBorderFlows(): Promise<CrossBorderFlow[]> {
+  const bundled = await loadBundled<CrossBorderFlow[]>('/data/flows.json');
+  if (bundled) return bundled;
+  return getDemoFlows();
+}
+
+// --- Demo / fallback data ---
+
 function getDemoPowerPlants(): PowerPlant[] {
   return [
-    // Nuclear
     { name: 'Gravelines', fuel: 'Nuclear', capacity: 5460, lat: 51.015, lon: 2.105, country: 'FR', year: '1980' },
     { name: 'Cattenom', fuel: 'Nuclear', capacity: 5200, lat: 49.406, lon: 6.220, country: 'FR', year: '1986' },
     { name: 'Paluel', fuel: 'Nuclear', capacity: 5320, lat: 49.859, lon: 0.633, country: 'FR', year: '1984' },
@@ -94,37 +71,29 @@ function getDemoPowerPlants(): PowerPlant[] {
     { name: 'Doel', fuel: 'Nuclear', capacity: 2911, lat: 51.326, lon: 4.259, country: 'BE', year: '1975' },
     { name: 'Gundremmingen', fuel: 'Nuclear', capacity: 1344, lat: 48.514, lon: 10.402, country: 'DE', year: '1984' },
     { name: 'Cofrentes', fuel: 'Nuclear', capacity: 1064, lat: 39.214, lon: -1.049, country: 'ES', year: '1984' },
-    // Gas
     { name: 'Irsching', fuel: 'Natural gas', capacity: 1400, lat: 48.802, lon: 11.564, country: 'DE', year: '2010' },
     { name: 'Pembroke', fuel: 'Natural gas', capacity: 2180, lat: 51.684, lon: -4.997, country: 'GB', year: '2012' },
     { name: 'Eemshaven', fuel: 'Natural gas', capacity: 2400, lat: 53.440, lon: 6.840, country: 'NL', year: '2015' },
     { name: 'Marghera Levante', fuel: 'Natural gas', capacity: 840, lat: 45.460, lon: 12.235, country: 'IT', year: '2022' },
-    // Coal
     { name: 'Belchatow', fuel: 'Lignite', capacity: 5102, lat: 51.264, lon: 19.327, country: 'PL', year: '1981' },
     { name: 'Neurath', fuel: 'Lignite', capacity: 4400, lat: 51.061, lon: 6.581, country: 'DE', year: '2012' },
     { name: 'Kozienice', fuel: 'Hard coal', capacity: 2820, lat: 51.579, lon: 21.571, country: 'PL', year: '2017' },
     { name: 'Drax', fuel: 'Hard coal', capacity: 3906, lat: 53.737, lon: -0.999, country: 'GB', year: '1974' },
-    // Hydro
     { name: 'Grand Maison', fuel: 'Hydro', capacity: 1800, lat: 45.204, lon: 6.058, country: 'FR', year: '1985' },
     { name: 'Dinorwig', fuel: 'Hydro', capacity: 1728, lat: 53.120, lon: -4.115, country: 'GB', year: '1984' },
     { name: 'Vianden', fuel: 'Hydro', capacity: 1296, lat: 49.930, lon: 6.202, country: 'LU', year: '1964' },
     { name: 'Kaprun', fuel: 'Hydro', capacity: 353, lat: 47.179, lon: 12.725, country: 'AT', year: '1955' },
-    // Wind
     { name: 'Hornsea One', fuel: 'Wind', capacity: 1218, lat: 53.880, lon: 1.790, country: 'GB', year: '2020' },
     { name: 'Borssele Wind', fuel: 'Wind', capacity: 752, lat: 51.730, lon: 3.380, country: 'NL', year: '2021' },
     { name: 'Kriegers Flak', fuel: 'Wind', capacity: 604, lat: 55.090, lon: 12.940, country: 'DK', year: '2021' },
     { name: 'Hollandse Kust', fuel: 'Wind', capacity: 760, lat: 52.380, lon: 4.240, country: 'NL', year: '2023' },
-    // Solar
     { name: 'Cestas Solar', fuel: 'Solar', capacity: 300, lat: 44.734, lon: -0.763, country: 'FR', year: '2015' },
     { name: 'Nunez de Balboa', fuel: 'Solar', capacity: 500, lat: 38.580, lon: -6.080, country: 'ES', year: '2020' },
     { name: 'Weesow-Willmersdorf', fuel: 'Solar', capacity: 187, lat: 52.660, lon: 13.870, country: 'DE', year: '2020' },
   ];
 }
 
-/** Demo day-ahead prices by country (EUR/MWh) */
-export async function fetchDayAheadPrices(): Promise<CountryPrice[]> {
-  // In production, fetch from ENTSO-E Transparency API
-  // For demo, return realistic sample prices
+function getDemoPrices(): CountryPrice[] {
   return [
     { country: 'Germany', iso2: 'DE', price: 72.4 },
     { country: 'France', iso2: 'FR', price: 58.3 },
@@ -157,8 +126,7 @@ export async function fetchDayAheadPrices(): Promise<CountryPrice[]> {
   ];
 }
 
-/** Demo cross-border flows */
-export async function fetchCrossBorderFlows(): Promise<CrossBorderFlow[]> {
+function getDemoFlows(): CrossBorderFlow[] {
   return [
     { from: 'DE', to: 'FR', fromLat: 51.17, fromLon: 10.45, toLat: 46.60, toLon: 2.35, flowMW: 1850, capacityMW: 4800 },
     { from: 'FR', to: 'GB', fromLat: 46.60, fromLon: 2.35, toLat: 53.00, toLon: -2.00, flowMW: 2100, capacityMW: 3000 },

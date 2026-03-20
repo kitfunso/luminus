@@ -31,3 +31,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# generated data (built by scripts/fetch-data.js)
+/public/data/
