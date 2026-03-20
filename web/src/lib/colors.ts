@@ -45,11 +45,11 @@ export function priceToColor(
   if (t < 0.5) {
     // green -> yellow
     const s = t * 2;
-    return [Math.round(s * 255), 200, Math.round((1 - s) * 80), 160];
+    return [Math.round(s * 255), 200, Math.round((1 - s) * 80), 200];
   }
   // yellow -> red
   const s = (t - 0.5) * 2;
-  return [255, Math.round((1 - s) * 200), 0, 160];
+  return [255, Math.round((1 - s) * 200), 0, 200];
 }
 
 /** Fuel type display labels */
@@ -64,5 +64,36 @@ export const FUEL_LABELS: Record<string, string> = {
   biomass: 'Biomass',
   oil: 'Oil',
   geothermal: 'Geothermal',
+  other: 'Other',
+};
+
+/** 7 filter categories shown in the sidebar UI */
+export const FILTER_FUELS = [
+  'nuclear', 'wind', 'solar', 'gas', 'coal', 'hydro', 'other',
+] as const;
+
+/** Map detailed fuel types to the 7 filter categories */
+export const FUEL_FILTER_MAP: Record<string, string> = {
+  nuclear: 'nuclear',
+  wind: 'wind',
+  solar: 'solar',
+  gas: 'gas',
+  coal: 'coal',
+  lignite: 'coal',
+  hydro: 'hydro',
+  biomass: 'other',
+  oil: 'other',
+  geothermal: 'other',
+  other: 'other',
+};
+
+/** Filter fuel display labels */
+export const FILTER_FUEL_LABELS: Record<string, string> = {
+  nuclear: 'Nuclear',
+  wind: 'Wind',
+  solar: 'Solar',
+  gas: 'Gas',
+  coal: 'Coal',
+  hydro: 'Hydro',
   other: 'Other',
 };

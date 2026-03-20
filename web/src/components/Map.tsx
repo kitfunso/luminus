@@ -9,7 +9,14 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import Sidebar from './Sidebar';
 import Tooltip, { type TooltipData } from './Tooltip';
-import { getFuelColor, normalizeFuel, priceToColor, FUEL_LABELS } from '@/lib/colors';
+import {
+  getFuelColor,
+  normalizeFuel,
+  priceToColor,
+  FUEL_LABELS,
+  FUEL_FILTER_MAP,
+  FILTER_FUELS,
+} from '@/lib/colors';
 import { COUNTRY_CENTROIDS, EU_COUNTRY_CODES } from '@/lib/countries';
 import {
   fetchPowerPlants,
@@ -46,6 +53,15 @@ export default function EnergyMap() {
     flows: true,
   });
 
+  // Filter state
+  const [selectedFuels, setSelectedFuels] = useState<Set<string>>(
+    () => new Set(FILTER_FUELS)
+  );
+  const [minCapacity, setMinCapacity] = useState(50);
+  const [selectedCountries, setSelectedCountries] = useState<Set<string>>(
+    new Set()
+  );
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
     const [plantsData, pricesData, flowsData] = await Promise.all([
@@ -63,9 +79,7 @@ export default function EnergyMap() {
   useEffect(() => {
     async function loadGeo() {
       try {
-        const resp = await fetch(
-          '/data/eu-countries.geojson'
-        );
+        const resp = await fetch('/data/eu-countries.geojson');
         const data = await resp.json();
         data.features = data.features.filter((f: any) => {
           const iso = f.properties?.ISO_A2 || f.properties?.iso_a2 || '';
@@ -84,6 +98,30 @@ export default function EnergyMap() {
     const interval = setInterval(loadData, REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [loadData]);
+
+  // Filtered plants based on fuel, capacity, and country selections
+  const filteredPlants = useMemo(() => {
+    return plants.filter((p) => {
+      const fuel = normalizeFuel(p.fuel);
+      const filterCat = FUEL_FILTER_MAP[fuel] || 'other';
+      if (!selectedFuels.has(filterCat)) return false;
+      if (p.capacity < minCapacity) return false;
+      if (selectedCountries.size > 0 && !selectedCountries.has(p.country))
+        return false;
+      return true;
+    });
+  }, [plants, selectedFuels, minCapacity, selectedCountries]);
+
+  // Countries that have visible plants (for stats)
+  const availableCountries = useMemo(() => {
+    const codes = new Set(plants.map((p) => p.country));
+    return [...codes]
+      .map((code) => ({
+        code,
+        name: COUNTRY_CENTROIDS[code]?.name || code,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [plants]);
 
   const priceLookup = useMemo(() => {
     const map = new Map<string, CountryPrice>();
@@ -107,7 +145,7 @@ export default function EnergyMap() {
           getFillColor: (f: any) => {
             const iso = f.properties?.ISO_A2 || '';
             const priceData = priceLookup.get(iso);
-            if (!priceData) return [30, 30, 40, 60];
+            if (!priceData) return [60, 60, 80, 120];
             return priceToColor(priceData.price);
           },
           getLineColor: [100, 120, 140, 80],
@@ -116,6 +154,9 @@ export default function EnergyMap() {
           pickable: true,
           autoHighlight: true,
           highlightColor: [56, 189, 248, 60],
+          updateTriggers: {
+            getFillColor: [priceLookup],
+          },
           onHover: (info: PickingInfo) => {
             if (!info.object) {
               setTooltip(null);
@@ -124,13 +165,16 @@ export default function EnergyMap() {
             const props = info.object.properties || {};
             const iso = props.ISO_A2 || '';
             const priceData = priceLookup.get(iso);
-            const countryName = COUNTRY_CENTROIDS[iso]?.name || props.name || iso;
+            const countryName =
+              COUNTRY_CENTROIDS[iso]?.name || props.name || iso;
             setTooltip({
               x: info.x,
               y: info.y,
               content: {
                 Country: countryName,
-                'Day-Ahead Price': priceData ? `${priceData.price} EUR/MWh` : 'N/A',
+                'Day-Ahead Price': priceData
+                  ? `${priceData.price} EUR/MWh`
+                  : 'N/A',
               },
             });
           },
@@ -176,12 +220,12 @@ export default function EnergyMap() {
       );
     }
 
-    // Power plant locations
+    // Power plant locations (filtered)
     if (layerVisibility.plants) {
       result.push(
         new ScatterplotLayer<PowerPlant>({
           id: 'power-plants',
-          data: plants,
+          data: filteredPlants,
           getPosition: (d) => [d.lon, d.lat],
           getFillColor: (d) => getFuelColor(d.fuel),
           getRadius: (d) => Math.max(800, Math.sqrt(d.capacity) * 120),
@@ -213,10 +257,35 @@ export default function EnergyMap() {
     }
 
     return result;
-  }, [plants, flows, geoJson, priceLookup, layerVisibility]);
+  }, [filteredPlants, flows, geoJson, priceLookup, layerVisibility]);
 
-  const handleToggleLayer = useCallback((layer: 'plants' | 'prices' | 'flows') => {
-    setLayerVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }));
+  const handleToggleLayer = useCallback(
+    (layer: 'plants' | 'prices' | 'flows') => {
+      setLayerVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }));
+    },
+    []
+  );
+
+  const handleToggleFuel = useCallback((fuel: string) => {
+    setSelectedFuels((prev) => {
+      const next = new Set(prev);
+      if (next.has(fuel)) next.delete(fuel);
+      else next.add(fuel);
+      return next;
+    });
+  }, []);
+
+  const handleSetMinCapacity = useCallback((value: number) => {
+    setMinCapacity(value);
+  }, []);
+
+  const handleToggleCountry = useCallback((code: string) => {
+    setSelectedCountries((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
   }, []);
 
   return (
@@ -250,18 +319,28 @@ export default function EnergyMap() {
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0e17]/70 backdrop-blur-sm">
           <div className="text-center">
             <div className="inline-block w-8 h-8 border-2 border-sky-400/30 border-t-sky-400 rounded-full animate-spin mb-3" />
-            <p className="text-sm text-slate-400">Loading power plant data...</p>
+            <p className="text-sm text-slate-400">
+              Loading power plant data...
+            </p>
           </div>
         </div>
       )}
 
       <Sidebar
-        plantCount={plants.length}
-        countryCount={prices.length}
+        plants={plants}
+        filteredPlants={filteredPlants}
+        prices={prices}
         lastUpdate={lastUpdate}
         layerVisibility={layerVisibility}
         onToggleLayer={handleToggleLayer}
         isLoading={isLoading}
+        selectedFuels={selectedFuels}
+        onToggleFuel={handleToggleFuel}
+        minCapacity={minCapacity}
+        onSetMinCapacity={handleSetMinCapacity}
+        selectedCountries={selectedCountries}
+        onToggleCountry={handleToggleCountry}
+        availableCountries={availableCountries}
       />
     </div>
   );

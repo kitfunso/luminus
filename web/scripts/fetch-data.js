@@ -9,6 +9,8 @@ const path = require('path');
 const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
 const WRI_URL =
   'https://raw.githubusercontent.com/wri/global-power-plant-database/master/output_database/global_power_plant_database.csv';
+const NE_GEOJSON_URL =
+  'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
 const ENTSOE_API = 'https://web-api.tp.entsoe.eu/api';
 const ENTSOE_KEY =
   process.env.ENTSOE_API_KEY || 'ffaa7bca-32bf-4430-9877-84efae8f38b1';
@@ -302,6 +304,55 @@ async function fetchAllFlows() {
   return flows.length > 0 ? flows : null;
 }
 
+// --- GeoJSON country boundaries ---
+
+const EU_ISO2_SET = new Set(Object.values(ISO3_TO_ISO2));
+
+async function fetchGeoJSON() {
+  console.log('  Downloading Natural Earth country boundaries...');
+  try {
+    const res = await fetchWithTimeout(NE_GEOJSON_URL, 60_000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const features = data.features
+      .filter((f) => {
+        const iso =
+          f.properties?.ISO_A2 ||
+          f.properties?.iso_a2 ||
+          f.properties?.ISO_A2_EH ||
+          '';
+        return EU_ISO2_SET.has(iso);
+      })
+      .map((f) => ({
+        type: 'Feature',
+        properties: {
+          ISO_A2:
+            f.properties?.ISO_A2 ||
+            f.properties?.iso_a2 ||
+            f.properties?.ISO_A2_EH ||
+            '',
+          name:
+            f.properties?.ADMIN ||
+            f.properties?.NAME ||
+            f.properties?.name ||
+            '',
+        },
+        geometry: f.geometry,
+      }));
+
+    console.log(`  -> ${features.length} EU country boundaries`);
+    if (features.length < 20) {
+      console.warn('  Too few countries matched, skipping GeoJSON update');
+      return null;
+    }
+    return { type: 'FeatureCollection', features };
+  } catch (err) {
+    console.warn(`  GeoJSON download failed: ${err.message}`);
+    return null;
+  }
+}
+
 // --- Fallback data (used when APIs fail) ---
 
 const DEMO_PRICES = [
@@ -352,10 +403,11 @@ async function main() {
   console.log('fetch-data: building static data bundle...');
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  const [plants, prices, flows] = await Promise.all([
+  const [plants, prices, flows, geo] = await Promise.all([
     fetchPowerPlants(),
     fetchAllPrices(),
     fetchAllFlows(),
+    fetchGeoJSON(),
   ]);
 
   const plantsOut = plants || [];
@@ -374,6 +426,16 @@ async function main() {
     path.join(OUT_DIR, 'flows.json'),
     JSON.stringify(flowsOut)
   );
+
+  if (geo) {
+    fs.writeFileSync(
+      path.join(OUT_DIR, 'eu-countries.geojson'),
+      JSON.stringify(geo)
+    );
+    console.log(`  GeoJSON updated: ${geo.features.length} countries`);
+  } else {
+    console.log('  GeoJSON: keeping existing file');
+  }
 
   console.log(
     `fetch-data: done (${plantsOut.length} plants, ${pricesOut.length} prices, ${flowsOut.length} flows)`
