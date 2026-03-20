@@ -1,13 +1,22 @@
 {
-  "name": "luminus",
+  "name": "luminus-mcp",
   "version": "0.1.0",
-  "description": "Real-time European & UK electricity grid data via MCP",
+  "description": "Real-time European & UK electricity grid data via MCP. 22 tools, all free.",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "luminus-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
-    "test": "vitest"
+    "test": "vitest",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",
@@ -16,10 +25,20 @@
     "entsoe",
     "grid",
     "europe",
-    "power"
+    "power",
+    "carbon-intensity",
+    "renewables"
   ],
   "author": "Keith So",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kitfunso/luminus.git"
+  },
+  "homepage": "https://github.com/kitfunso/luminus#readme",
+  "bugs": {
+    "url": "https://github.com/kitfunso/luminus/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "dotenv": "^17.3.1",

@@ -1,72 +1,132 @@
 # Luminus
 
-Real-time European & UK electricity grid data via MCP (Model Context Protocol).
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Give any AI agent instant access to power generation, prices, cross-border flows, and grid status across 30+ European countries.
+Real-time European & UK electricity grid data via MCP. 22 tools, all free.
 
-## What is this?
+## Tools
 
-Luminus wraps the ENTSO-E Transparency Platform and Elexon BMRS APIs into a clean MCP server. Instead of fighting with SOAP/XML APIs and country codes, just ask:
+### Generation & Prices
 
-- "What's the current generation mix in Germany?"
-- "Show me day-ahead prices across all EU bidding zones"
-- "Which interconnectors are at capacity right now?"
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_generation_mix` | ENTSO-E | Real-time generation by fuel type (wind, solar, gas, nuclear, etc.) |
+| `get_day_ahead_prices` | ENTSO-E | Hourly spot prices (EUR/MWh) by bidding zone |
+| `get_balancing_prices` | ENTSO-E | Imbalance/settlement prices per period |
+| `get_carbon_intensity` | ENTSO-E | CO2 intensity (gCO2/kWh) from generation mix |
+| `get_hydro_reservoir` | ENTSO-E | Reservoir filling levels (MWh) for hydro countries |
 
-## Data Sources
+### Forecasts
 
-| Source | Coverage | Data |
-|--------|----------|------|
-| ENTSO-E Transparency | 30+ EU countries | Generation, prices, flows, capacity, outages |
-| Elexon BMRS | UK | Balancing, settlement, generation by fuel |
-| National Grid ESO | UK | Demand forecasts, carbon intensity, wind/solar |
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_renewable_forecast` | ENTSO-E | Day-ahead wind & solar generation forecast (MW) |
+| `get_demand_forecast` | ENTSO-E | Day-ahead total load/demand forecast (MW) |
 
-## MCP Tools
+### Gas & LNG
 
-| Tool | Description |
-|------|-------------|
-| `get_generation_mix` | Real-time generation by fuel type for any country |
-| `get_day_ahead_prices` | Spot prices across bidding zones |
-| `get_cross_border_flows` | Interconnector flows between countries |
-| `get_installed_capacity` | Capacity by technology and country |
-| `get_outages` | Planned and unplanned outages |
-| `get_carbon_intensity` | Real-time carbon intensity by zone |
-| `get_demand_forecast` | Load forecasts |
-| `get_wind_solar_forecast` | Renewable generation forecasts |
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_gas_storage` | GIE AGSI+ | European gas storage levels, fill %, injection/withdrawal |
+| `get_lng_terminals` | GIE ALSI | LNG terminal inventory, send-out rates, capacity |
+| `get_us_gas_data` | EIA | US gas storage (Bcf) and Henry Hub prices (USD/MMBtu) |
+
+### Grid Infrastructure
+
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_cross_border_flows` | ENTSO-E | Physical electricity flows between zones (MW) |
+| `get_net_positions` | ENTSO-E | Net import/export position by zone |
+| `get_transfer_capacities` | ENTSO-E | Net transfer capacity (NTC) between zones |
+| `get_outages` | ENTSO-E | Generation & transmission outages with reasons |
+| `get_power_plants` | Open Power System Data | Plant database: capacity, fuel, location, year |
+| `get_auction_results` | JAO | Cross-border capacity auction prices & allocation |
+| `get_transmission_lines` | OpenStreetMap | HV transmission line routes (220kV+) |
+| `get_eu_frequency` | mainsfrequency.com | Real-time grid frequency (Hz) and deviation |
+
+### UK Specific
+
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_uk_carbon_intensity` | National Grid ESO | UK carbon intensity, index, and fuel mix |
+| `get_uk_grid_demand` | National Grid ESO | UK demand (MW) and grid frequency (Hz) |
+
+### Weather & Climate
+
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_weather_forecast` | Open-Meteo | Temperature, wind speed, solar radiation by location |
+| `get_solar_irradiance` | PVGIS | Monthly irradiance, optimal angle, annual PV yield |
 
 ## Quick Start
 
 ```bash
-npm install
-cp .env.example .env
-# Add your ENTSO-E API key (free: https://transparency.entsoe.eu/)
+npm install luminus-mcp
 ```
 
-### With Claude Code
+Create a `.env` file:
+
 ```bash
-# Add to your MCP config
-claude mcp add Luminus node src/index.js
+ENTSOE_API_KEY=your-key-here    # Required for most tools
+GIE_API_KEY=your-key-here       # Optional: gas storage & LNG
+EIA_API_KEY=your-key-here       # Optional: US gas data
 ```
 
-### With OpenClaw
+### Get API Keys
+
+- **ENTSO-E** (free): Register at [transparency.entsoe.eu](https://transparency.entsoe.eu/), then email transparency@entsoe.eu to request API access
+- **GIE** (free): Register at [agsi.gie.eu](https://agsi.gie.eu/)
+- **EIA** (free): Register at [eia.gov/opendata](https://www.eia.gov/opendata/)
+
+### Claude Code
+
 ```bash
-# Add as an MCP server in openclaw.json
+claude mcp add luminus -- npx luminus-mcp
 ```
 
-## API Key
+### MCP Config (Claude Desktop / OpenClaw)
 
-Get a free ENTSO-E API key:
-1. Register at https://transparency.entsoe.eu/
-2. Email transparency@entsoe.eu requesting API access
-3. Key arrives within 1-2 business days
+```json
+{
+  "mcpServers": {
+    "luminus": {
+      "command": "npx",
+      "args": ["luminus-mcp"],
+      "env": {
+        "ENTSOE_API_KEY": "your-key-here"
+      }
+    }
+  }
+}
+```
 
-## Roadmap
+## Example Queries
 
-- [ ] Phase 1: MCP server with core ENTSO-E tools
-- [ ] Phase 2: Interactive deck.gl map frontend
-- [ ] Phase 3: Real-time alerts and anomaly detection
-- [ ] Phase 4: Historical analysis and backtesting tools
+Ask your AI agent:
+
+- "What's powering Germany's grid right now?"
+- "Compare day-ahead prices across France, Spain, and Italy"
+- "How full are Europe's gas storage facilities?"
+- "Show me wind generation forecast for tomorrow in Denmark"
+- "What's the carbon intensity in the UK right now?"
+- "Are there any nuclear outages in France?"
+- "What's the net transfer capacity between Norway and Germany?"
+
+## Data Sources
+
+| Source | Link | Coverage |
+|--------|------|----------|
+| ENTSO-E Transparency Platform | [transparency.entsoe.eu](https://transparency.entsoe.eu/) | 30+ European countries |
+| National Grid ESO | [carbonintensity.org.uk](https://carbonintensity.org.uk/) | UK |
+| GIE AGSI+ / ALSI | [agsi.gie.eu](https://agsi.gie.eu/) | European gas & LNG |
+| EIA | [eia.gov](https://www.eia.gov/) | US natural gas |
+| Open-Meteo | [open-meteo.com](https://open-meteo.com/) | Global weather |
+| PVGIS | [re.jrc.ec.europa.eu](https://re.jrc.ec.europa.eu/pvg_tools/) | Global solar irradiance |
+| Open Power System Data | [open-power-system-data.org](https://open-power-system-data.org/) | European power plants |
+| JAO | [jao.eu](https://www.jao.eu/) | Cross-border auctions |
+| OpenStreetMap | [openstreetmap.org](https://www.openstreetmap.org/) | Transmission lines |
 
 ## Licence
 
-MIT
-
+MIT. See [LICENSE](LICENSE).
