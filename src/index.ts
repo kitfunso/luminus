@@ -9,6 +9,8 @@ import { carbonSchema, getCarbonIntensity } from "./tools/carbon.js";
 import { gasStorageSchema, getGasStorage } from "./tools/gas-storage.js";
 import { weatherSchema, getWeatherForecast } from "./tools/weather.js";
 import { usGasSchema, getUsGasData } from "./tools/us-gas.js";
+import { ukCarbonSchema, getUkCarbonIntensity } from "./tools/uk-carbon.js";
+import { ukGridSchema, getUkGridDemand } from "./tools/uk-grid.js";
 
 dotenv.config();
 
@@ -140,6 +142,44 @@ server.tool(
   async (params) => {
     try {
       const result = await getUsGasData(usGasSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_uk_carbon_intensity",
+  "Get UK carbon intensity and generation mix from National Grid ESO. " +
+    "Returns gCO2/kWh intensity, index (very low to very high), and fuel-type percentages. " +
+    "Supports current national, regional breakdown, and historical by date.",
+  ukCarbonSchema.shape,
+  async (params) => {
+    try {
+      const result = await getUkCarbonIntensity(ukCarbonSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_uk_grid_demand",
+  "Get UK electricity demand and grid frequency from National Grid ESO. " +
+    "Demand returns actual MW + forecast for recent settlement periods. " +
+    "Frequency returns real-time Hz (~50 Hz nominal; deviations = grid stress).",
+  ukGridSchema.shape,
+  async (params) => {
+    try {
+      const result = await getUkGridDemand(ukGridSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {
