@@ -43,6 +43,68 @@ const ISO2_TO_EIC = {
   LU: '10Y1001A1001A83F',
 };
 
+// ENTSO-E prices are published on bidding zones, not always one control area per country.
+// Root cause for the missing coverage was treating SE/NO/DK/IT/DE/LU as one-zone countries.
+const PRICE_ZONE_STRATEGIES = {
+  DE: { zones: ['10Y1001A1001A82H'] }, // DE-LU bidding zone
+  LU: { aliasOf: 'DE' },
+  FR: { zones: ['10YFR-RTE------C'] },
+  GB: { zones: ['10YGB----------A'] },
+  ES: { zones: ['10YES-REE------0'] },
+  IT: {
+    zones: [
+      '10Y1001A1001A73I', // IT-North
+      '10Y1001A1001A70O', // IT-Centre-North
+      '10Y1001A1001A71M', // IT-Centre-South
+      '10Y1001A1001A788', // IT-South
+      '10Y1001A1001A74G', // IT-Sardinia
+      '10Y1001A1001A75E', // IT-Sicily
+    ],
+  },
+  NL: { zones: ['10YNL----------L'] },
+  BE: { zones: ['10YBE----------2'] },
+  PL: { zones: ['10YPL-AREA-----S'] },
+  AT: { zones: ['10YAT-APG------L'] },
+  CH: { zones: ['10YCH-SWISSGRIDZ'] },
+  CZ: { zones: ['10YCZ-CEPS-----N'] },
+  SE: {
+    zones: [
+      '10Y1001A1001A44P', // SE1
+      '10Y1001A1001A45N', // SE2
+      '10Y1001A1001A46L', // SE3
+      '10Y1001A1001A47J', // SE4
+    ],
+  },
+  NO: {
+    zones: [
+      '10YNO-1--------2', // NO1
+      '10YNO-2--------T', // NO2
+      '10YNO-3--------J', // NO3
+      '10YNO-4--------9', // NO4
+      '10Y1001A1001A48H', // NO5
+    ],
+  },
+  DK: {
+    zones: [
+      '10YDK-1--------W', // DK1
+      '10YDK-2--------M', // DK2
+    ],
+  },
+  FI: { zones: ['10YFI-1--------U'] },
+  PT: { zones: ['10YPT-REN------W'] },
+  GR: { zones: ['10YGR-HTSO-----Y'] },
+  RO: { zones: ['10YRO-TEL------P'] },
+  HU: { zones: ['10YHU-MAVIR----U'] },
+  BG: { zones: ['10YCA-BULGARIA-R'] },
+  HR: { zones: ['10YHR-HEP------M'] },
+  SK: { zones: ['10YSK-SEPS-----K'] },
+  SI: { zones: ['10YSI-ELES-----O'] },
+  IE: { zones: ['10Y1001A1001A59C'] }, // SEM price zone
+  LT: { zones: ['10YLT-1001A0008Q'] },
+  LV: { zones: ['10YLV-1001A00074'] },
+  EE: { zones: ['10Y1001A1001A39I'] },
+};
+
 const COUNTRY_NAMES = {
   DE: 'Germany', FR: 'France', GB: 'United Kingdom', ES: 'Spain', IT: 'Italy',
   NL: 'Netherlands', BE: 'Belgium', PL: 'Poland', AT: 'Austria', CH: 'Switzerland',
@@ -202,10 +264,7 @@ function extractPrices(xml) {
   return { avg, hourly };
 }
 
-async function fetchPrice(iso2) {
-  const eic = ISO2_TO_EIC[iso2];
-  if (!eic) return null;
-
+async function fetchZonePrice(eic) {
   const now = new Date();
   const yesterday = new Date(now);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
@@ -223,30 +282,82 @@ async function fetchPrice(iso2) {
     const res = await fetchWithTimeout(`${ENTSOE_API}?${params}`);
     if (!res.ok) return null;
     const xml = await res.text();
-    const priceData = extractPrices(xml);
-    if (priceData === null) return null;
-    return { country: COUNTRY_NAMES[iso2], iso2, price: priceData.avg, hourly: priceData.hourly };
+    return extractPrices(xml);
   } catch {
     return null;
   }
 }
 
-async function fetchAllPrices() {
-  console.log('  Fetching ENTSO-E day-ahead prices...');
-  // Skip LU (same zone as DE)
-  const zones = Object.keys(ISO2_TO_EIC).filter(c => c !== 'LU');
-  const results = await mapConcurrent(zones, fetchPrice);
-  const prices = results.filter(Boolean);
+function aggregateZonePrices(zoneResults) {
+  const valid = zoneResults.filter(Boolean);
+  if (valid.length === 0) return null;
 
-  if (prices.length > 0) {
-    // Add LU with DE price if available
-    const dePrice = prices.find(p => p.iso2 === 'DE');
-    if (dePrice) {
-      prices.push({ country: 'Luxembourg', iso2: 'LU', price: dePrice.price });
-    }
+  const hourlyLen = Math.min(
+    24,
+    Math.max(...valid.map((zone) => zone.hourly.length))
+  );
+
+  const hourly = Array.from({ length: hourlyLen }, (_, hour) => {
+    const values = valid
+      .map((zone) => zone.hourly[hour])
+      .filter((value) => Number.isFinite(value));
+    if (values.length === 0) return null;
+    return Math.round((values.reduce((sum, value) => sum + value, 0) / values.length) * 10) / 10;
+  }).filter((value) => value !== null);
+
+  if (hourly.length === 0) return null;
+
+  const avg = Math.round((hourly.reduce((sum, value) => sum + value, 0) / hourly.length) * 10) / 10;
+  return { avg, hourly };
+}
+
+async function fetchPrice(iso2, cache = new Map()) {
+  const strategy = PRICE_ZONE_STRATEGIES[iso2];
+  if (!strategy) return null;
+
+  if (strategy.aliasOf) {
+    const aliased = cache.get(strategy.aliasOf);
+    if (!aliased) return null;
+    return {
+      country: COUNTRY_NAMES[iso2],
+      iso2,
+      price: aliased.price,
+      hourly: aliased.hourly,
+    };
   }
 
-  console.log(`  -> ${prices.length} zone prices fetched`);
+  const zoneResults = await mapConcurrent(strategy.zones, fetchZonePrice, Math.min(strategy.zones.length, CONCURRENCY));
+  const priceData = aggregateZonePrices(zoneResults);
+  if (priceData === null) return null;
+
+  const result = {
+    country: COUNTRY_NAMES[iso2],
+    iso2,
+    price: priceData.avg,
+    hourly: priceData.hourly,
+  };
+  cache.set(iso2, result);
+  return result;
+}
+
+async function fetchAllPrices() {
+  console.log('  Fetching ENTSO-E day-ahead prices...');
+
+  const cache = new Map();
+  const iso2s = Object.keys(COUNTRY_NAMES);
+  const prices = [];
+
+  for (const iso2 of iso2s) {
+    const price = await fetchPrice(iso2, cache);
+    if (price) prices.push(price);
+  }
+
+  const missing = iso2s.filter((iso2) => !prices.some((price) => price.iso2 === iso2));
+  if (missing.length > 0) {
+    console.warn(`  Missing live prices for: ${missing.join(', ')}`);
+  }
+
+  console.log(`  -> ${prices.length}/${iso2s.length} country prices fetched`);
   return prices.length > 0 ? prices : null;
 }
 
