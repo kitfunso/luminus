@@ -109,6 +109,14 @@ export default function SearchBar({
     return scored.slice(0, MAX_RESULTS).map((s) => s.result);
   }, [query, plants, priceLookup, flows]);
 
+  const handleSelect = useCallback((result: SearchResult) => {
+    setQuery('');
+    setOpen(false);
+    if (result.kind === 'plant') onSelectPlant(result.plant);
+    else if (result.kind === 'country') onSelectCountry(result.iso2);
+    else onSelectCorridor(result.from, result.to);
+  }, [onSelectPlant, onSelectCountry, onSelectCorridor]);
+
   // Keyboard nav
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (!open || results.length === 0) return;
@@ -125,15 +133,7 @@ export default function SearchBar({
       setOpen(false);
       inputRef.current?.blur();
     }
-  }, [open, results, activeIdx]);
-
-  function handleSelect(result: SearchResult) {
-    setQuery('');
-    setOpen(false);
-    if (result.kind === 'plant') onSelectPlant(result.plant);
-    else if (result.kind === 'country') onSelectCountry(result.iso2);
-    else onSelectCorridor(result.from, result.to);
-  }
+  }, [open, results, activeIdx, handleSelect]);
 
   function handleToggleWatch(e: React.MouseEvent, result: SearchResult) {
     e.stopPropagation();

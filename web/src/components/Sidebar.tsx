@@ -9,6 +9,8 @@ import {
   normalizeFuel,
 } from '@/lib/colors';
 import type { PowerPlant, CountryPrice, CrossBorderFlow } from '@/lib/data-fetcher';
+import SearchBar from './SearchBar';
+import WatchlistPanel from './WatchlistPanel';
 
 export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix' | 'outages' | 'forecast' | 'history';
 
@@ -35,6 +37,15 @@ interface SidebarProps {
   onExportCSV: () => void;
   mobileOpen: boolean;
   onToggleMobile: () => void;
+  // Sprint 4 additions
+  onSelectPlant: (plant: PowerPlant) => void;
+  onSelectCountry: (iso2: string) => void;
+  onSelectCorridor: (from: string, to: string) => void;
+  onOpenAlerts: () => void;
+  onOpenDashboard: () => void;
+  onOpenTimeSeries: (iso2: string) => void;
+  watchlistVersion: number;
+  onWatchlistChange: () => void;
 }
 
 const CARD =
@@ -89,6 +100,7 @@ function Shimmer() {
 }
 
 export default function Sidebar({
+  plants,
   filteredPlants,
   prices,
   flows,
@@ -110,6 +122,14 @@ export default function Sidebar({
   onExportCSV,
   mobileOpen,
   onToggleMobile,
+  onSelectPlant,
+  onSelectCountry,
+  onSelectCorridor,
+  onOpenAlerts,
+  onOpenDashboard,
+  onOpenTimeSeries,
+  watchlistVersion,
+  onWatchlistChange,
 }: SidebarProps) {
   const [showCountries, setShowCountries] = useState(false);
   const selectedCountryCount = selectedCountries?.size ?? availableCountries.length;
@@ -204,6 +224,49 @@ export default function Sidebar({
               Close
             </button>
           </div>
+        </div>
+
+        {/* Search */}
+        <div className={`${CARD} p-3`}>
+          <SearchBar
+            plants={plants}
+            prices={prices}
+            flows={flows}
+            onSelectPlant={(plant) => { onSelectPlant(plant); if (mobileOpen) onToggleMobile(); }}
+            onSelectCountry={(iso2) => { onSelectCountry(iso2); if (mobileOpen) onToggleMobile(); }}
+            onSelectCorridor={(from, to) => { onSelectCorridor(from, to); if (mobileOpen) onToggleMobile(); }}
+            onWatchlistChange={onWatchlistChange}
+          />
+        </div>
+
+        {/* Watchlist */}
+        <div className={`${CARD} p-4`}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Watchlist</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={onOpenDashboard}
+                title="Morning brief"
+                className="text-[10px] text-slate-500 hover:text-sky-400 transition-colors px-1.5 py-0.5 rounded border border-white/[0.06] hover:border-sky-500/30"
+              >
+                Brief
+              </button>
+              <button
+                onClick={onOpenAlerts}
+                title="Alerts"
+                className="text-[10px] text-slate-500 hover:text-amber-400 transition-colors px-1.5 py-0.5 rounded border border-white/[0.06] hover:border-amber-500/30"
+              >
+                Alerts
+              </button>
+            </div>
+          </div>
+          <WatchlistPanel
+            prices={prices}
+            flows={flows}
+            onSelectCountry={(iso2) => { onSelectCountry(iso2); onOpenTimeSeries(iso2); if (mobileOpen) onToggleMobile(); }}
+            onSelectCorridor={(from, to) => { onSelectCorridor(from, to); if (mobileOpen) onToggleMobile(); }}
+            version={watchlistVersion}
+          />
         </div>
 
         {/* Stats Dashboard */}

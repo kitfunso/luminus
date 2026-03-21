@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { getWatchlist, unpinItem, type WatchlistItem } from '@/lib/watchlist';
-import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import type { CountryPrice, CrossBorderFlow } from '@/lib/data-fetcher';
 
 interface WatchlistPanelProps {

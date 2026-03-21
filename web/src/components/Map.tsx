@@ -22,6 +22,10 @@ import ComparePanel from './ComparePanel';
 import OutageRadar from './OutageRadar';
 import ForecastPanel from './ForecastPanel';
 import TimeScrubber from './TimeScrubber';
+import AssetTimeSeries, { type TimeSeriesAsset } from './AssetTimeSeries';
+import AlertsPanel from './AlertsPanel';
+import TraderDashboard from './TraderDashboard';
+import { evaluateAlerts } from '@/lib/alerts';
 import CorridorPanel from './CorridorPanel';
 import TyndpPanel from './TyndpPanel';
 import {
@@ -253,6 +257,12 @@ export default function EnergyMap() {
   const [compareCountries, setCompareCountries] = useState<string[]>([]);
   const shiftHeld = useRef(false);
 
+  // Sprint 4: search-driven navigation, watchlist, time series, alerts, dashboard
+  const [timeSeriesAsset, setTimeSeriesAsset] = useState<TimeSeriesAsset | null>(null);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [watchlistVersion, setWatchlistVersion] = useState(0);
+
   // URL hash debounce
   const hashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -350,6 +360,21 @@ export default function EnergyMap() {
     selectedCountries,
     layerVisibility,
   ]);
+
+  // --- Sprint 4: alert evaluation on data refresh ---
+
+  useEffect(() => {
+    if (prices.length === 0) return;
+    const priceByIso: Record<string, number> = {};
+    for (const p of prices) priceByIso[p.iso2] = p.price;
+    const congestionByCorridorId: Record<string, number> = {};
+    for (const f of flows) {
+      const id = [f.from, f.to].sort().join('-');
+      congestionByCorridorId[`corridor:${id}`] = f.capacityMW > 0 ? f.flowMW / f.capacityMW : 0;
+    }
+    const outageSet = new Set(outages.map((o) => `country:${o.iso2}`));
+    evaluateAlerts(priceByIso, congestionByCorridorId, outageSet);
+  }, [prices, flows, outages]);
 
   // --- Filtered data ---
 
@@ -838,6 +863,56 @@ export default function EnergyMap() {
     setSelectedCountries(new Set());
   }, []);
 
+  // Sprint 4 handlers
+  const handleSearchSelectPlant = useCallback((plant: PowerPlant) => {
+    setSelectedPlant(plant);
+    setSelectedCountryPrice(null);
+    setTimeSeriesAsset(null);
+    setShowAlerts(false);
+    setShowDashboard(false);
+    // Fly to plant
+    setViewState((prev) => ({
+      ...prev,
+      latitude: plant.lat,
+      longitude: plant.lon,
+      zoom: Math.max(prev.zoom, 7),
+    }));
+  }, []);
+
+  const handleSearchSelectCountry = useCallback((iso2: string) => {
+    const priceData = prices.find((p) => p.iso2 === iso2);
+    if (priceData) {
+      setSelectedCountryPrice(priceData);
+      setSelectedPlant(null);
+    }
+    setShowAlerts(false);
+    setShowDashboard(false);
+    // Fly to country centroid
+    const centroid = COUNTRY_CENTROIDS[iso2];
+    if (centroid) {
+      setViewState((prev) => ({
+        ...prev,
+        latitude: centroid.lat,
+        longitude: centroid.lon,
+        zoom: Math.max(prev.zoom, 5),
+      }));
+    }
+  }, [prices]);
+
+  const handleOpenTimeSeries = useCallback((iso2: string) => {
+    setTimeSeriesAsset({ kind: 'country', iso2 });
+    setShowAlerts(false);
+    setShowDashboard(false);
+  }, []);
+
+  const handleSearchSelectCorridor = useCallback((from: string, to: string) => {
+    setTimeSeriesAsset({ kind: 'corridor', from, to });
+    setSelectedPlant(null);
+    setSelectedCountryPrice(null);
+    setShowAlerts(false);
+    setShowDashboard(false);
+  }, []);
+
   const handleScreenshot = useCallback(() => {
     try {
       const canvases = document.querySelectorAll('canvas');
@@ -1037,6 +1112,37 @@ export default function EnergyMap() {
         </>
       )}
 
+      {/* Sprint 4: Asset Time Series panel */}
+      {timeSeriesAsset && !showAlerts && !showDashboard && (
+        <AssetTimeSeries
+          asset={timeSeriesAsset}
+          prices={prices}
+          flows={flows}
+          history={history}
+          onClose={() => setTimeSeriesAsset(null)}
+        />
+      )}
+
+      {/* Sprint 4: Alerts panel */}
+      {showAlerts && (
+        <AlertsPanel
+          onClose={() => setShowAlerts(false)}
+        />
+      )}
+
+      {/* Sprint 4: Trader Dashboard */}
+      {showDashboard && (
+        <TraderDashboard
+          prices={prices}
+          flows={flows}
+          outages={outages}
+          forecasts={forecasts}
+          onSelectCountry={(iso2) => { handleSearchSelectCountry(iso2); setShowDashboard(false); }}
+          onSelectCorridor={(from, to) => { handleSearchSelectCorridor(from, to); setShowDashboard(false); }}
+          onClose={() => setShowDashboard(false)}
+        />
+      )}
+
       {/* Time scrubber bar */}
       {layerVisibility.history && history && (
         <TimeScrubber
@@ -1072,6 +1178,14 @@ export default function EnergyMap() {
         onExportCSV={handleExportCSV}
         mobileOpen={mobileSidebarOpen}
         onToggleMobile={() => setMobileSidebarOpen((prev) => !prev)}
+        onSelectPlant={handleSearchSelectPlant}
+        onSelectCountry={handleSearchSelectCountry}
+        onSelectCorridor={handleSearchSelectCorridor}
+        onOpenAlerts={() => { setShowAlerts(true); setShowDashboard(false); setTimeSeriesAsset(null); }}
+        onOpenDashboard={() => { setShowDashboard(true); setShowAlerts(false); setTimeSeriesAsset(null); }}
+        onOpenTimeSeries={handleOpenTimeSeries}
+        watchlistVersion={watchlistVersion}
+        onWatchlistChange={() => setWatchlistVersion((v) => v + 1)}
       />
     </div>
   );

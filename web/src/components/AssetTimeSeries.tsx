@@ -16,8 +16,6 @@ interface AssetTimeSeriesProps {
   onClose: () => void;
 }
 
-type Range = '24h' | '7d';
-
 function Sparkline({ values, color, label, unit }: { values: number[]; color: string; label: string; unit: string }) {
   if (values.length < 2) return null;
   const min = Math.min(...values);
