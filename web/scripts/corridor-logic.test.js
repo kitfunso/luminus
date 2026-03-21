@@ -10,6 +10,7 @@ const {
   CORRIDOR_LINE_MAP,
   corridorForLine,
   matchCorridorLines,
+  corridorMidpoint,
 } = require('./lib/corridor-logic');
 
 // --- utilisationLevel ---
@@ -166,4 +167,38 @@ test('matchCorridorLines: no matching lines returns empty array', () => {
   const lines = [{ name: 'Meeden-Diele DE-NL', voltage: 400 }];
   const matched = matchCorridorLines('FR-GB', lines);
   assert.deepEqual(matched, []);
+});
+
+// --- corridorMidpoint ---
+
+test('corridorMidpoint: uses flow arc midpoint when flow exists', () => {
+  const flows = [
+    { from: 'DE', to: 'FR', fromLon: 10, fromLat: 50, toLon: 2, toLat: 46 },
+  ];
+  const centroids = { DE: { lon: 10, lat: 51 }, FR: { lon: 2, lat: 47 } };
+  const mid = corridorMidpoint('DE', 'FR', flows, centroids);
+  assert.equal(mid.lon, 6);
+  assert.equal(mid.lat, 48);
+});
+
+test('corridorMidpoint: accepts reversed from/to order', () => {
+  const flows = [
+    { from: 'FR', to: 'DE', fromLon: 2, fromLat: 46, toLon: 10, toLat: 50 },
+  ];
+  const centroids = {};
+  const mid = corridorMidpoint('DE', 'FR', flows, centroids);
+  assert.equal(mid.lon, 6);
+  assert.equal(mid.lat, 48);
+});
+
+test('corridorMidpoint: falls back to centroid average when no flow', () => {
+  const centroids = { DE: { lon: 10, lat: 51 }, FR: { lon: 2, lat: 47 } };
+  const mid = corridorMidpoint('DE', 'FR', [], centroids);
+  assert.equal(mid.lon, 6);
+  assert.equal(mid.lat, 49);
+});
+
+test('corridorMidpoint: returns null when no flow and missing centroid', () => {
+  const mid = corridorMidpoint('XX', 'YY', [], {});
+  assert.equal(mid, null);
 });

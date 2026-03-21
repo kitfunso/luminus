@@ -649,7 +649,7 @@ export default function EnergyMap() {
             if (!info.object) return;
             const cid = corridorForLine(info.object.name);
             if (!cid) return;
-            // Find the matching flow and open CorridorPanel
+            // Find the matching flow and open CorridorPanel via the shared path
             const matchedFlow = flows.find(
               (f) => corridorId(f.from, f.to) === cid
             );
@@ -658,6 +658,10 @@ export default function EnergyMap() {
               setSelectedPlant(null);
               setSelectedCountryPrice(null);
               setSelectedTyndp(null);
+              setTimeSeriesAsset(null);
+              setShowAlerts(false);
+              setShowDashboard(false);
+              setShowPipeline(false);
             }
           },
         })
@@ -719,6 +723,10 @@ export default function EnergyMap() {
             setSelectedPlant(null);
             setSelectedCountryPrice(null);
             setSelectedTyndp(null);
+            setTimeSeriesAsset(null);
+            setShowAlerts(false);
+            setShowDashboard(false);
+            setShowPipeline(false);
           },
         })
       );
@@ -1003,13 +1011,62 @@ export default function EnergyMap() {
     }
   }, [plants, handleSearchSelectPlant]);
 
-  const handleSearchSelectCorridor = useCallback((from: string, to: string) => {
-    setTimeSeriesAsset({ kind: 'corridor', from, to });
+  /**
+   * Shared corridor-selection path used by map clicks, search, watchlist, and dashboard.
+   *
+   * Sets selectedFlow (opens CorridorPanel), clears conflicting panels,
+   * and flies the map to the corridor midpoint.
+   */
+  const selectCorridorFlow = useCallback((from: string, to: string) => {
+    // Find the matching flow record (order-independent)
+    const matchedFlow = flows.find(
+      (f) =>
+        (f.from === from && f.to === to) ||
+        (f.from === to && f.to === from)
+    );
+
+    // Open CorridorPanel via selectedFlow (primary richer path)
+    if (matchedFlow) {
+      setSelectedFlow(matchedFlow);
+    }
+
+    // Clear competing detail panels
     setSelectedPlant(null);
     setSelectedCountryPrice(null);
+    setSelectedTyndp(null);
+    setTimeSeriesAsset(null);
+
+    // Close full-screen overlay panels that would block the corridor view
     setShowAlerts(false);
     setShowDashboard(false);
-  }, []);
+    setShowPipeline(false);
+
+    // Focus map on corridor midpoint
+    const midLon = matchedFlow
+      ? (matchedFlow.fromLon + matchedFlow.toLon) / 2
+      : (() => {
+          const fc = COUNTRY_CENTROIDS[from];
+          const tc = COUNTRY_CENTROIDS[to];
+          return fc && tc ? (fc.lon + tc.lon) / 2 : null;
+        })();
+    const midLat = matchedFlow
+      ? (matchedFlow.fromLat + matchedFlow.toLat) / 2
+      : (() => {
+          const fc = COUNTRY_CENTROIDS[from];
+          const tc = COUNTRY_CENTROIDS[to];
+          return fc && tc ? (fc.lat + tc.lat) / 2 : null;
+        })();
+
+    if (midLon !== null && midLat !== null) {
+      setViewState((prev) => ({
+        ...prev,
+        latitude: midLat,
+        longitude: midLon,
+        // Zoom out slightly from current if too close; keep zoom if already wide
+        zoom: Math.min(Math.max(prev.zoom, 4), 6),
+      }));
+    }
+  }, [flows]);
 
   const handleScreenshot = useCallback(() => {
     try {
@@ -1237,7 +1294,7 @@ export default function EnergyMap() {
           forecasts={forecasts}
           projects={TYNDP_PROJECTS}
           onSelectCountry={(iso2) => { handleSearchSelectCountry(iso2); setShowDashboard(false); }}
-          onSelectCorridor={(from, to) => { handleSearchSelectCorridor(from, to); setShowDashboard(false); }}
+          onSelectCorridor={(from, to) => { selectCorridorFlow(from, to); }}
           onClose={() => setShowDashboard(false)}
         />
       )}
@@ -1300,7 +1357,7 @@ export default function EnergyMap() {
         }
         onSelectPlant={handleSearchSelectPlant}
         onSelectCountry={handleSearchSelectCountry}
-        onSelectCorridor={handleSearchSelectCorridor}
+        onSelectCorridor={selectCorridorFlow}
         onSelectWatchlistPlant={handleWatchlistSelectPlant}
         onOpenAlerts={() => { setShowAlerts(true); setShowDashboard(false); setShowPipeline(false); setTimeSeriesAsset(null); }}
         onOpenDashboard={() => { setShowDashboard(true); setShowAlerts(false); setShowPipeline(false); setTimeSeriesAsset(null); }}

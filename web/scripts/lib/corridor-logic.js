@@ -141,6 +141,43 @@ function matchCorridorLines(cid, lines) {
   return lines.filter((l) => names.includes(l.name));
 }
 
+/**
+ * Compute the geographic midpoint for a corridor from two country codes.
+ *
+ * Priority:
+ *   1. Arc midpoint from the live CrossBorderFlow record (most accurate).
+ *   2. Average of country centroids (fallback when no flow record exists).
+ *   3. Returns null when neither source has coordinates.
+ *
+ * @param {string} from - ISO2 country code
+ * @param {string} to   - ISO2 country code
+ * @param {Array<{ from: string, to: string, fromLon: number, fromLat: number, toLon: number, toLat: number }>} flows
+ * @param {Record<string, { lon: number, lat: number }>} centroids
+ * @returns {{ lon: number, lat: number } | null}
+ */
+function corridorMidpoint(from, to, flows, centroids) {
+  // 1. Flow record midpoint
+  const flow = flows && flows.find(
+    (f) => (f.from === from && f.to === to) || (f.from === to && f.to === from)
+  );
+  if (flow) {
+    return {
+      lon: (flow.fromLon + flow.toLon) / 2,
+      lat: (flow.fromLat + flow.toLat) / 2,
+    };
+  }
+  // 2. Country centroid average
+  const fc = centroids && centroids[from];
+  const tc = centroids && centroids[to];
+  if (fc && tc) {
+    return {
+      lon: (fc.lon + tc.lon) / 2,
+      lat: (fc.lat + tc.lat) / 2,
+    };
+  }
+  return null;
+}
+
 module.exports = {
   utilisationLevel,
   computeSpread,
@@ -150,4 +187,5 @@ module.exports = {
   CORRIDOR_LINE_MAP,
   corridorForLine,
   matchCorridorLines,
+  corridorMidpoint,
 };
