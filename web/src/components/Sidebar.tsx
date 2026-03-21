@@ -33,6 +33,8 @@ interface SidebarProps {
   zoomLevel: number;
   onScreenshot: () => void;
   onExportCSV: () => void;
+  mobileOpen: boolean;
+  onToggleMobile: () => void;
 }
 
 const CARD =
@@ -106,6 +108,8 @@ export default function Sidebar({
   zoomLevel,
   onScreenshot,
   onExportCSV,
+  mobileOpen,
+  onToggleMobile,
 }: SidebarProps) {
   const [showCountries, setShowCountries] = useState(false);
   const selectedCountryCount = selectedCountries?.size ?? availableCountries.length;
@@ -156,16 +160,50 @@ export default function Sidebar({
   }, [filteredPlants]);
 
   return (
-    <div className="absolute top-0 left-0 w-72 h-full z-10 pointer-events-none">
-      <div className="m-4 flex flex-col gap-3 pointer-events-auto max-h-[calc(100vh-2rem)] overflow-y-auto sidebar-scroll">
+    <div className="absolute inset-0 z-20 md:z-10 pointer-events-none">
+      <button
+        onClick={onToggleMobile}
+        className={`md:hidden absolute top-4 left-4 z-20 pointer-events-auto flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-black/70 px-3 py-2 text-sm text-white backdrop-blur-xl transition-all ${
+          mobileOpen ? 'opacity-0 pointer-events-none -translate-y-1' : 'opacity-100'
+        }`}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <line x1="4" y1="7" x2="20" y2="7" />
+          <line x1="4" y1="12" x2="20" y2="12" />
+          <line x1="4" y1="17" x2="20" y2="17" />
+        </svg>
+        Menu
+      </button>
+
+      <button
+        onClick={onToggleMobile}
+        aria-label="Close menu"
+        className={`md:hidden absolute inset-0 bg-black/45 transition-opacity ${
+          mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      />
+
+      <div className={`relative m-4 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 pointer-events-auto max-h-[calc(100vh-2rem)] overflow-y-auto sidebar-scroll transition-transform duration-200 ease-out md:translate-x-0 ${
+        mobileOpen ? 'translate-x-0' : '-translate-x-[calc(100%+1rem)]'
+      }`}>
         {/* Header */}
         <div className={`${CARD} p-5`}>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Luminus
-          </h1>
-          <p className="text-xs text-white/40 mt-1 font-medium tracking-widest uppercase">
-            European Energy Grid
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">
+                Luminus
+              </h1>
+              <p className="text-xs text-white/40 mt-1 font-medium tracking-widest uppercase">
+                European Energy Grid
+              </p>
+            </div>
+            <button
+              onClick={onToggleMobile}
+              className="md:hidden rounded-xl border border-white/[0.08] px-2 py-1 text-xs text-slate-400 hover:text-white"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
         {/* Stats Dashboard */}

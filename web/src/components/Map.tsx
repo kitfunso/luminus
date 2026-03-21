@@ -223,6 +223,7 @@ export default function EnergyMap() {
   // View state
   const [viewState, setViewState] = useState(DEFAULTS);
   const [zoomLevel, setZoomLevel] = useState(DEFAULTS.zoom);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Layer toggles
   const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(
@@ -710,6 +711,7 @@ export default function EnergyMap() {
 
   const handleToggleLayer = useCallback((layer: LayerKey) => {
     setLayerVisibility((prev) => ({ ...prev, [layer]: !prev[layer] }));
+    setMobileSidebarOpen(false);
   }, []);
 
   const handleToggleFuel = useCallback((fuel: string) => {
@@ -785,6 +787,7 @@ export default function EnergyMap() {
       }
       return !prev;
     });
+    setMobileSidebarOpen(false);
   }, []);
 
   const handleRemoveCompareCountry = useCallback((iso2: string) => {
@@ -962,6 +965,8 @@ export default function EnergyMap() {
         zoomLevel={zoomLevel}
         onScreenshot={handleScreenshot}
         onExportCSV={handleExportCSV}
+        mobileOpen={mobileSidebarOpen}
+        onToggleMobile={() => setMobileSidebarOpen((prev) => !prev)}
       />
     </div>
   );

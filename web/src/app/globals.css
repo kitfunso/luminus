@@ -306,3 +306,40 @@ body {
   color: #e2e8f0;
   border-color: rgba(56, 189, 248, 0.2);
 }
+
+@media (max-width: 767px) {
+  .plant-panel,
+  .outage-panel,
+  .forecast-panel,
+  .sparkline-panel,
+  .compare-panel {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+  }
+
+  .plant-panel,
+  .outage-panel,
+  .forecast-panel,
+  .compare-panel {
+    top: 76px;
+    max-height: calc(100vh - 88px);
+  }
+
+  .sparkline-panel {
+    bottom: 12px;
+  }
+
+  .time-scrubber {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    padding: 10px 12px;
+  }
+
+  .compare-card {
+    min-width: min(78vw, 260px);
+    max-width: min(78vw, 280px);
+  }
+}
