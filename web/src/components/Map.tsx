@@ -74,6 +74,24 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   history: false,
 };
 
+// Mobile gets a calmer first impression: price heatmap + flow arcs only.
+// Plants, lines, and gen-mix labels are revealed progressively as the user zooms in.
+const MOBILE_LAYER_DEFAULTS: Record<LayerKey, boolean> = {
+  plants: false,
+  prices: true,
+  flows: true,
+  lines: false,
+  tyndp: false,
+  genMix: false,
+  outages: false,
+  forecast: false,
+  history: false,
+};
+
+function isMobileViewport(): boolean {
+  return typeof window !== 'undefined' && window.innerWidth < 768;
+}
+
 function parseHashState(): {
   lat?: number;
   lon?: number;
@@ -201,10 +219,14 @@ function buildHash(
 
 const INITIAL_HASH_STATE = parseHashState();
 
+// Mobile starts at a slightly wider zoom so Europe fits without edge-to-edge clutter.
+const MOBILE_DEFAULT_ZOOM = 3.5;
+const DESKTOP_DEFAULT_ZOOM = 4;
+
 const DEFAULTS = {
   latitude: INITIAL_HASH_STATE?.lat ?? 50.5,
   longitude: INITIAL_HASH_STATE?.lon ?? 10.0,
-  zoom: INITIAL_HASH_STATE?.z ?? 4,
+  zoom: INITIAL_HASH_STATE?.z ?? (isMobileViewport() ? MOBILE_DEFAULT_ZOOM : DESKTOP_DEFAULT_ZOOM),
   pitch: 20,
   bearing: 0,
 };
@@ -235,9 +257,9 @@ export default function EnergyMap() {
   const [zoomLevel, setZoomLevel] = useState(DEFAULTS.zoom);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  // Layer toggles
+  // Layer toggles — mobile gets calmer defaults unless the URL hash already encodes layers
   const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(
-    () => INITIAL_HASH_STATE?.layers ?? DEFAULT_LAYER_VISIBILITY
+    () => INITIAL_HASH_STATE?.layers ?? (isMobileViewport() ? MOBILE_LAYER_DEFAULTS : DEFAULT_LAYER_VISIBILITY)
   );
 
   // Filters
@@ -492,17 +514,25 @@ export default function EnergyMap() {
 
   // --- Zoom-responsive visibility ---
 
+  // On mobile, raise the zoom floor for dense layers so they reveal progressively
+  // rather than colliding at the default wide view.
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const plantZoomFloor = isMobile ? 5 : 4;
+  const lineZoomFloor = isMobile ? 5 : 4;
+  const spreadLabelFloor = isMobile ? 5.5 : 4;
+  const spreadLabelCeil = isMobile ? 8 : 7;
+
   const effectiveVis = useMemo(
     () => ({
-      plants: layerVisibility.plants && zoomLevel >= 4,
+      plants: layerVisibility.plants && zoomLevel >= plantZoomFloor,
       prices: layerVisibility.prices,
       flows: layerVisibility.flows && zoomLevel >= 4,
-      lines: layerVisibility.lines && zoomLevel >= 4,
+      lines: layerVisibility.lines && zoomLevel >= lineZoomFloor,
       tyndp: layerVisibility.tyndp && zoomLevel >= 4,
       genMix: layerVisibility.genMix && zoomLevel < 6,
-      spreadLabels: layerVisibility.flows && zoomLevel >= 4 && zoomLevel < 7,
+      spreadLabels: layerVisibility.flows && zoomLevel >= spreadLabelFloor && zoomLevel < spreadLabelCeil,
     }),
-    [layerVisibility, zoomLevel]
+    [layerVisibility, zoomLevel, plantZoomFloor, lineZoomFloor, spreadLabelFloor, spreadLabelCeil]
   );
 
   // --- Layers ---
@@ -1193,10 +1223,10 @@ export default function EnergyMap() {
         </div>
       )}
 
-      {/* Compare mode toggle */}
+      {/* Compare mode toggle — hidden on mobile (use sidebar instead) */}
       <button
         onClick={handleToggleCompareMode}
-        className={`absolute bottom-6 right-4 px-3 py-1.5 rounded-full text-xs font-medium transition-all backdrop-blur-xl ${
+        className={`hidden md:flex absolute bottom-6 right-4 px-3 py-1.5 rounded-full text-xs font-medium transition-all backdrop-blur-xl ${
           compareMode
             ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
             : 'bg-black/60 text-slate-400 border border-white/[0.06] hover:text-white hover:border-white/10'
@@ -1344,6 +1374,68 @@ export default function EnergyMap() {
             handleToggleLayer('history');
           }}
         />
+      )}
+
+      {/* Mobile quick-action bar — bottom strip, only when no panel is active */}
+      {!mobileSidebarOpen &&
+        !showAlerts && !showDashboard && !showPipeline && !timeSeriesAsset &&
+        !selectedPlant && !selectedCountryPrice && !selectedFlow && !selectedTyndp &&
+        compareCountries.length === 0 && (
+        <div
+          className="md:hidden absolute bottom-0 left-0 right-0 flex items-center justify-around px-4 py-3 gap-2"
+          style={{
+            zIndex: 15,
+            background: 'linear-gradient(to top, rgba(10,14,23,0.92) 0%, rgba(10,14,23,0.6) 80%, transparent 100%)',
+          }}
+        >
+          <button
+            onClick={() => { setShowDashboard(true); setShowAlerts(false); setShowPipeline(false); setTimeSeriesAsset(null); }}
+            className="flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 transition-colors"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/[0.06] border border-white/[0.08]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" />
+              </svg>
+            </span>
+            <span className="text-[9px] font-medium tracking-wide">Brief</span>
+          </button>
+
+          <button
+            onClick={() => { setShowAlerts(true); setShowDashboard(false); setShowPipeline(false); setTimeSeriesAsset(null); }}
+            className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-400 transition-colors"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/[0.06] border border-white/[0.08]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+            </span>
+            <span className="text-[9px] font-medium tracking-wide">Alerts</span>
+          </button>
+
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            className="flex flex-col items-center gap-1 text-slate-400 hover:text-white transition-colors"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/[0.06] border border-white/[0.08]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="20" y2="18" />
+              </svg>
+            </span>
+            <span className="text-[9px] font-medium tracking-wide">Layers</span>
+          </button>
+
+          <button
+            onClick={() => { setShowPipeline(true); setShowDashboard(false); setShowAlerts(false); setTimeSeriesAsset(null); }}
+            className="flex flex-col items-center gap-1 text-slate-400 hover:text-emerald-400 transition-colors"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/[0.06] border border-white/[0.08]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+            </span>
+            <span className="text-[9px] font-medium tracking-wide">Pipeline</span>
+          </button>
+        </div>
       )}
 
       <Sidebar

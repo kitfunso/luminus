@@ -139,7 +139,7 @@ export default function Sidebar({
   onExportCSV,
   mobileOpen,
   onToggleMobile,
-  hasRightPanel,
+  hasRightPanel: _hasRightPanel,
   onSelectPlant,
   onSelectCountry,
   onSelectCorridor,
@@ -211,30 +211,35 @@ export default function Sidebar({
 
   return (
     <div className="absolute inset-0 z-20 md:z-10 pointer-events-none">
+      {/* Mobile trigger — hidden: the bottom action bar handles entry on mobile */}
       <button
         onClick={onToggleMobile}
-        className={`md:hidden absolute top-4 left-4 z-20 pointer-events-auto flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-black/70 px-3 py-2 text-sm text-white backdrop-blur-xl transition-all ${
-          mobileOpen || hasRightPanel ? 'opacity-0 pointer-events-none -translate-y-1' : 'opacity-100'
-        }`}
+        className={`hidden`}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
           <line x1="4" y1="7" x2="20" y2="7" />
           <line x1="4" y1="12" x2="20" y2="12" />
           <line x1="4" y1="17" x2="20" y2="17" />
         </svg>
-        Menu
+        <span className="font-semibold tracking-tight">Luminus</span>
+        {prices.length > 0 && (
+          <span className="ml-0.5 text-[10px] text-emerald-400/80 font-medium tabular-nums">
+            {prices.length} live
+          </span>
+        )}
       </button>
 
+      {/* Backdrop — blurred for a more premium feel */}
       <button
         onClick={onToggleMobile}
         aria-label="Close menu"
-        className={`md:hidden absolute inset-0 bg-black/45 transition-opacity ${
+        className={`md:hidden absolute inset-0 sidebar-backdrop transition-opacity duration-200 ${
           mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       />
 
-      <div className={`relative m-4 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 pointer-events-auto max-h-[calc(100vh-2rem)] overflow-y-auto sidebar-scroll transition-transform duration-200 ease-out md:translate-x-0 ${
-        mobileOpen ? 'translate-x-0' : '-translate-x-[calc(100%+1rem)]'
+      <div className={`relative m-4 md:m-4 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 pointer-events-auto max-h-[calc(100vh-2rem)] overflow-y-auto sidebar-scroll transition-all duration-200 ease-out md:translate-x-0 ${
+        mobileOpen ? 'translate-x-0 opacity-100' : '-translate-x-[calc(100%+1rem)] opacity-0 md:opacity-100'
       }`}>
         {/* Header */}
         <div className={`${CARD} p-5`}>

@@ -325,43 +325,109 @@ body {
   border-color: rgba(56, 189, 248, 0.2);
 }
 
+/* -----------------------------------------------------------------------
+   Mobile sheet panels
+   All right-side detail panels become bottom-anchored sheets on phones.
+   A drag handle pill is rendered via ::before on the shared .mobile-sheet
+   class so the HTML stays clean.
+   ----------------------------------------------------------------------- */
+
+.mobile-sheet-handle::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.25);
+  margin: 0 auto 12px;
+}
+
 @media (max-width: 767px) {
+  /* Full-width, bottom-anchored sheet for all detail panels */
   .plant-panel,
   .outage-panel,
   .forecast-panel,
-  .sparkline-panel,
   .compare-panel,
   .corridor-panel,
   .right-panel {
-    left: 12px;
-    right: 12px;
-    width: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    width: 100%;
     max-width: none;
+    border-radius: 20px 20px 0 0;
+    padding: 0 16px 20px;
+    max-height: 72vh;
+    box-shadow: 0 -8px 48px rgba(0, 0, 0, 0.7), 0 -1px 0 rgba(255,255,255,0.06);
+    animation: slideInUp 0.22s cubic-bezier(0.34, 1.08, 0.64, 1);
   }
 
-  .plant-panel,
-  .outage-panel,
-  .forecast-panel,
-  .compare-panel,
-  .corridor-panel,
-  .right-panel {
-    top: 76px;
-    max-height: calc(100vh - 88px);
+  /* Sheet inner padding-top: the handle replaces the top gap */
+  .plant-panel > *:first-child,
+  .outage-panel > *:first-child,
+  .forecast-panel > *:first-child,
+  .compare-panel > *:first-child,
+  .corridor-panel > *:first-child,
+  .right-panel > *:first-child {
+    padding-top: 16px;
+  }
+
+  /* Insert the drag handle pill at the top of each sheet */
+  .plant-panel::before,
+  .outage-panel::before,
+  .forecast-panel::before,
+  .compare-panel::before,
+  .corridor-panel::before,
+  .right-panel::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(148, 163, 184, 0.2);
+    margin: 10px auto 4px;
+    flex-shrink: 0;
   }
 
   .sparkline-panel {
-    bottom: 12px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+    padding: 8px 16px 20px;
+    box-shadow: 0 -8px 48px rgba(0, 0, 0, 0.7);
+  }
+
+  .sparkline-panel::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(148, 163, 184, 0.2);
+    margin: 0 auto 8px;
   }
 
   .time-scrubber {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    padding: 10px 12px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+    padding: 10px 16px 20px;
+    box-shadow: 0 -8px 48px rgba(0, 0, 0, 0.7);
   }
 
   .compare-card {
     min-width: min(78vw, 260px);
     max-width: min(78vw, 280px);
+  }
+
+  /* Soften the sidebar backdrop to feel intentional, not accidental */
+  .sidebar-backdrop {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
   }
 }
