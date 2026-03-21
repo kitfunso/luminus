@@ -294,3 +294,101 @@ test('forecast_miss rule never fires (forecasts not wired into evaluate)', () =>
   const fired = store.evaluate({ DE: 999 }, {}, new Set());
   assert.equal(fired.length, 0, 'forecast_miss must not fire: forecast data not wired into evaluate()');
 });
+
+// ---- History label truthfulness ----
+
+/**
+ * historyLabel(days) must return a string that exactly reflects `days`, not a
+ * hard-coded constant like "7d". This is the logic extracted from AssetTimeSeries.
+ */
+function historyLabel(days) {
+  return `${days}d price history`;
+}
+
+/**
+ * historySlice(hourly, days) returns the last `days * 24` values from the hourly array,
+ * so the sparkline never shows more data than the bundle actually contains.
+ */
+function historySlice(hourly, days) {
+  return hourly.slice(-(days * 24));
+}
+
+test('historyLabel reflects actual days (not a hard-coded 7d)', () => {
+  assert.equal(historyLabel(3), '3d price history');
+  assert.equal(historyLabel(7), '7d price history');
+  assert.equal(historyLabel(1), '1d price history');
+});
+
+test('historySlice returns at most days*24 values', () => {
+  const hourly = Array.from({ length: 72 }, (_, i) => i); // 3 days
+  const slice3d = historySlice(hourly, 3);
+  assert.equal(slice3d.length, 72);
+  const slice1d = historySlice(hourly, 1);
+  assert.equal(slice1d.length, 24);
+  // Requesting 7d from 3d data returns all 72h (capped by array length)
+  const slice7d = historySlice(hourly, 7);
+  assert.equal(slice7d.length, 72, 'cannot exceed available data');
+});
+
+test('historySlice returns the most recent values', () => {
+  const hourly = [10, 20, 30, 40, 50];
+  const slice = historySlice(hourly, 1); // 1d = 24h but only 5 values available
+  // slice(-(24)) on a 5-element array returns all 5
+  assert.deepEqual(slice, [10, 20, 30, 40, 50]);
+  const slice2 = historySlice([1, 2, 3, 4], 0); // 0d → slice(0) = all
+  assert.deepEqual(slice2, [1, 2, 3, 4]);
+});
+
+// ---- Watchlist plant selection ----
+
+/**
+ * handleSelect() for plant items must call onSelectPlant, not silently no-op.
+ * This is a unit test of the selection routing logic extracted from WatchlistPanel.
+ */
+function makeSelectRouter({ onSelectCountry, onSelectCorridor, onSelectPlant }) {
+  return function handleSelect(item) {
+    if (item.type === 'country' && item.iso2) {
+      onSelectCountry(item.iso2);
+    } else if (item.type === 'corridor' && item.from && item.to) {
+      onSelectCorridor(item.from, item.to);
+    } else if (item.type === 'plant') {
+      onSelectPlant(item);
+    }
+  };
+}
+
+test('watchlist plant selection calls onSelectPlant', () => {
+  let called = null;
+  const router = makeSelectRouter({
+    onSelectCountry: () => {},
+    onSelectCorridor: () => {},
+    onSelectPlant: (item) => { called = item; },
+  });
+  const plantItem = { id: 'plant:drax', type: 'plant', label: 'Drax', iso2: 'GB', subLabel: 'Hard Coal' };
+  router(plantItem);
+  assert.ok(called !== null, 'onSelectPlant must be called for plant items');
+  assert.equal(called.id, 'plant:drax');
+});
+
+test('watchlist country selection calls onSelectCountry', () => {
+  let called = null;
+  const router = makeSelectRouter({
+    onSelectCountry: (iso2) => { called = iso2; },
+    onSelectCorridor: () => {},
+    onSelectPlant: () => {},
+  });
+  router({ type: 'country', iso2: 'DE', label: 'Germany' });
+  assert.equal(called, 'DE');
+});
+
+test('watchlist corridor selection calls onSelectCorridor', () => {
+  let from = null; let to = null;
+  const router = makeSelectRouter({
+    onSelectCountry: () => {},
+    onSelectCorridor: (f, t) => { from = f; to = t; },
+    onSelectPlant: () => {},
+  });
+  router({ type: 'corridor', from: 'DE', to: 'FR', label: 'DE → FR' });
+  assert.equal(from, 'DE');
+  assert.equal(to, 'FR');
+});

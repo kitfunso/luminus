@@ -905,6 +905,28 @@ export default function EnergyMap() {
     setShowDashboard(false);
   }, []);
 
+  // Watchlist plant selection: look up the full PowerPlant record by label, fall back
+  // to flying to the country centroid when the plant is not in the current plants array.
+  const handleWatchlistSelectPlant = useCallback((item: { label: string; iso2?: string }) => {
+    const found = plants.find(
+      (p) => p.name.toLowerCase() === item.label.toLowerCase()
+    );
+    if (found) {
+      handleSearchSelectPlant(found);
+    } else if (item.iso2) {
+      // Plant not in current dataset (filtered out or data missing) — fly to its country
+      const centroid = COUNTRY_CENTROIDS[item.iso2];
+      if (centroid) {
+        setViewState((prev) => ({
+          ...prev,
+          latitude: centroid.lat,
+          longitude: centroid.lon,
+          zoom: Math.max(prev.zoom, 6),
+        }));
+      }
+    }
+  }, [plants, handleSearchSelectPlant]);
+
   const handleSearchSelectCorridor = useCallback((from: string, to: string) => {
     setTimeSeriesAsset({ kind: 'corridor', from, to });
     setSelectedPlant(null);
@@ -1178,9 +1200,17 @@ export default function EnergyMap() {
         onExportCSV={handleExportCSV}
         mobileOpen={mobileSidebarOpen}
         onToggleMobile={() => setMobileSidebarOpen((prev) => !prev)}
+        hasRightPanel={
+          !!(timeSeriesAsset || showAlerts || showDashboard ||
+             selectedPlant || selectedCountryPrice || selectedFlow ||
+             selectedTyndp || compareCountries.length > 0 ||
+             (layerVisibility.outages && !layerVisibility.forecast && !selectedPlant && !selectedCountryPrice && !selectedFlow && !selectedTyndp) ||
+             (layerVisibility.forecast && !selectedPlant && !selectedCountryPrice && !selectedFlow && !selectedTyndp))
+        }
         onSelectPlant={handleSearchSelectPlant}
         onSelectCountry={handleSearchSelectCountry}
         onSelectCorridor={handleSearchSelectCorridor}
+        onSelectWatchlistPlant={handleWatchlistSelectPlant}
         onOpenAlerts={() => { setShowAlerts(true); setShowDashboard(false); setTimeSeriesAsset(null); }}
         onOpenDashboard={() => { setShowDashboard(true); setShowAlerts(false); setTimeSeriesAsset(null); }}
         onOpenTimeSeries={handleOpenTimeSeries}

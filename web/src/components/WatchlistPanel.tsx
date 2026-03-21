@@ -9,6 +9,7 @@ interface WatchlistPanelProps {
   flows: CrossBorderFlow[];
   onSelectCountry: (iso2: string) => void;
   onSelectCorridor: (from: string, to: string) => void;
+  onSelectPlant: (item: WatchlistItem) => void;
   /** Increment this from parent to force a re-read of localStorage */
   version: number;
 }
@@ -84,7 +85,7 @@ function ItemRow({
   );
 }
 
-export default function WatchlistPanel({ prices, flows, onSelectCountry, onSelectCorridor, version }: WatchlistPanelProps) {
+export default function WatchlistPanel({ prices, flows, onSelectCountry, onSelectCorridor, onSelectPlant, version }: WatchlistPanelProps) {
   const [items, setItems] = useState<WatchlistItem[]>([]);
 
   useEffect(() => {
@@ -100,8 +101,9 @@ export default function WatchlistPanel({ prices, flows, onSelectCountry, onSelec
       onSelectCountry(item.iso2);
     } else if (item.type === 'corridor' && item.from && item.to) {
       onSelectCorridor(item.from, item.to);
+    } else if (item.type === 'plant') {
+      onSelectPlant(item);
     }
-    // plant selection is handled by parent via map click — watchlist is navigation aid
   }
 
   if (items.length === 0) {

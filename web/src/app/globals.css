@@ -331,7 +331,8 @@ body {
   .forecast-panel,
   .sparkline-panel,
   .compare-panel,
-  .corridor-panel {
+  .corridor-panel,
+  .right-panel {
     left: 12px;
     right: 12px;
     width: auto;
@@ -342,7 +343,8 @@ body {
   .outage-panel,
   .forecast-panel,
   .compare-panel,
-  .corridor-panel {
+  .corridor-panel,
+  .right-panel {
     top: 76px;
     max-height: calc(100vh - 88px);
   }

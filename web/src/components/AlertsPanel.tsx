@@ -128,7 +128,7 @@ export default function AlertsPanel({ onClose }: AlertsPanelProps) {
 
   return (
     <div
-      className="absolute right-4 bg-[#0a0e17]/92 backdrop-blur-xl border border-white/[0.06] rounded-2xl shadow-2xl w-[300px] max-h-[calc(100vh-32px)] flex flex-col"
+      className="right-panel absolute right-4 bg-[#0a0e17]/92 backdrop-blur-xl border border-white/[0.06] rounded-2xl shadow-2xl w-[300px] max-h-[calc(100vh-32px)] flex flex-col"
       style={{ top: 16, zIndex: 15, animation: 'slideInRight 0.2s ease-out' }}
     >
       {/* Header */}

@@ -83,13 +83,13 @@ export default function AssetTimeSeries({ asset, prices, flows, history, onClose
     return prices.find((p) => p.iso2 === asset.iso2) ?? null;
   }, [asset, prices]);
 
-  // 7d history for country (from history.json)
+  // Price history for country (from history.json) — slice to actual bundle size
   const historyValues = useMemo(() => {
     if (asset.kind !== 'country' || !history) return null;
     const entry = history.countries.find((c) => c.iso2 === asset.iso2);
     if (!entry) return null;
-    // history.hourly is days*24 hours; return last 7d = 168h
-    return entry.hourly.slice(-168);
+    // Use history.days so the slice never overclaims more data than the bundle holds
+    return entry.hourly.slice(-(history.days * 24));
   }, [asset, history]);
 
   // Corridor flow: just the 24h contextual series (synthesised from current MW)
@@ -115,7 +115,7 @@ export default function AssetTimeSeries({ asset, prices, flows, history, onClose
 
   return (
     <div
-      className="absolute right-4 bg-[#0a0e17]/92 backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 shadow-2xl w-[300px] max-h-[calc(100vh-32px)] overflow-y-auto sidebar-scroll"
+      className="right-panel absolute right-4 bg-[#0a0e17]/92 backdrop-blur-xl border border-white/[0.06] rounded-2xl p-4 shadow-2xl w-[300px] max-h-[calc(100vh-32px)] overflow-y-auto sidebar-scroll"
       style={{ top: 16, zIndex: 15, animation: 'slideInRight 0.2s ease-out' }}
     >
       <button
@@ -141,12 +141,12 @@ export default function AssetTimeSeries({ asset, prices, flows, history, onClose
           />
         )}
 
-        {/* 7d price history for country */}
+        {/* Price history for country — label derived from actual bundle window */}
         {asset.kind === 'country' && historyValues && historyValues.length > 1 && (
           <Sparkline
             values={historyValues}
             color="rgb(167,139,250)"
-            label="7d price history"
+            label={`${history!.days}d price history`}
             unit="€/MWh"
           />
         )}

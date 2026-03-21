@@ -11,6 +11,7 @@ import {
 import type { PowerPlant, CountryPrice, CrossBorderFlow } from '@/lib/data-fetcher';
 import SearchBar from './SearchBar';
 import WatchlistPanel from './WatchlistPanel';
+import type { WatchlistItem } from '@/lib/watchlist';
 
 export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix' | 'outages' | 'forecast' | 'history';
 
@@ -37,10 +38,13 @@ interface SidebarProps {
   onExportCSV: () => void;
   mobileOpen: boolean;
   onToggleMobile: () => void;
+  /** True when any right-side panel is visible; hides the floating Menu button on mobile to avoid overlap */
+  hasRightPanel: boolean;
   // Sprint 4 additions
   onSelectPlant: (plant: PowerPlant) => void;
   onSelectCountry: (iso2: string) => void;
   onSelectCorridor: (from: string, to: string) => void;
+  onSelectWatchlistPlant: (item: WatchlistItem) => void;
   onOpenAlerts: () => void;
   onOpenDashboard: () => void;
   onOpenTimeSeries: (iso2: string) => void;
@@ -122,9 +126,11 @@ export default function Sidebar({
   onExportCSV,
   mobileOpen,
   onToggleMobile,
+  hasRightPanel,
   onSelectPlant,
   onSelectCountry,
   onSelectCorridor,
+  onSelectWatchlistPlant,
   onOpenAlerts,
   onOpenDashboard,
   onOpenTimeSeries,
@@ -184,7 +190,7 @@ export default function Sidebar({
       <button
         onClick={onToggleMobile}
         className={`md:hidden absolute top-4 left-4 z-20 pointer-events-auto flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-black/70 px-3 py-2 text-sm text-white backdrop-blur-xl transition-all ${
-          mobileOpen ? 'opacity-0 pointer-events-none -translate-y-1' : 'opacity-100'
+          mobileOpen || hasRightPanel ? 'opacity-0 pointer-events-none -translate-y-1' : 'opacity-100'
         }`}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -265,6 +271,7 @@ export default function Sidebar({
             flows={flows}
             onSelectCountry={(iso2) => { onSelectCountry(iso2); onOpenTimeSeries(iso2); if (mobileOpen) onToggleMobile(); }}
             onSelectCorridor={(from, to) => { onSelectCorridor(from, to); if (mobileOpen) onToggleMobile(); }}
+            onSelectPlant={(item) => { onSelectWatchlistPlant(item); if (mobileOpen) onToggleMobile(); }}
             version={watchlistVersion}
           />
         </div>
