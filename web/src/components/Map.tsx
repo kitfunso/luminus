@@ -42,38 +42,146 @@ import { TYNDP_PROJECTS, type TyndpProject } from '@/lib/tyndp';
 
 // --- URL hash state ---
 
+const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
+  plants: true,
+  prices: true,
+  flows: true,
+  lines: false,
+  tyndp: false,
+  genMix: true,
+};
+
 function parseHashState(): {
   lat?: number;
   lon?: number;
   z?: number;
+  cap?: number;
+  fuels?: Set<string>;
+  countries?: Set<string>;
+  layers?: Record<LayerKey, boolean>;
 } | null {
   if (typeof window === 'undefined') return null;
   const hash = window.location.hash.slice(1);
   if (!hash) return null;
+
   const params = new URLSearchParams(hash);
-  const result: { lat?: number; lon?: number; z?: number } = {};
+  const result: {
+    lat?: number;
+    lon?: number;
+    z?: number;
+    cap?: number;
+    fuels?: Set<string>;
+    countries?: Set<string>;
+    layers?: Record<LayerKey, boolean>;
+  } = {};
+
   if (params.has('lat')) result.lat = parseFloat(params.get('lat')!);
   if (params.has('lon')) result.lon = parseFloat(params.get('lon')!);
   if (params.has('z')) result.z = parseFloat(params.get('z')!);
+  if (params.has('cap')) result.cap = parseFloat(params.get('cap')!);
+
+  const fuels = params.get('fuels');
+  if (fuels !== null) {
+    result.fuels = new Set(
+      fuels
+        .split(',')
+        .map((fuel) => fuel.trim())
+        .filter(Boolean)
+    );
+  }
+
+  const countries = params.get('countries');
+  if (countries !== null) {
+    result.countries = new Set(
+      countries === 'none'
+        ? []
+        : countries
+            .split(',')
+            .map((code) => code.trim())
+            .filter(Boolean)
+    );
+  }
+
+  const layers = params.get('layers');
+  if (layers !== null) {
+    const enabled = new Set(
+      layers
+        .split(',')
+        .map((layer) => layer.trim())
+        .filter(Boolean)
+    );
+    result.layers = {
+      plants: enabled.has('plants'),
+      prices: enabled.has('prices'),
+      flows: enabled.has('flows'),
+      lines: enabled.has('lines'),
+      tyndp: enabled.has('tyndp'),
+      genMix: enabled.has('genMix'),
+    };
+  }
+
   return Object.keys(result).length > 0 ? result : null;
 }
 
-function buildHash(lat: number, lon: number, zoom: number): string {
-  return `#lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}&z=${zoom.toFixed(1)}`;
+function buildHash(
+  lat: number,
+  lon: number,
+  zoom: number,
+  minCapacity: number,
+  selectedFuels: Set<string>,
+  selectedCountries: Set<string> | null,
+  layerVisibility: Record<LayerKey, boolean>
+): string {
+  const params = new URLSearchParams({
+    lat: lat.toFixed(2),
+    lon: lon.toFixed(2),
+    z: zoom.toFixed(1),
+  });
+
+  if (minCapacity !== 50) {
+    params.set('cap', String(minCapacity));
+  }
+
+  if (selectedFuels.size !== FILTER_FUELS.length) {
+    params.set('fuels', [...selectedFuels].sort().join(','));
+  }
+
+  if (selectedCountries !== null) {
+    params.set(
+      'countries',
+      selectedCountries.size > 0
+        ? [...selectedCountries].sort().join(',')
+        : 'none'
+    );
+  }
+
+  const defaultLayers = JSON.stringify(DEFAULT_LAYER_VISIBILITY);
+  const currentLayers = JSON.stringify(layerVisibility);
+  if (currentLayers !== defaultLayers) {
+    params.set(
+      'layers',
+      (Object.entries(layerVisibility) as [LayerKey, boolean][])
+        .filter(([, enabled]) => enabled)
+        .map(([layer]) => layer)
+        .sort()
+        .join(',')
+    );
+  }
+
+  return `#${params.toString()}`;
 }
 
 // --- Constants ---
 
-const DEFAULTS = (() => {
-  const h = parseHashState();
-  return {
-    latitude: h?.lat ?? 50.5,
-    longitude: h?.lon ?? 10.0,
-    zoom: h?.z ?? 4,
-    pitch: 20,
-    bearing: 0,
-  };
-})();
+const INITIAL_HASH_STATE = parseHashState();
+
+const DEFAULTS = {
+  latitude: INITIAL_HASH_STATE?.lat ?? 50.5,
+  longitude: INITIAL_HASH_STATE?.lon ?? 10.0,
+  zoom: INITIAL_HASH_STATE?.z ?? 4,
+  pitch: 20,
+  bearing: 0,
+};
 
 const MAP_STYLE =
   'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
@@ -97,22 +205,17 @@ export default function EnergyMap() {
   const [zoomLevel, setZoomLevel] = useState(DEFAULTS.zoom);
 
   // Layer toggles
-  const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>({
-    plants: true,
-    prices: true,
-    flows: true,
-    lines: false,
-    tyndp: false,
-    genMix: true,
-  });
+  const [layerVisibility, setLayerVisibility] = useState<Record<LayerKey, boolean>>(
+    () => INITIAL_HASH_STATE?.layers ?? DEFAULT_LAYER_VISIBILITY
+  );
 
   // Filters
   const [selectedFuels, setSelectedFuels] = useState<Set<string>>(
-    () => new Set(FILTER_FUELS)
+    () => INITIAL_HASH_STATE?.fuels ?? new Set(FILTER_FUELS)
   );
-  const [minCapacity, setMinCapacity] = useState(50);
-  const [selectedCountries, setSelectedCountries] = useState<Set<string>>(
-    new Set()
+  const [minCapacity, setMinCapacity] = useState(INITIAL_HASH_STATE?.cap ?? 50);
+  const [selectedCountries, setSelectedCountries] = useState<Set<string> | null>(
+    () => INITIAL_HASH_STATE?.countries ?? null
   );
 
   // Detail panels
@@ -173,7 +276,11 @@ export default function EnergyMap() {
         const newHash = buildHash(
           viewState.latitude,
           viewState.longitude,
-          viewState.zoom
+          viewState.zoom,
+          minCapacity,
+          selectedFuels,
+          selectedCountries,
+          layerVisibility
         );
         window.history.replaceState(null, '', newHash);
       }
@@ -181,7 +288,15 @@ export default function EnergyMap() {
     return () => {
       if (hashTimer.current) clearTimeout(hashTimer.current);
     };
-  }, [viewState.latitude, viewState.longitude, viewState.zoom]);
+  }, [
+    viewState.latitude,
+    viewState.longitude,
+    viewState.zoom,
+    minCapacity,
+    selectedFuels,
+    selectedCountries,
+    layerVisibility,
+  ]);
 
   // --- Filtered data ---
 
@@ -191,8 +306,9 @@ export default function EnergyMap() {
       const filterCat = FUEL_FILTER_MAP[fuel] || 'other';
       if (!selectedFuels.has(filterCat)) return false;
       if (p.capacity < minCapacity) return false;
-      if (selectedCountries.size > 0 && !selectedCountries.has(p.country))
+      if (selectedCountries !== null && !selectedCountries.has(p.country)) {
         return false;
+      }
       return true;
     });
   }, [plants, selectedFuels, minCapacity, selectedCountries]);
@@ -537,11 +653,26 @@ export default function EnergyMap() {
 
   const handleToggleCountry = useCallback((code: string) => {
     setSelectedCountries((prev) => {
-      const next = new Set(prev);
+      const allCountries = availableCountries.map(({ code }) => code);
+      const next = new Set(prev ?? allCountries);
+
       if (next.has(code)) next.delete(code);
       else next.add(code);
+
+      if (next.size === allCountries.length) {
+        return null;
+      }
+
       return next;
     });
+  }, [availableCountries]);
+
+  const handleSelectAllCountries = useCallback(() => {
+    setSelectedCountries(null);
+  }, []);
+
+  const handleClearCountries = useCallback(() => {
+    setSelectedCountries(new Set());
   }, []);
 
   const handleScreenshot = useCallback(() => {
@@ -658,6 +789,8 @@ export default function EnergyMap() {
         onSetMinCapacity={handleSetMinCapacity}
         selectedCountries={selectedCountries}
         onToggleCountry={handleToggleCountry}
+        onSelectAllCountries={handleSelectAllCountries}
+        onClearCountries={handleClearCountries}
         availableCountries={availableCountries}
         zoomLevel={zoomLevel}
         onScreenshot={handleScreenshot}

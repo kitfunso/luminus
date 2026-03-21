@@ -24,8 +24,10 @@ interface SidebarProps {
   onToggleFuel: (fuel: string) => void;
   minCapacity: number;
   onSetMinCapacity: (value: number) => void;
-  selectedCountries: Set<string>;
+  selectedCountries: Set<string> | null;
   onToggleCountry: (code: string) => void;
+  onSelectAllCountries: () => void;
+  onClearCountries: () => void;
   availableCountries: { code: string; name: string }[];
   zoomLevel: number;
   onScreenshot: () => void;
@@ -96,12 +98,15 @@ export default function Sidebar({
   onSetMinCapacity,
   selectedCountries,
   onToggleCountry,
+  onSelectAllCountries,
+  onClearCountries,
   availableCountries,
   zoomLevel,
   onScreenshot,
   onExportCSV,
 }: SidebarProps) {
   const [showCountries, setShowCountries] = useState(false);
+  const selectedCountryCount = selectedCountries?.size ?? availableCountries.length;
 
   // Aggregate stats from filtered data
   const stats = useMemo(() => {
@@ -315,11 +320,9 @@ export default function Sidebar({
             >
               <span>
                 Countries{' '}
-                {selectedCountries.size > 0 && (
-                  <span className="text-sky-400 ml-1">
-                    ({selectedCountries.size})
-                  </span>
-                )}
+                <span className="text-sky-400 ml-1">
+                  ({selectedCountryCount})
+                </span>
               </span>
               <span className="text-[10px]">
                 {showCountries ? '\u25B4' : '\u25BE'}
@@ -330,25 +333,13 @@ export default function Sidebar({
               <div className="mt-2">
                 <div className="flex gap-2 mb-2">
                   <button
-                    onClick={() => {
-                      for (const c of availableCountries) {
-                        if (selectedCountries.has(c.code)) {
-                          onToggleCountry(c.code);
-                        }
-                      }
-                    }}
+                    onClick={onSelectAllCountries}
                     className="text-[10px] text-sky-400 hover:text-sky-300"
                   >
                     All
                   </button>
                   <button
-                    onClick={() => {
-                      for (const c of availableCountries) {
-                        if (!selectedCountries.has(c.code)) {
-                          onToggleCountry(c.code);
-                        }
-                      }
-                    }}
+                    onClick={onClearCountries}
                     className="text-[10px] text-slate-500 hover:text-slate-400"
                   >
                     None
@@ -363,7 +354,7 @@ export default function Sidebar({
                       <input
                         type="checkbox"
                         checked={
-                          selectedCountries.size === 0 ||
+                          selectedCountries === null ||
                           selectedCountries.has(code)
                         }
                         onChange={() => onToggleCountry(code)}
