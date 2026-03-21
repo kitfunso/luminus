@@ -19,6 +19,7 @@ import Tooltip, { type TooltipData } from './Tooltip';
 import PlantPanel from './PlantPanel';
 import PriceSparkline from './PriceSparkline';
 import ComparePanel from './ComparePanel';
+import OutageRadar from './OutageRadar';
 import {
   getFuelColor,
   normalizeFuel,
@@ -34,10 +35,12 @@ import {
   fetchDayAheadPrices,
   fetchCrossBorderFlows,
   fetchTransmissionLines,
+  fetchOutages,
   type PowerPlant,
   type CountryPrice,
   type CrossBorderFlow,
   type TransmissionLine,
+  type CountryOutage,
 } from '@/lib/data-fetcher';
 import { TYNDP_PROJECTS, type TyndpProject } from '@/lib/tyndp';
 
@@ -50,6 +53,7 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   lines: false,
   tyndp: false,
   genMix: true,
+  outages: false,
 };
 
 function parseHashState(): {
@@ -118,6 +122,7 @@ function parseHashState(): {
       lines: enabled.has('lines'),
       tyndp: enabled.has('tyndp'),
       genMix: enabled.has('genMix'),
+      outages: enabled.has('outages'),
     };
   }
 
@@ -196,6 +201,7 @@ export default function EnergyMap() {
   const [prices, setPrices] = useState<CountryPrice[]>([]);
   const [flows, setFlows] = useState<CrossBorderFlow[]>([]);
   const [transmissionLines, setTransmissionLines] = useState<TransmissionLine[]>([]);
+  const [outages, setOutages] = useState<CountryOutage[]>([]);
   const [geoJson, setGeoJson] = useState<any>(null);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [lastUpdate, setLastUpdate] = useState('loading...');
@@ -236,16 +242,18 @@ export default function EnergyMap() {
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
-    const [plantsData, pricesData, flowsData, linesData] = await Promise.all([
+    const [plantsData, pricesData, flowsData, linesData, outagesData] = await Promise.all([
       fetchPowerPlants(),
       fetchDayAheadPrices(),
       fetchCrossBorderFlows(),
       fetchTransmissionLines(),
+      fetchOutages(),
     ]);
     setPlants(plantsData);
     setPrices(pricesData);
     setFlows(flowsData);
     setTransmissionLines(linesData);
+    setOutages(outagesData);
     setLastUpdate(new Date().toLocaleTimeString());
     setIsLoading(false);
   }, []);
@@ -878,6 +886,15 @@ export default function EnergyMap() {
               countryName={selectedCountryPrice.country}
               avgPrice={selectedCountryPrice.price}
               onClose={() => setSelectedCountryPrice(null)}
+            />
+          )}
+
+          {/* Outage radar panel */}
+          {layerVisibility.outages && !selectedPlant && !selectedCountryPrice && (
+            <OutageRadar
+              outages={outages}
+              plants={plants}
+              onClose={() => handleToggleLayer('outages')}
             />
           )}
         </>

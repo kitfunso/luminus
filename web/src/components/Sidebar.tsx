@@ -10,7 +10,7 @@ import {
 } from '@/lib/colors';
 import type { PowerPlant, CountryPrice, CrossBorderFlow } from '@/lib/data-fetcher';
 
-export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix';
+export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix' | 'outages';
 
 interface SidebarProps {
   plants: PowerPlant[];
@@ -435,6 +435,11 @@ export default function Sidebar({
               checked={layerVisibility.genMix}
               onChange={() => onToggleLayer('genMix')}
               label="Generation Mix"
+            />
+            <Toggle
+              checked={layerVisibility.outages}
+              onChange={() => onToggleLayer('outages')}
+              label="Outage Radar"
             />
           </div>
         </div>

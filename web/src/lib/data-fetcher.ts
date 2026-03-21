@@ -32,6 +32,23 @@ export interface CrossBorderFlow {
   capacityMW: number;
 }
 
+export interface OutageEntry {
+  name: string;
+  fuel: string;
+  unavailableMW: number;
+  type: 'planned' | 'unplanned';
+  start: string;
+  expectedReturn: string;
+}
+
+export interface CountryOutage {
+  country: string;
+  iso2: string;
+  unavailableMW: number;
+  outageCount: number;
+  topOutages: OutageEntry[];
+}
+
 /** Try to load a bundled JSON file (generated at build time), return null on failure */
 async function loadBundled<T>(path: string): Promise<T | null> {
   try {
@@ -78,6 +95,12 @@ export async function fetchCrossBorderFlows(): Promise<CrossBorderFlow[]> {
 /** Fetch transmission lines: bundled JSON */
 export async function fetchTransmissionLines(): Promise<TransmissionLine[]> {
   const bundled = await loadBundled<TransmissionLine[]>('/data/transmission-lines.json');
+  return bundled ?? [];
+}
+
+/** Fetch generation outages: bundled JSON */
+export async function fetchOutages(): Promise<CountryOutage[]> {
+  const bundled = await loadBundled<CountryOutage[]>('/data/outages.json');
   return bundled ?? [];
 }
 

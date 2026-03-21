@@ -5,6 +5,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { extractXmlDocumentsFromZipBuffer, parseCurrentGenerationOutage } = require('./lib/entsoe-outages');
 
 const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
 const WRI_URL =
@@ -418,6 +419,89 @@ async function fetchAllFlows() {
   return flows.length > 0 ? flows : null;
 }
 
+// --- ENTSO-E outages ---
+
+const OUTAGE_COUNTRIES = Object.keys(COUNTRY_NAMES);
+
+/** Extract XML documents from an ENTSO-E response (raw XML or ZIP archive). */
+async function extractEntsoeXmlDocuments(res) {
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('zip') || ct.includes('octet-stream')) {
+    const buf = Buffer.from(await res.arrayBuffer());
+    return extractXmlDocumentsFromZipBuffer(buf);
+  }
+  return [await res.text()];
+}
+
+async function fetchCountryOutages(iso2) {
+  const eic = ISO2_TO_EIC[iso2];
+  if (!eic) return null;
+
+  const now = new Date();
+  const windowStart = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    0,
+    0,
+    0
+  ));
+  const windowEnd = new Date(windowStart);
+  windowEnd.setUTCDate(windowEnd.getUTCDate() + 2);
+
+  const params = new URLSearchParams({
+    securityToken: ENTSOE_KEY,
+    documentType: 'A80',
+    biddingZone_Domain: eic,
+    periodStart: formatEntsoeDate(windowStart),
+    periodEnd: formatEntsoeDate(windowEnd),
+  });
+
+  try {
+    const res = await fetchWithTimeout(`${ENTSOE_API}?${params}`);
+    if (!res.ok) return null;
+
+    const docs = await extractEntsoeXmlDocuments(res);
+    const outages = docs
+      .map((xml) => parseCurrentGenerationOutage(xml, now))
+      .filter(Boolean);
+
+    if (outages.length === 0) return null;
+
+    // Deduplicate revisions / overlapping records by unit name, keep the largest current outage.
+    const byName = new Map();
+    for (const outage of outages) {
+      const existing = byName.get(outage.name);
+      if (!existing || outage.unavailableMW > existing.unavailableMW) {
+        byName.set(outage.name, outage);
+      }
+    }
+
+    const deduped = [...byName.values()].sort((a, b) => b.unavailableMW - a.unavailableMW);
+    const totalMW = deduped.reduce((sum, outage) => sum + outage.unavailableMW, 0);
+
+    return {
+      country: COUNTRY_NAMES[iso2],
+      iso2,
+      unavailableMW: Math.round(totalMW),
+      outageCount: deduped.length,
+      topOutages: deduped.slice(0, 5),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAllOutages() {
+  console.log('  Fetching ENTSO-E generation outages...');
+  const results = await mapConcurrent(OUTAGE_COUNTRIES, fetchCountryOutages);
+  const outages = results
+    .filter(Boolean)
+    .sort((a, b) => b.unavailableMW - a.unavailableMW);
+  console.log(`  -> ${outages.length} countries with active outages fetched`);
+  return outages.length > 0 ? outages : null;
+}
+
 // --- GeoJSON country boundaries ---
 
 const EU_ISO2_SET = new Set(Object.values(ISO3_TO_ISO2));
@@ -517,16 +601,18 @@ async function main() {
   console.log('fetch-data: building static data bundle...');
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  const [plants, prices, flows, geo] = await Promise.all([
+  const [plants, prices, flows, geo, outages] = await Promise.all([
     fetchPowerPlants(),
     fetchAllPrices(),
     fetchAllFlows(),
     fetchGeoJSON(),
+    fetchAllOutages(),
   ]);
 
   const plantsOut = plants || [];
   const pricesOut = prices || DEMO_PRICES;
   const flowsOut = flows || DEMO_FLOWS;
+  const outagesOut = outages || [];
 
   fs.writeFileSync(
     path.join(OUT_DIR, 'power-plants.json'),
@@ -540,6 +626,10 @@ async function main() {
     path.join(OUT_DIR, 'flows.json'),
     JSON.stringify(flowsOut)
   );
+  fs.writeFileSync(
+    path.join(OUT_DIR, 'outages.json'),
+    JSON.stringify(outagesOut)
+  );
 
   if (geo) {
     fs.writeFileSync(
@@ -552,7 +642,7 @@ async function main() {
   }
 
   console.log(
-    `fetch-data: done (${plantsOut.length} plants, ${pricesOut.length} prices, ${flowsOut.length} flows)`
+    `fetch-data: done (${plantsOut.length} plants, ${pricesOut.length} prices, ${flowsOut.length} flows, ${outagesOut.length} outages)`
   );
 }
 
