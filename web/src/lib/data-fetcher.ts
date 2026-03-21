@@ -68,6 +68,19 @@ export interface CountryForecast {
   solar: ForecastSource;
 }
 
+export interface HistoryCountry {
+  iso2: string;
+  country: string;
+  hourly: number[];
+}
+
+export interface PriceHistory {
+  startUtc: string;
+  endUtc: string;
+  days: number;
+  countries: HistoryCountry[];
+}
+
 /** Try to load a bundled JSON file (generated at build time), return null on failure */
 async function loadBundled<T>(path: string): Promise<T | null> {
   try {
@@ -127,6 +140,19 @@ export async function fetchOutages(): Promise<CountryOutage[]> {
 export async function fetchForecasts(): Promise<CountryForecast[]> {
   const bundled = await loadBundled<CountryForecast[]>('/data/forecast-errors.json');
   return bundled ?? [];
+}
+
+/** Fetch price history: bundled JSON */
+export async function fetchHistory(): Promise<PriceHistory | null> {
+  try {
+    const res = await fetch('/data/history.json');
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.countries && data.countries.length > 0) return data;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /** Generate synthetic 24h price profile from an average */

@@ -21,6 +21,7 @@ import PriceSparkline from './PriceSparkline';
 import ComparePanel from './ComparePanel';
 import OutageRadar from './OutageRadar';
 import ForecastPanel from './ForecastPanel';
+import TimeScrubber from './TimeScrubber';
 import {
   getFuelColor,
   normalizeFuel,
@@ -38,12 +39,14 @@ import {
   fetchTransmissionLines,
   fetchOutages,
   fetchForecasts,
+  fetchHistory,
   type PowerPlant,
   type CountryPrice,
   type CrossBorderFlow,
   type TransmissionLine,
   type CountryOutage,
   type CountryForecast,
+  type PriceHistory,
 } from '@/lib/data-fetcher';
 import { TYNDP_PROJECTS, type TyndpProject } from '@/lib/tyndp';
 
@@ -58,6 +61,7 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   genMix: true,
   outages: false,
   forecast: false,
+  history: false,
 };
 
 function parseHashState(): {
@@ -128,6 +132,7 @@ function parseHashState(): {
       genMix: enabled.has('genMix'),
       outages: enabled.has('outages'),
       forecast: enabled.has('forecast'),
+      history: enabled.has('history'),
     };
   }
 
@@ -208,6 +213,8 @@ export default function EnergyMap() {
   const [transmissionLines, setTransmissionLines] = useState<TransmissionLine[]>([]);
   const [outages, setOutages] = useState<CountryOutage[]>([]);
   const [forecasts, setForecasts] = useState<CountryForecast[]>([]);
+  const [history, setHistory] = useState<PriceHistory | null>(null);
+  const [historyPriceOverride, setHistoryPriceOverride] = useState<Record<string, number> | null>(null);
   const [geoJson, setGeoJson] = useState<any>(null);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [lastUpdate, setLastUpdate] = useState('loading...');
@@ -248,13 +255,14 @@ export default function EnergyMap() {
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
-    const [plantsData, pricesData, flowsData, linesData, outagesData, forecastsData] = await Promise.all([
+    const [plantsData, pricesData, flowsData, linesData, outagesData, forecastsData, historyData] = await Promise.all([
       fetchPowerPlants(),
       fetchDayAheadPrices(),
       fetchCrossBorderFlows(),
       fetchTransmissionLines(),
       fetchOutages(),
       fetchForecasts(),
+      fetchHistory(),
     ]);
     setPlants(plantsData);
     setPrices(pricesData);
@@ -262,6 +270,7 @@ export default function EnergyMap() {
     setTransmissionLines(linesData);
     setOutages(outagesData);
     setForecasts(forecastsData);
+    setHistory(historyData);
     setLastUpdate(new Date().toLocaleTimeString());
     setIsLoading(false);
   }, []);
@@ -365,10 +374,14 @@ export default function EnergyMap() {
   const priceLookup = useMemo(() => {
     const map = new Map<string, CountryPrice>();
     for (const p of prices) {
-      map.set(p.iso2, p);
+      if (historyPriceOverride && historyPriceOverride[p.iso2] !== undefined) {
+        map.set(p.iso2, { ...p, price: historyPriceOverride[p.iso2] });
+      } else {
+        map.set(p.iso2, p);
+      }
     }
     return map;
-  }, [prices]);
+  }, [prices, historyPriceOverride]);
 
   // --- Generation mix: dominant fuel emoji per country ---
 
@@ -914,6 +927,18 @@ export default function EnergyMap() {
             />
           )}
         </>
+      )}
+
+      {/* Time scrubber bar */}
+      {layerVisibility.history && history && (
+        <TimeScrubber
+          history={history}
+          onHourChange={setHistoryPriceOverride}
+          onClose={() => {
+            setHistoryPriceOverride(null);
+            handleToggleLayer('history');
+          }}
+        />
       )}
 
       <Sidebar

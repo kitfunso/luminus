@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { extractXmlDocumentsFromZipBuffer, parseCurrentGenerationOutage } = require('./lib/entsoe-outages');
 const { WIND_PSR, SOLAR_PSR, extractTimeSeriesQuantities, computeForecastMetrics } = require('./lib/entsoe-forecast');
+const { extractHourlyPrices } = require('./lib/entsoe-history');
 
 const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
 const WRI_URL =
@@ -607,6 +608,75 @@ async function fetchAllForecasts() {
   return forecasts.length > 0 ? forecasts : null;
 }
 
+// --- Historical prices (3 days) ---
+
+const HISTORY_DAYS = 3;
+const HISTORY_COUNTRIES = ['DE', 'FR', 'ES', 'IT', 'NL', 'BE', 'PL', 'AT', 'SE', 'DK', 'PT', 'GR', 'FI', 'CZ', 'NO', 'RO', 'HU'];
+
+async function fetchCountryHistory(iso2) {
+  const strategy = PRICE_ZONE_STRATEGIES[iso2];
+  if (!strategy) return null;
+
+  // Resolve aliases
+  const resolvedIso = strategy.aliasOf ? strategy.aliasOf : iso2;
+  const resolvedStrategy = PRICE_ZONE_STRATEGIES[resolvedIso];
+  if (!resolvedStrategy || !resolvedStrategy.zones) return null;
+  const zone = resolvedStrategy.zones[0]; // Use primary zone for history
+
+  const now = new Date();
+  const endDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const startDay = new Date(endDay);
+  startDay.setUTCDate(startDay.getUTCDate() - HISTORY_DAYS);
+
+  const params = new URLSearchParams({
+    securityToken: ENTSOE_KEY,
+    documentType: 'A44',
+    in_Domain: zone,
+    out_Domain: zone,
+    periodStart: formatEntsoeDate(startDay),
+    periodEnd: formatEntsoeDate(endDay),
+  });
+
+  try {
+    const res = await fetchWithTimeout(`${ENTSOE_API}?${params}`, 30000);
+    if (!res.ok) return null;
+    const xml = await res.text();
+    const hourly = extractHourlyPrices(xml);
+
+    if (hourly.length === 0) return null;
+
+    return {
+      iso2,
+      country: COUNTRY_NAMES[iso2],
+      hourly: hourly.map((p) => Math.round(p * 10) / 10),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAllHistory() {
+  console.log(`  Fetching ${HISTORY_DAYS}-day price history...`);
+  const results = await mapConcurrent(HISTORY_COUNTRIES, fetchCountryHistory, 3);
+  const history = results.filter(Boolean);
+  console.log(`  -> ${history.length} countries with price history fetched`);
+
+  if (history.length === 0) return null;
+
+  // Compute time axis
+  const now = new Date();
+  const endDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const startDay = new Date(endDay);
+  startDay.setUTCDate(startDay.getUTCDate() - HISTORY_DAYS);
+
+  return {
+    startUtc: startDay.toISOString(),
+    endUtc: endDay.toISOString(),
+    days: HISTORY_DAYS,
+    countries: history,
+  };
+}
+
 // --- GeoJSON country boundaries ---
 
 const EU_ISO2_SET = new Set(Object.values(ISO3_TO_ISO2));
@@ -706,13 +776,14 @@ async function main() {
   console.log('fetch-data: building static data bundle...');
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  const [plants, prices, flows, geo, outages, forecasts] = await Promise.all([
+  const [plants, prices, flows, geo, outages, forecasts, history] = await Promise.all([
     fetchPowerPlants(),
     fetchAllPrices(),
     fetchAllFlows(),
     fetchGeoJSON(),
     fetchAllOutages(),
     fetchAllForecasts(),
+    fetchAllHistory(),
   ]);
 
   const plantsOut = plants || [];
@@ -720,6 +791,7 @@ async function main() {
   const flowsOut = flows || DEMO_FLOWS;
   const outagesOut = outages || [];
   const forecastsOut = forecasts || [];
+  const historyOut = history || { startUtc: '', endUtc: '', days: 0, countries: [] };
 
   fs.writeFileSync(
     path.join(OUT_DIR, 'power-plants.json'),
@@ -741,6 +813,10 @@ async function main() {
     path.join(OUT_DIR, 'forecast-errors.json'),
     JSON.stringify(forecastsOut)
   );
+  fs.writeFileSync(
+    path.join(OUT_DIR, 'history.json'),
+    JSON.stringify(historyOut)
+  );
 
   if (geo) {
     fs.writeFileSync(
@@ -753,7 +829,7 @@ async function main() {
   }
 
   console.log(
-    `fetch-data: done (${plantsOut.length} plants, ${pricesOut.length} prices, ${flowsOut.length} flows, ${outagesOut.length} outages, ${forecastsOut.length} forecasts)`
+    `fetch-data: done (${plantsOut.length} plants, ${pricesOut.length} prices, ${flowsOut.length} flows, ${outagesOut.length} outages, ${forecastsOut.length} forecasts, ${historyOut.countries.length} history)`
   );
 }
 

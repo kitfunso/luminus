@@ -10,7 +10,7 @@ import {
 } from '@/lib/colors';
 import type { PowerPlant, CountryPrice, CrossBorderFlow } from '@/lib/data-fetcher';
 
-export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix' | 'outages' | 'forecast';
+export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix' | 'outages' | 'forecast' | 'history';
 
 interface SidebarProps {
   plants: PowerPlant[];
@@ -445,6 +445,11 @@ export default function Sidebar({
               checked={layerVisibility.forecast}
               onChange={() => onToggleLayer('forecast')}
               label="Forecast vs Actual"
+            />
+            <Toggle
+              checked={layerVisibility.history}
+              onChange={() => onToggleLayer('history')}
+              label="Time Replay"
             />
           </div>
         </div>

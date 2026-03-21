@@ -232,6 +232,27 @@ body {
   animation: slideInRight 0.2s ease-out;
 }
 
+/* Time scrubber bar (bottom of screen) */
+.time-scrubber {
+  position: absolute;
+  bottom: 16px;
+  left: 288px;
+  right: 16px;
+  z-index: 15;
+  background: rgba(10, 14, 23, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: slideInUp 0.2s ease-out;
+}
+
+@keyframes slideInUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 @keyframes slideInRight {
   from { transform: translateX(20px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
