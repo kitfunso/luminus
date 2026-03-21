@@ -506,16 +506,22 @@ export default function EnergyMap() {
       );
     }
 
-    // 3. Cross-border flow arrows
+    // 3. Cross-border flow arrows (colored by utilization stress)
     if (effectiveVis.flows) {
+      const stressColor = (d: CrossBorderFlow): [number, number, number, number] => {
+        const util = d.capacityMW > 0 ? d.flowMW / d.capacityMW : 0;
+        if (util > 0.8) return [248, 113, 113, 200];
+        if (util > 0.5) return [250, 204, 21, 200];
+        return [74, 222, 128, 200];
+      };
       result.push(
         new ArcLayer<CrossBorderFlow>({
           id: 'cross-border-flows',
           data: flows,
           getSourcePosition: (d) => [d.fromLon, d.fromLat],
           getTargetPosition: (d) => [d.toLon, d.toLat],
-          getSourceColor: [74, 222, 128, 200],
-          getTargetColor: [248, 113, 113, 200],
+          getSourceColor: (d) => stressColor(d),
+          getTargetColor: (d) => stressColor(d),
           getWidth: (d) => Math.max(1, d.flowMW / 500),
           widthMinPixels: 1,
           widthMaxPixels: 8,
@@ -529,14 +535,16 @@ export default function EnergyMap() {
             const d = info.object;
             const fromName = COUNTRY_CENTROIDS[d.from]?.name || d.from;
             const toName = COUNTRY_CENTROIDS[d.to]?.name || d.to;
-            const pct = ((d.flowMW / d.capacityMW) * 100).toFixed(0);
+            const util = d.capacityMW > 0 ? d.flowMW / d.capacityMW : 0;
+            const pct = (util * 100).toFixed(0);
+            const stressLabel = util > 0.8 ? 'Congested' : util > 0.5 ? 'Moderate' : 'Low';
             setTooltip({
               x: info.x,
               y: info.y,
               content: {
                 Flow: `${fromName} \u2192 ${toName}`,
                 MW: d.flowMW.toLocaleString(),
-                'Capacity %': `${pct}%`,
+                'Capacity %': `${pct}% (${stressLabel})`,
               },
             });
           },
@@ -879,6 +887,7 @@ export default function EnergyMap() {
         plants={plants}
         filteredPlants={filteredPlants}
         prices={prices}
+        flows={flows}
         lastUpdate={lastUpdate}
         layerVisibility={layerVisibility}
         onToggleLayer={handleToggleLayer}

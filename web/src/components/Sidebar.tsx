@@ -8,7 +8,7 @@ import {
   FILTER_FUEL_LABELS,
   normalizeFuel,
 } from '@/lib/colors';
-import type { PowerPlant, CountryPrice } from '@/lib/data-fetcher';
+import type { PowerPlant, CountryPrice, CrossBorderFlow } from '@/lib/data-fetcher';
 
 export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix';
 
@@ -16,6 +16,7 @@ interface SidebarProps {
   plants: PowerPlant[];
   filteredPlants: PowerPlant[];
   prices: CountryPrice[];
+  flows: CrossBorderFlow[];
   lastUpdate: string;
   layerVisibility: Record<LayerKey, boolean>;
   onToggleLayer: (layer: LayerKey) => void;
@@ -88,6 +89,7 @@ function Shimmer() {
 export default function Sidebar({
   filteredPlants,
   prices,
+  flows,
   lastUpdate,
   layerVisibility,
   onToggleLayer,
@@ -124,13 +126,18 @@ export default function Sidebar({
           relevantPrices.length
         : 0;
 
+    const totalFlowMW = flows.reduce((s, f) => s + f.flowMW, 0);
+    const totalCapMW = flows.reduce((s, f) => s + f.capacityMW, 0);
+    const bottleneck = totalCapMW > 0 ? (totalFlowMW / totalCapMW) * 100 : 0;
+
     return {
       plantCount: filteredPlants.length,
       capacityGW: totalCapacityMW / 1000,
       countryCount: visibleCountryCodes.size,
       avgPrice,
+      bottleneck,
     };
-  }, [filteredPlants, prices]);
+  }, [filteredPlants, prices, flows]);
 
   // Fuel breakdown for the bar chart
   const fuelBreakdown = useMemo(() => {
@@ -215,6 +222,28 @@ export default function Sidebar({
               )}
               <div className="text-[11px] text-slate-500 mt-0.5">
                 Countries
+              </div>
+            </div>
+            <div>
+              {isLoading ? (
+                <Shimmer />
+              ) : (
+                <div
+                  className="text-xl font-bold animate-pulse-glow"
+                  style={{
+                    color:
+                      stats.bottleneck > 80
+                        ? 'rgb(248, 113, 113)'
+                        : stats.bottleneck > 50
+                          ? 'rgb(250, 204, 21)'
+                          : 'rgb(74, 222, 128)',
+                  }}
+                >
+                  {stats.bottleneck.toFixed(0)}%
+                </div>
+              )}
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                Bottleneck
               </div>
             </div>
           </div>
