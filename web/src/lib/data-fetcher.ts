@@ -15,6 +15,8 @@ export interface CountryPrice {
   hourly?: number[];
   /** 'live' = freshly fetched at build time; 'fallback' = preserved from reference baseline when live fetch failed */
   source?: 'live' | 'fallback';
+  /** build-time provenance for debugging mixed country price sources */
+  provider?: 'entsoe' | 'elexon' | 'fallback';
 }
 
 export interface TransmissionLine {

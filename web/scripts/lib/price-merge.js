@@ -10,7 +10,7 @@
  */
 
 /**
- * @typedef {{ iso2: string, country: string, price: number, hourly?: number[] }} PriceEntry
+ * @typedef {{ iso2: string, country: string, price: number, hourly?: number[], provider?: 'entsoe'|'elexon'|'fallback' }} PriceEntry
  * @typedef {PriceEntry & { source: 'live'|'fallback' }} TaggedPriceEntry
  */
 
@@ -31,9 +31,9 @@ function mergePricesWithFallback(live, baseline) {
   for (const base of baseline) {
     const liveEntry = liveByIso2.get(base.iso2);
     if (liveEntry) {
-      result.push({ ...liveEntry, source: 'live' });
+      result.push({ ...liveEntry, source: 'live', provider: liveEntry.provider || 'entsoe' });
     } else {
-      result.push({ ...base, source: 'fallback' });
+      result.push({ ...base, source: 'fallback', provider: base.provider || 'fallback' });
     }
   }
 

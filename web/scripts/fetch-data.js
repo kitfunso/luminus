@@ -8,6 +8,7 @@ const path = require('path');
 const { extractXmlDocumentsFromZipBuffer, parseCurrentGenerationOutage } = require('./lib/entsoe-outages');
 const { WIND_PSR, SOLAR_PSR, extractTimeSeriesQuantities, computeForecastMetrics } = require('./lib/entsoe-forecast');
 const { extractHourlyPrices } = require('./lib/entsoe-history');
+const { extractGbMarketIndexPrice } = require('./lib/gb-market-index');
 const { mergePricesWithFallback } = require('./lib/price-merge');
 
 const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
@@ -16,6 +17,7 @@ const WRI_URL =
 const NE_GEOJSON_URL =
   'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
 const ENTSOE_API = 'https://web-api.tp.entsoe.eu/api';
+const BMRS_API = 'https://data.elexon.co.uk/bmrs/api/v1';
 const ENTSOE_KEY =
   process.env.ENTSOE_API_KEY || 'ffaa7bca-32bf-4430-9877-84efae8f38b1';
 const MIN_CAPACITY_MW = 50;
@@ -315,6 +317,36 @@ function aggregateZonePrices(zoneResults) {
   return { avg, hourly };
 }
 
+async function fetchGbMarketIndexPrice() {
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
+  const params = new URLSearchParams({
+    from: yesterday.toISOString(),
+    to: now.toISOString(),
+    format: 'json',
+  });
+
+  try {
+    const res = await fetchWithTimeout(`${BMRS_API}/balancing/pricing/market-index?${params}`);
+    if (!res.ok) return null;
+    const payload = await res.json();
+    const priceData = extractGbMarketIndexPrice(payload);
+    if (!priceData) return null;
+
+    return {
+      country: COUNTRY_NAMES.GB,
+      iso2: 'GB',
+      price: priceData.avg,
+      hourly: priceData.hourly,
+      provider: priceData.provider,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchPrice(iso2, cache = new Map()) {
   const strategy = PRICE_ZONE_STRATEGIES[iso2];
   if (!strategy) return null;
@@ -327,18 +359,29 @@ async function fetchPrice(iso2, cache = new Map()) {
       iso2,
       price: aliased.price,
       hourly: aliased.hourly,
+      provider: aliased.provider,
     };
   }
 
   const zoneResults = await mapConcurrent(strategy.zones, fetchZonePrice, Math.min(strategy.zones.length, CONCURRENCY));
   const priceData = aggregateZonePrices(zoneResults);
-  if (priceData === null) return null;
+  if (priceData === null) {
+    if (iso2 === 'GB') {
+      const gbMarketIndex = await fetchGbMarketIndexPrice();
+      if (gbMarketIndex) {
+        cache.set(iso2, gbMarketIndex);
+        return gbMarketIndex;
+      }
+    }
+    return null;
+  }
 
   const result = {
     country: COUNTRY_NAMES[iso2],
     iso2,
     price: priceData.avg,
     hourly: priceData.hourly,
+    provider: 'entsoe',
   };
   cache.set(iso2, result);
   return result;
@@ -359,6 +402,11 @@ async function fetchAllPrices() {
   const missing = iso2s.filter((iso2) => !live.some((price) => price.iso2 === iso2));
   if (missing.length > 0) {
     console.warn(`  Missing live prices for: ${missing.join(', ')} — preserving fallback entries from DEMO_PRICES`);
+  }
+
+  const gb = live.find((price) => price.iso2 === 'GB');
+  if (gb?.provider === 'elexon') {
+    console.log('  GB live price sourced from Elexon BMRS market index');
   }
 
   // Merge live results onto the full baseline so prices.json always covers every

@@ -11,6 +11,11 @@ const {
   extractHourlyPrices,
 } = require('./lib/entsoe-history');
 const { mergePricesWithFallback } = require('./lib/price-merge');
+const {
+  selectMarketIndexRows,
+  aggregateHourlyPrices,
+  extractGbMarketIndexPrice,
+} = require('./lib/gb-market-index');
 
 function buildDataDescriptorZip(files) {
   const localParts = [];
@@ -221,4 +226,43 @@ test('mergePricesWithFallback: live-only country not in baseline is still includ
   const no = result.find((p) => p.iso2 === 'NO');
   assert.ok(no, 'Live-only entry must appear in output');
   assert.equal(no.source, 'live');
+});
+
+test('selectMarketIndexRows keeps the highest-volume row per timestamp', () => {
+  const rows = [
+    { startTime: '2026-03-20T00:00:00Z', dataProvider: 'N2EXMIDP', price: 0, volume: 0 },
+    { startTime: '2026-03-20T00:00:00Z', dataProvider: 'APXMIDP', price: 101.2, volume: 1200.5 },
+    { startTime: '2026-03-20T00:30:00Z', dataProvider: 'APXMIDP', price: 103.8, volume: 1150.1 },
+  ];
+  const result = selectMarketIndexRows(rows);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].dataProvider, 'APXMIDP');
+  assert.equal(result[0].price, 101.2);
+});
+
+test('aggregateHourlyPrices averages half-hourly market-index rows into hourly values', () => {
+  const rows = [
+    { startTime: '2026-03-20T00:00:00Z', dataProvider: 'APXMIDP', price: 100, volume: 1000 },
+    { startTime: '2026-03-20T00:30:00Z', dataProvider: 'APXMIDP', price: 104, volume: 1000 },
+    { startTime: '2026-03-20T01:00:00Z', dataProvider: 'APXMIDP', price: 110, volume: 1000 },
+    { startTime: '2026-03-20T01:30:00Z', dataProvider: 'APXMIDP', price: 114, volume: 1000 },
+  ];
+  assert.deepEqual(aggregateHourlyPrices(rows), [102, 112]);
+});
+
+test('extractGbMarketIndexPrice builds a GB hourly surface from BMRS market-index payload', () => {
+  const payload = {
+    data: [
+      { startTime: '2026-03-20T00:00:00Z', dataProvider: 'N2EXMIDP', price: 0, volume: 0 },
+      { startTime: '2026-03-20T00:00:00Z', dataProvider: 'APXMIDP', price: 100, volume: 1000 },
+      { startTime: '2026-03-20T00:30:00Z', dataProvider: 'APXMIDP', price: 104, volume: 1000 },
+      { startTime: '2026-03-20T01:00:00Z', dataProvider: 'APXMIDP', price: 110, volume: 1000 },
+      { startTime: '2026-03-20T01:30:00Z', dataProvider: 'APXMIDP', price: 114, volume: 1000 },
+    ],
+  };
+  const result = extractGbMarketIndexPrice(payload);
+  assert.ok(result);
+  assert.equal(result.provider, 'elexon');
+  assert.deepEqual(result.hourly, [102, 112]);
+  assert.equal(result.avg, 107);
 });
