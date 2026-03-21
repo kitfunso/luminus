@@ -49,6 +49,25 @@ export interface CountryOutage {
   topOutages: OutageEntry[];
 }
 
+export interface ForecastSource {
+  forecastMW: number;
+  actualMW: number;
+  forecastHourly: number[];
+  actualHourly: number[];
+  mae: number;
+  mape: number;
+  bias: number;
+  surpriseDirection: 'above' | 'below' | 'none';
+  surpriseMagnitude: number;
+}
+
+export interface CountryForecast {
+  country: string;
+  iso2: string;
+  wind: ForecastSource;
+  solar: ForecastSource;
+}
+
 /** Try to load a bundled JSON file (generated at build time), return null on failure */
 async function loadBundled<T>(path: string): Promise<T | null> {
   try {
@@ -101,6 +120,12 @@ export async function fetchTransmissionLines(): Promise<TransmissionLine[]> {
 /** Fetch generation outages: bundled JSON */
 export async function fetchOutages(): Promise<CountryOutage[]> {
   const bundled = await loadBundled<CountryOutage[]>('/data/outages.json');
+  return bundled ?? [];
+}
+
+/** Fetch forecast vs actual data: bundled JSON */
+export async function fetchForecasts(): Promise<CountryForecast[]> {
+  const bundled = await loadBundled<CountryForecast[]>('/data/forecast-errors.json');
   return bundled ?? [];
 }
 

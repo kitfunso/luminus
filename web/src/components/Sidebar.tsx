@@ -10,7 +10,7 @@ import {
 } from '@/lib/colors';
 import type { PowerPlant, CountryPrice, CrossBorderFlow } from '@/lib/data-fetcher';
 
-export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix' | 'outages';
+export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix' | 'outages' | 'forecast';
 
 interface SidebarProps {
   plants: PowerPlant[];
@@ -440,6 +440,11 @@ export default function Sidebar({
               checked={layerVisibility.outages}
               onChange={() => onToggleLayer('outages')}
               label="Outage Radar"
+            />
+            <Toggle
+              checked={layerVisibility.forecast}
+              onChange={() => onToggleLayer('forecast')}
+              label="Forecast vs Actual"
             />
           </div>
         </div>

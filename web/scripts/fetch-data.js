@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const { extractXmlDocumentsFromZipBuffer, parseCurrentGenerationOutage } = require('./lib/entsoe-outages');
+const { WIND_PSR, SOLAR_PSR, extractTimeSeriesQuantities, computeForecastMetrics } = require('./lib/entsoe-forecast');
 
 const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
 const WRI_URL =
@@ -502,6 +503,110 @@ async function fetchAllOutages() {
   return outages.length > 0 ? outages : null;
 }
 
+// --- Forecast vs Actual (wind + solar) ---
+
+const FORECAST_COUNTRIES = ['DE', 'FR', 'ES', 'IT', 'NL', 'BE', 'PL', 'AT', 'SE', 'DK', 'PT', 'GR', 'FI', 'CZ', 'RO', 'HU'];
+
+async function fetchForecastXml(iso2, docType, processType) {
+  const eic = ISO2_TO_EIC[iso2];
+  if (!eic) return null;
+
+  const now = new Date();
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dayEnd = new Date(dayStart);
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+  const params = new URLSearchParams({
+    securityToken: ENTSOE_KEY,
+    documentType: docType,
+    processType,
+    in_Domain: eic,
+    periodStart: formatEntsoeDate(dayStart),
+    periodEnd: formatEntsoeDate(dayEnd),
+  });
+
+  try {
+    const res = await fetchWithTimeout(`${ENTSOE_API}?${params}`);
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchActualGenXml(iso2) {
+  const eic = ISO2_TO_EIC[iso2];
+  if (!eic) return null;
+
+  const now = new Date();
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dayEnd = new Date(dayStart);
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+
+  const params = new URLSearchParams({
+    securityToken: ENTSOE_KEY,
+    documentType: 'A75',
+    processType: 'A16',
+    in_Domain: eic,
+    periodStart: formatEntsoeDate(dayStart),
+    periodEnd: formatEntsoeDate(dayEnd),
+  });
+
+  try {
+    const res = await fetchWithTimeout(`${ENTSOE_API}?${params}`);
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchCountryForecast(iso2) {
+  const [forecastXml, actualXml] = await Promise.all([
+    fetchForecastXml(iso2, 'A69', 'A01'),
+    fetchActualGenXml(iso2),
+  ]);
+
+  if (!forecastXml || !actualXml) return null;
+
+  const windForecast = extractTimeSeriesQuantities(forecastXml, WIND_PSR);
+  const solarForecast = extractTimeSeriesQuantities(forecastXml, SOLAR_PSR);
+  const windActual = extractTimeSeriesQuantities(actualXml, WIND_PSR);
+  const solarActual = extractTimeSeriesQuantities(actualXml, SOLAR_PSR);
+
+  const windMetrics = computeForecastMetrics(windForecast.hourly, windActual.hourly);
+  const solarMetrics = computeForecastMetrics(solarForecast.hourly, solarActual.hourly);
+
+  if (windForecast.hourly.length === 0 && solarForecast.hourly.length === 0) return null;
+
+  return {
+    country: COUNTRY_NAMES[iso2],
+    iso2,
+    wind: {
+      forecastMW: Math.round(windForecast.totalMW),
+      actualMW: Math.round(windActual.totalMW),
+      forecastHourly: windForecast.hourly.map(v => Math.round(v)),
+      actualHourly: windActual.hourly.map(v => Math.round(v)),
+      ...windMetrics,
+    },
+    solar: {
+      forecastMW: Math.round(solarForecast.totalMW),
+      actualMW: Math.round(solarActual.totalMW),
+      forecastHourly: solarForecast.hourly.map(v => Math.round(v)),
+      actualHourly: solarActual.hourly.map(v => Math.round(v)),
+      ...solarMetrics,
+    },
+  };
+}
+
+async function fetchAllForecasts() {
+  console.log('  Fetching ENTSO-E wind/solar forecast vs actual...');
+  const results = await mapConcurrent(FORECAST_COUNTRIES, fetchCountryForecast, 3);
+  const forecasts = results.filter(Boolean);
+  console.log(`  -> ${forecasts.length} countries with forecast data fetched`);
+  return forecasts.length > 0 ? forecasts : null;
+}
+
 // --- GeoJSON country boundaries ---
 
 const EU_ISO2_SET = new Set(Object.values(ISO3_TO_ISO2));
@@ -601,18 +706,20 @@ async function main() {
   console.log('fetch-data: building static data bundle...');
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
-  const [plants, prices, flows, geo, outages] = await Promise.all([
+  const [plants, prices, flows, geo, outages, forecasts] = await Promise.all([
     fetchPowerPlants(),
     fetchAllPrices(),
     fetchAllFlows(),
     fetchGeoJSON(),
     fetchAllOutages(),
+    fetchAllForecasts(),
   ]);
 
   const plantsOut = plants || [];
   const pricesOut = prices || DEMO_PRICES;
   const flowsOut = flows || DEMO_FLOWS;
   const outagesOut = outages || [];
+  const forecastsOut = forecasts || [];
 
   fs.writeFileSync(
     path.join(OUT_DIR, 'power-plants.json'),
@@ -630,6 +737,10 @@ async function main() {
     path.join(OUT_DIR, 'outages.json'),
     JSON.stringify(outagesOut)
   );
+  fs.writeFileSync(
+    path.join(OUT_DIR, 'forecast-errors.json'),
+    JSON.stringify(forecastsOut)
+  );
 
   if (geo) {
     fs.writeFileSync(
@@ -642,7 +753,7 @@ async function main() {
   }
 
   console.log(
-    `fetch-data: done (${plantsOut.length} plants, ${pricesOut.length} prices, ${flowsOut.length} flows, ${outagesOut.length} outages)`
+    `fetch-data: done (${plantsOut.length} plants, ${pricesOut.length} prices, ${flowsOut.length} flows, ${outagesOut.length} outages, ${forecastsOut.length} forecasts)`
   );
 }
 

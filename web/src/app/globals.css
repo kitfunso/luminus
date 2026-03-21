@@ -198,6 +198,24 @@ body {
   overflow-y: auto;
 }
 
+/* Forecast vs actual panel (slide-in from right) */
+.forecast-panel {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 360px;
+  z-index: 15;
+  background: rgba(10, 14, 23, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: slideInRight 0.2s ease-out;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
 /* Price sparkline panel */
 .sparkline-panel {
   position: absolute;
