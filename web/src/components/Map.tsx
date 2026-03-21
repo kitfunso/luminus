@@ -28,6 +28,7 @@ import TraderDashboard from './TraderDashboard';
 import { evaluateAlerts } from '@/lib/alerts';
 import CorridorPanel from './CorridorPanel';
 import TyndpPanel from './TyndpPanel';
+import PipelinePanel from './PipelinePanel';
 import {
   getFuelColor,
   normalizeFuel,
@@ -258,10 +259,11 @@ export default function EnergyMap() {
   const [compareCountries, setCompareCountries] = useState<string[]>([]);
   const shiftHeld = useRef(false);
 
-  // Sprint 4: search-driven navigation, watchlist, time series, alerts, dashboard
+  // Sprint 4: search-driven navigation, watchlist, time series, alerts, dashboard, pipeline
   const [timeSeriesAsset, setTimeSeriesAsset] = useState<TimeSeriesAsset | null>(null);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showPipeline, setShowPipeline] = useState(false);
   const [watchlistVersion, setWatchlistVersion] = useState(0);
 
   // URL hash debounce
@@ -1209,7 +1211,7 @@ export default function EnergyMap() {
       )}
 
       {/* Sprint 4: Asset Time Series panel */}
-      {timeSeriesAsset && !showAlerts && !showDashboard && (
+      {timeSeriesAsset && !showAlerts && !showDashboard && !showPipeline && (
         <AssetTimeSeries
           asset={timeSeriesAsset}
           prices={prices}
@@ -1233,9 +1235,24 @@ export default function EnergyMap() {
           flows={flows}
           outages={outages}
           forecasts={forecasts}
+          projects={TYNDP_PROJECTS}
           onSelectCountry={(iso2) => { handleSearchSelectCountry(iso2); setShowDashboard(false); }}
           onSelectCorridor={(from, to) => { handleSearchSelectCorridor(from, to); setShowDashboard(false); }}
           onClose={() => setShowDashboard(false)}
+        />
+      )}
+
+      {/* Sprint 4: Pipeline Intelligence panel */}
+      {showPipeline && (
+        <PipelinePanel
+          projects={TYNDP_PROJECTS}
+          prices={prices}
+          flows={flows}
+          onSelectProject={(project) => {
+            setSelectedTyndp(project);
+            setShowPipeline(false);
+          }}
+          onClose={() => setShowPipeline(false)}
         />
       )}
 
@@ -1275,7 +1292,7 @@ export default function EnergyMap() {
         mobileOpen={mobileSidebarOpen}
         onToggleMobile={() => setMobileSidebarOpen((prev) => !prev)}
         hasRightPanel={
-          !!(timeSeriesAsset || showAlerts || showDashboard ||
+          !!(timeSeriesAsset || showAlerts || showDashboard || showPipeline ||
              selectedPlant || selectedCountryPrice || selectedFlow ||
              selectedTyndp || compareCountries.length > 0 ||
              (layerVisibility.outages && !layerVisibility.forecast && !selectedPlant && !selectedCountryPrice && !selectedFlow && !selectedTyndp) ||
@@ -1285,8 +1302,9 @@ export default function EnergyMap() {
         onSelectCountry={handleSearchSelectCountry}
         onSelectCorridor={handleSearchSelectCorridor}
         onSelectWatchlistPlant={handleWatchlistSelectPlant}
-        onOpenAlerts={() => { setShowAlerts(true); setShowDashboard(false); setTimeSeriesAsset(null); }}
-        onOpenDashboard={() => { setShowDashboard(true); setShowAlerts(false); setTimeSeriesAsset(null); }}
+        onOpenAlerts={() => { setShowAlerts(true); setShowDashboard(false); setShowPipeline(false); setTimeSeriesAsset(null); }}
+        onOpenDashboard={() => { setShowDashboard(true); setShowAlerts(false); setShowPipeline(false); setTimeSeriesAsset(null); }}
+        onOpenPipeline={() => { setShowPipeline(true); setShowDashboard(false); setShowAlerts(false); setTimeSeriesAsset(null); }}
         onOpenTimeSeries={handleOpenTimeSeries}
         watchlistVersion={watchlistVersion}
         onWatchlistChange={() => setWatchlistVersion((v) => v + 1)}

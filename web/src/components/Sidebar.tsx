@@ -47,6 +47,7 @@ interface SidebarProps {
   onSelectWatchlistPlant: (item: WatchlistItem) => void;
   onOpenAlerts: () => void;
   onOpenDashboard: () => void;
+  onOpenPipeline: () => void;
   onOpenTimeSeries: (iso2: string) => void;
   watchlistVersion: number;
   onWatchlistChange: () => void;
@@ -133,6 +134,7 @@ export default function Sidebar({
   onSelectWatchlistPlant,
   onOpenAlerts,
   onOpenDashboard,
+  onOpenPipeline,
   onOpenTimeSeries,
   watchlistVersion,
   onWatchlistChange,
@@ -256,6 +258,13 @@ export default function Sidebar({
                 className="text-[10px] text-slate-500 hover:text-sky-400 transition-colors px-1.5 py-0.5 rounded border border-white/[0.06] hover:border-sky-500/30"
               >
                 Brief
+              </button>
+              <button
+                onClick={onOpenPipeline}
+                title="Pipeline intelligence"
+                className="text-[10px] text-slate-500 hover:text-emerald-400 transition-colors px-1.5 py-0.5 rounded border border-white/[0.06] hover:border-emerald-500/30"
+              >
+                Pipeline
               </button>
               <button
                 onClick={onOpenAlerts}

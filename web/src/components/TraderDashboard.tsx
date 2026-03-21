@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 import type { CountryPrice, CrossBorderFlow, CountryOutage, CountryForecast } from '@/lib/data-fetcher';
+import type { TyndpProject } from '@/lib/tyndp';
+import { identifyMarketReads } from '@/lib/pipeline-intel';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 
 interface TraderDashboardProps {
@@ -9,6 +11,7 @@ interface TraderDashboardProps {
   flows: CrossBorderFlow[];
   outages: CountryOutage[];
   forecasts: CountryForecast[];
+  projects: TyndpProject[];
   onSelectCountry: (iso2: string) => void;
   onSelectCorridor: (from: string, to: string) => void;
   onClose: () => void;
@@ -57,6 +60,7 @@ export default function TraderDashboard({
   flows,
   outages,
   forecasts,
+  projects,
   onSelectCountry,
   onSelectCorridor,
   onClose,
@@ -124,6 +128,12 @@ export default function TraderDashboard({
   const hasOutages = topOutages.length > 0;
   const hasForecasts = topForecastMisses.length > 0;
   const hasCongestion = topCongested.length > 0;
+
+  // Pipeline market reads (derived from TYNDP + live prices + flows)
+  const marketReads = useMemo(
+    () => identifyMarketReads(projects, prices, flows).slice(0, 3),
+    [projects, prices, flows]
+  );
 
   return (
     <div
@@ -234,7 +244,40 @@ export default function TraderDashboard({
           </div>
         )}
 
-        {!hasCongestion && !hasOutages && !hasForecasts && (
+        {/* Pipeline market reads */}
+        {marketReads.length > 0 && (
+          <div>
+            <SectionTitle>Pipeline reads</SectionTitle>
+            <div className="space-y-1.5">
+              {marketReads.map((read, i) => {
+                const color =
+                  read.type === 'congestion_price_driver'
+                    ? '#f87171'
+                    : read.type === 'pipeline_near_term'
+                    ? '#4ade80'
+                    : '#38bdf8';
+                return (
+                  <button
+                    key={i}
+                    onClick={() => read.iso2 && onSelectCountry(read.iso2)}
+                    disabled={!read.iso2}
+                    className="w-full text-left rounded-xl px-2.5 py-2 border transition-colors hover:bg-white/[0.03]"
+                    style={{ borderColor: color + '28', backgroundColor: color + '0a' }}
+                  >
+                    <p className="text-[11px] font-medium leading-tight" style={{ color }}>
+                      {read.label}
+                    </p>
+                    <p className="text-[10px] text-slate-600 mt-0.5 leading-relaxed">
+                      {read.detail}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {!hasCongestion && !hasOutages && !hasForecasts && marketReads.length === 0 && (
           <div className="py-2 text-center">
             <p className="text-[11px] text-slate-600">Enable Outage Radar and Forecast layers to see market intelligence here.</p>
           </div>
