@@ -12,6 +12,13 @@ import type { PowerPlant, CountryPrice, CrossBorderFlow } from '@/lib/data-fetch
 import SearchBar from './SearchBar';
 import WatchlistPanel from './WatchlistPanel';
 import type { WatchlistItem } from '@/lib/watchlist';
+import {
+  BUILT_IN_PRESETS,
+  getAllPresets,
+  savePreset,
+  captureState,
+  type WorkspacePreset,
+} from '@/lib/workspace-presets';
 
 export type LayerKey = 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp' | 'genMix' | 'outages' | 'forecast' | 'history';
 
@@ -51,6 +58,11 @@ interface SidebarProps {
   onOpenTimeSeries: (iso2: string) => void;
   watchlistVersion: number;
   onWatchlistChange: () => void;
+  // Preset callbacks
+  onApplyPreset: (preset: WorkspacePreset) => void;
+  onDeletePreset: (id: string) => void;
+  onPresetSaved: () => void;
+  presetsVersion: number;
 }
 
 const CARD =
@@ -138,9 +150,19 @@ export default function Sidebar({
   onOpenTimeSeries,
   watchlistVersion,
   onWatchlistChange,
+  onApplyPreset,
+  onDeletePreset,
+  onPresetSaved,
+  presetsVersion,
 }: SidebarProps) {
   const [showCountries, setShowCountries] = useState(false);
   const selectedCountryCount = selectedCountries?.size ?? availableCountries.length;
+
+  // Presets state
+  const [saveLabel, setSaveLabel] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
+  // presetsVersion from parent triggers re-render, so getAllPresets() sees fresh localStorage
+  const allPresets = useMemo(() => getAllPresets(), [presetsVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Aggregate stats from filtered data
   const stats = useMemo(() => {
@@ -577,6 +599,97 @@ export default function Sidebar({
             Day-Ahead Price (EUR/MWh)
           </h2>
           <PriceBar />
+        </div>
+
+        {/* Workspace Presets */}
+        <div className={`${CARD} p-4`}>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+              Presets
+            </h2>
+            <button
+              onClick={() => setShowSaveInput((v) => !v)}
+              title="Save current workspace as preset"
+              className="text-[10px] text-slate-500 hover:text-sky-400 transition-colors px-1.5 py-0.5 rounded border border-white/[0.06] hover:border-sky-500/30"
+            >
+              {showSaveInput ? 'Cancel' : '+ Save'}
+            </button>
+          </div>
+
+          {showSaveInput && (
+            <div className="mb-3 flex gap-1.5">
+              <input
+                type="text"
+                value={saveLabel}
+                onChange={(e) => setSaveLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const state = captureState(layerVisibility, selectedFuels, minCapacity, selectedCountries);
+                    savePreset(saveLabel, state);
+                    setSaveLabel('');
+                    setShowSaveInput(false);
+                    onPresetSaved();
+                  }
+                  if (e.key === 'Escape') { setShowSaveInput(false); setSaveLabel(''); }
+                }}
+                placeholder="Preset name…"
+                autoFocus
+                className="flex-1 min-w-0 bg-black/40 border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-[12px] text-slate-200 placeholder-slate-600 outline-none focus:border-sky-500/50"
+              />
+              <button
+                onClick={() => {
+                  const state = captureState(layerVisibility, selectedFuels, minCapacity, selectedCountries);
+                  savePreset(saveLabel, state);
+                  setSaveLabel('');
+                  setShowSaveInput(false);
+                  onPresetSaved();
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-sky-500/20 border border-sky-500/30 text-[11px] text-sky-400 hover:bg-sky-500/30 transition-colors"
+              >
+                Save
+              </button>
+            </div>
+          )}
+
+          {/* Built-in presets as quick-apply pills */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {BUILT_IN_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => onApplyPreset(preset)}
+                title={preset.description}
+                className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-white/[0.08] bg-white/[0.03] text-slate-400 hover:text-sky-400 hover:border-sky-500/30 hover:bg-sky-500/[0.08] transition-all"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          {/* User-saved presets */}
+          {allPresets.filter((p) => !p.builtIn).length > 0 && (
+            <div className="space-y-1.5 pt-2.5 border-t border-white/[0.04]">
+              {allPresets.filter((p) => !p.builtIn).map((preset) => (
+                <div
+                  key={preset.id}
+                  className="flex items-center gap-2 group"
+                >
+                  <button
+                    onClick={() => onApplyPreset(preset)}
+                    className="flex-1 text-left text-[11px] text-slate-400 hover:text-white truncate transition-colors py-0.5"
+                  >
+                    {preset.label}
+                  </button>
+                  <button
+                    onClick={() => onDeletePreset(preset.id)}
+                    title="Delete preset"
+                    className="opacity-0 group-hover:opacity-100 text-[10px] text-slate-600 hover:text-red-400 transition-all px-1 py-0.5 rounded"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Export & Share */}

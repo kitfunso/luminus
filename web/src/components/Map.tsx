@@ -57,6 +57,7 @@ import {
 } from '@/lib/data-fetcher';
 import { TYNDP_PROJECTS, type TyndpProject } from '@/lib/tyndp';
 import { corridorId, corridorForLine } from '@/lib/corridor-lines';
+import { deletePreset, type WorkspacePreset } from '@/lib/workspace-presets';
 
 // --- URL hash state ---
 
@@ -265,6 +266,7 @@ export default function EnergyMap() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [showPipeline, setShowPipeline] = useState(false);
   const [watchlistVersion, setWatchlistVersion] = useState(0);
+  const [presetsVersion, setPresetsVersion] = useState(0);
 
   // URL hash debounce
   const hashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1116,6 +1118,23 @@ export default function EnergyMap() {
     setCompareMode(false);
   }, []);
 
+  const handleApplyPreset = useCallback((preset: WorkspacePreset) => {
+    const { layerVisibility, selectedFuels, minCapacity, selectedCountries } = preset.state;
+    setLayerVisibility(layerVisibility);
+    setSelectedFuels(new Set(selectedFuels));
+    setMinCapacity(minCapacity);
+    setSelectedCountries(selectedCountries !== null ? new Set(selectedCountries) : null);
+  }, []);
+
+  const handleDeletePreset = useCallback((id: string) => {
+    deletePreset(id);
+    setPresetsVersion((v) => v + 1);
+  }, []);
+
+  const handlePresetSaved = useCallback(() => {
+    setPresetsVersion((v) => v + 1);
+  }, []);
+
   const handleExportCSV = useCallback(() => {
     const header = 'Name,Fuel,Capacity_MW,Country,Latitude,Longitude,Year\n';
     const rows = filteredPlants
@@ -1365,6 +1384,10 @@ export default function EnergyMap() {
         onOpenTimeSeries={handleOpenTimeSeries}
         watchlistVersion={watchlistVersion}
         onWatchlistChange={() => setWatchlistVersion((v) => v + 1)}
+        onApplyPreset={handleApplyPreset}
+        onDeletePreset={handleDeletePreset}
+        onPresetSaved={handlePresetSaved}
+        presetsVersion={presetsVersion}
       />
     </div>
   );
