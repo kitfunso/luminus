@@ -58,6 +58,7 @@ export default function TraderDashboard({
   outages,
   forecasts,
   onSelectCountry,
+  onSelectCorridor,
   onClose,
 }: TraderDashboardProps) {
   // Top 5 highest prices
@@ -179,16 +180,16 @@ export default function TraderDashboard({
               const toName = COUNTRY_CENTROIDS[f.to]?.name ?? f.to;
               const pct = (f.util * 100).toFixed(0);
               return (
-                <div
+                <button
                   key={`${f.from}-${f.to}`}
-                  className="flex items-center justify-between py-1.5 hover:bg-white/[0.03] rounded-lg px-1 cursor-pointer transition-colors"
-                  onClick={() => {}}
+                  className="flex items-center justify-between w-full py-1.5 hover:bg-white/[0.03] rounded-lg px-1 cursor-pointer transition-colors text-left"
+                  onClick={() => onSelectCorridor(f.from, f.to)}
                 >
                   <span className="text-[11px] text-slate-400 truncate">{fromName} → {toName}</span>
                   <span className={`text-[11px] font-medium tabular-nums flex-shrink-0 ml-2 ${
                     f.util > 0.8 ? 'text-red-400' : f.util > 0.5 ? 'text-yellow-400' : 'text-emerald-400'
                   }`}>{pct}%</span>
-                </div>
+                </button>
               );
             })}
           </div>

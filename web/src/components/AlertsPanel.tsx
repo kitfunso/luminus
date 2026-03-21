@@ -21,9 +21,12 @@ interface AlertsPanelProps {
 
 type Tab = 'rules' | 'log';
 
+// Only expose conditions that evaluateAlerts() genuinely handles.
+// outage_end requires previous-state tracking (not yet implemented).
+// forecast_miss requires forecasts wired into evaluate() (deferred to a later sprint).
 const ASSET_CONDITIONS: Record<AlertAssetType, AlertCondition[]> = {
-  country: ['price_above', 'price_below', 'forecast_miss'],
-  plant: ['outage_start', 'outage_end'],
+  country: ['price_above', 'price_below'],
+  plant: ['outage_start'],
   corridor: ['congestion_above'],
 };
 
@@ -31,11 +34,10 @@ const THRESHOLD_UNIT: Partial<Record<AlertCondition, string>> = {
   price_above: '€/MWh',
   price_below: '€/MWh',
   congestion_above: '%',
-  forecast_miss: '% MAPE',
 };
 
 const NEEDS_THRESHOLD: Set<AlertCondition> = new Set([
-  'price_above', 'price_below', 'congestion_above', 'forecast_miss',
+  'price_above', 'price_below', 'congestion_above',
 ]);
 
 function RuleRow({ rule, onRemove, onToggle }: { rule: AlertRule; onRemove: () => void; onToggle: () => void }) {

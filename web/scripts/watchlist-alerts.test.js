@@ -271,3 +271,26 @@ test('firings are accumulated', () => {
   store.evaluate({ GB: 95 }, {}, new Set());
   assert.ok(store.getFirings().length >= 2);
 });
+
+// ---- Inert-condition tests: document why outage_end and forecast_miss are
+//      NOT exposed in the UI (evaluate() cannot handle them without extra state) ----
+
+test('outage_end rule never fires (evaluate has no previous-state tracking)', () => {
+  // outage_end is a transition event; without a "previous outage set" the evaluator
+  // cannot know when an outage has ended. It silently produces no firings.
+  const store = makeAlertStore();
+  store.addRule({ assetType: 'plant', assetId: 'plant:drax', assetLabel: 'Drax', condition: 'outage_end', enabled: true, deliveryChannels: ['in_app'] });
+  // Plant is currently NOT in outage set — "ended" — but evaluate does not fire.
+  const fired = store.evaluate({}, {}, new Set());
+  assert.equal(fired.length, 0, 'outage_end must not fire: no previous-state tracking available');
+});
+
+test('forecast_miss rule never fires (forecasts not wired into evaluate)', () => {
+  // forecast_miss would need MAPE data passed to evaluate(). The current signature
+  // (priceByIso, congestionByCorridorId, outageSet) has no forecast parameter, so
+  // any forecast_miss rule is inert.
+  const store = makeAlertStore();
+  store.addRule({ assetType: 'country', assetId: 'country:DE', assetLabel: 'Germany', condition: 'forecast_miss', threshold: 10, enabled: true, deliveryChannels: ['in_app'] });
+  const fired = store.evaluate({ DE: 999 }, {}, new Set());
+  assert.equal(fired.length, 0, 'forecast_miss must not fire: forecast data not wired into evaluate()');
+});
