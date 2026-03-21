@@ -55,6 +55,12 @@ The right shape is:
 - richer drill-downs
 - more alertable state
 - more decision-relevant overlays
+- a mindblowing, captivating frontend that still feels trader-grade and honest
+
+The visual bar is higher now:
+- delight should come from motion, clarity, hierarchy, responsiveness, and sharp interaction design
+- "wow" should amplify the decision surface, not distract from it
+- avoid gimmicks that add noise without improving trader workflow
 
 ## Suggested Build Order
 ### Batch A
@@ -71,10 +77,38 @@ The right shape is:
 7. Fundamentals Overlays
 8. Queue / Pipeline Intelligence
 
+### Batch D
+9. Saved Layouts + Presets
+- Local-first saved panel/map layouts
+- Fast preset switching: Intraday, Day-Ahead, Renewables Focus, Gas-Linked
+- Build toward shareable layouts later
+
+10. Alert Delivery + Watchlist Actions
+- Browser notifications first
+- Telegram delivery hook second
+- Alerts should deep-link back into the exact corridor / country / plant state
+
+11. Explain This Spike
+- Click-to-explain on charts, spreads, outages, and congestion moves
+- Must cite actual flows, outages, forecasts, spreads, or pipeline context already in-product
+- No vague AI waffle
+
+12. Ask Luminus Command Bar
+- Command bar, not a permanently open chatbot sidebar
+- Natural language shortcuts into views, filters, and drill-downs
+- Example actions: "show maxed export corridors", "open Italy power stack", "why did France-UK blow out?"
+
+13. Visual Delight Pass
+- Upgrade motion, transitions, panel choreography, typography, and visual hierarchy
+- Make the interface feel premium and alive without fake widgets
+- Polish map, side panels, dashboard cards, and state transitions as one coherent system
+
 ## Done When
 - A user can open Luminus on desktop or mobile and get to a watched corridor / country in under 2 clicks
 - A corridor has a proper detail surface, not just a tooltip
 - Time series exists as a first-class workflow element
-- Alerts are configurable from in-product state
-- The dashboard summarises market changes without manual map hunting
+- Alerts are configurable from in-product state and can actually notify the user
+- Saved presets make different trader workflows one-click
+- "Explain this spike" adds grounded context, not AI theatre
+- The frontend feels premium, fast, and memorable without lying about the data
 - Planned infrastructure and fundamentals can be layered without clutter collapse
