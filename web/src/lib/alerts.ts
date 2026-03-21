@@ -25,8 +25,8 @@ export interface AlertRule {
   enabled: boolean;
   createdAt: string;
   lastTriggeredAt?: string;
-  /** v1: in-app only. Extension point for future delivery. */
-  deliveryChannels: ('in_app')[];
+  /** Delivery channels for this rule. 'in_app' always on; 'browser' opt-in. */
+  deliveryChannels: ('in_app' | 'browser')[];
 }
 
 export interface AlertFiring {

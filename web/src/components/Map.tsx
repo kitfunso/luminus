@@ -26,6 +26,7 @@ import AssetTimeSeries, { type TimeSeriesAsset } from './AssetTimeSeries';
 import AlertsPanel from './AlertsPanel';
 import TraderDashboard from './TraderDashboard';
 import { evaluateAlerts } from '@/lib/alerts';
+import { deliverFirings } from '@/lib/alert-delivery';
 import CorridorPanel from './CorridorPanel';
 import TyndpPanel from './TyndpPanel';
 import PipelinePanel from './PipelinePanel';
@@ -378,7 +379,8 @@ export default function EnergyMap() {
       congestionByCorridorId[`corridor:${id}`] = f.capacityMW > 0 ? f.flowMW / f.capacityMW : 0;
     }
     const outageSet = new Set(outages.map((o) => `country:${o.iso2}`));
-    evaluateAlerts(priceByIso, congestionByCorridorId, outageSet);
+    const fired = evaluateAlerts(priceByIso, congestionByCorridorId, outageSet);
+    if (fired.length > 0) deliverFirings(fired);
   }, [prices, flows, outages]);
 
   // --- Filtered data ---

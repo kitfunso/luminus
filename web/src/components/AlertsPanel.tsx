@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getAlertRules,
   addAlertRule,
@@ -12,6 +12,12 @@ import {
   type AlertCondition,
   type AlertAssetType,
 } from '@/lib/alerts';
+import {
+  getDeliverySettings,
+  setBrowserNotificationsEnabled,
+  requestNotificationPermission,
+  getNotificationPermission,
+} from '@/lib/alert-delivery';
 import { getWatchlist } from '@/lib/watchlist';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 
@@ -78,6 +84,35 @@ export default function AlertsPanel({ onClose }: AlertsPanelProps) {
   const [tab, setTab] = useState<Tab>('rules');
   const [rules, setRules] = useState<AlertRule[]>(() => getAlertRules());
   const firings = getAlertFirings();
+
+  // Browser notification delivery state
+  const [browserEnabled, setBrowserEnabled] = useState<boolean>(
+    () => getDeliverySettings().browserEnabled
+  );
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | 'unsupported'>(
+    () => getNotificationPermission()
+  );
+
+  // Sync permission state after page focus (user may have changed it in browser settings)
+  useEffect(() => {
+    const handleFocus = () => setNotifPermission(getNotificationPermission());
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  const handleToggleBrowser = useCallback(async () => {
+    if (!browserEnabled) {
+      // Request permission if not already granted
+      const permission = await requestNotificationPermission();
+      setNotifPermission(permission);
+      if (permission !== 'granted') {
+        // Cannot enable without permission
+        return;
+      }
+    }
+    const updated = setBrowserNotificationsEnabled(!browserEnabled);
+    setBrowserEnabled(updated.browserEnabled);
+  }, [browserEnabled]);
 
   // New rule form state
   const [formAssetId, setFormAssetId] = useState('');
@@ -155,6 +190,48 @@ export default function AlertsPanel({ onClose }: AlertsPanelProps) {
       <div className="flex-1 overflow-y-auto sidebar-scroll px-4 pb-4">
         {tab === 'rules' && (
           <div>
+            {/* Browser notification toggle */}
+            <div className="mb-3 pb-3 border-b border-white/[0.04]">
+              <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-2">Delivery</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] text-slate-300">Browser notifications</div>
+                  {notifPermission === 'denied' && (
+                    <div className="text-[10px] text-red-400 mt-0.5">
+                      Blocked in browser settings. Enable manually to use.
+                    </div>
+                  )}
+                  {notifPermission === 'unsupported' && (
+                    <div className="text-[10px] text-slate-600 mt-0.5">Not supported in this browser.</div>
+                  )}
+                  {notifPermission === 'default' && !browserEnabled && (
+                    <div className="text-[10px] text-slate-500 mt-0.5">Click to enable.</div>
+                  )}
+                  {notifPermission === 'granted' && browserEnabled && (
+                    <div className="text-[10px] text-emerald-500 mt-0.5">On — 5 min cooldown per rule.</div>
+                  )}
+                </div>
+                <button
+                  onClick={handleToggleBrowser}
+                  disabled={notifPermission === 'denied' || notifPermission === 'unsupported'}
+                  className={`w-8 h-4 rounded-full border transition-colors flex-shrink-0 relative ${
+                    browserEnabled && notifPermission === 'granted'
+                      ? 'bg-sky-500 border-sky-500'
+                      : 'bg-transparent border-slate-600'
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  title={browserEnabled ? 'Disable browser notifications' : 'Enable browser notifications'}
+                >
+                  <span
+                    className={`absolute top-0.5 w-3 h-3 rounded-full transition-transform ${
+                      browserEnabled && notifPermission === 'granted'
+                        ? 'bg-white translate-x-4'
+                        : 'bg-slate-500 translate-x-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
             {/* Add rule form */}
             <div className="mb-3 space-y-2 pb-3 border-b border-white/[0.04]">
               <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">New Rule</div>
