@@ -18,6 +18,7 @@ import type { LayerKey } from './Sidebar';
 import Tooltip, { type TooltipData } from './Tooltip';
 import PlantPanel from './PlantPanel';
 import PriceSparkline from './PriceSparkline';
+import ComparePanel from './ComparePanel';
 import {
   getFuelColor,
   normalizeFuel,
@@ -223,6 +224,11 @@ export default function EnergyMap() {
   const [selectedCountryPrice, setSelectedCountryPrice] =
     useState<CountryPrice | null>(null);
 
+  // Compare mode
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareCountries, setCompareCountries] = useState<string[]>([]);
+  const shiftHeld = useRef(false);
+
   // URL hash debounce
   const hashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -266,6 +272,23 @@ export default function EnergyMap() {
     const interval = setInterval(loadData, REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [loadData]);
+
+  // --- Shift key tracking for compare mode ---
+
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') shiftHeld.current = true;
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') shiftHeld.current = false;
+    };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+    };
+  }, []);
 
   // --- URL hash sync (debounced) ---
 
@@ -427,6 +450,19 @@ export default function EnergyMap() {
           onClick: (info: PickingInfo) => {
             if (!info.object) return;
             const iso = info.object.properties?.ISO_A2 || '';
+            if (!iso) return;
+
+            if (compareMode || shiftHeld.current) {
+              setCompareCountries((prev) => {
+                if (prev.includes(iso)) return prev.filter((c) => c !== iso);
+                if (prev.length >= 4) return prev;
+                return [...prev, iso];
+              });
+              setSelectedPlant(null);
+              setSelectedCountryPrice(null);
+              return;
+            }
+
             const priceData = priceLookup.get(iso);
             if (priceData) {
               setSelectedCountryPrice(priceData);
@@ -625,6 +661,7 @@ export default function EnergyMap() {
     effectiveVis,
     genMixData,
     zoomLevel,
+    compareMode,
   ]);
 
   // --- Handlers ---
@@ -701,6 +738,27 @@ export default function EnergyMap() {
     }
   }, []);
 
+  const handleToggleCompareMode = useCallback(() => {
+    setCompareMode((prev) => {
+      if (!prev) {
+        setSelectedPlant(null);
+        setSelectedCountryPrice(null);
+      } else {
+        setCompareCountries([]);
+      }
+      return !prev;
+    });
+  }, []);
+
+  const handleRemoveCompareCountry = useCallback((iso2: string) => {
+    setCompareCountries((prev) => prev.filter((c) => c !== iso2));
+  }, []);
+
+  const handleClearCompare = useCallback(() => {
+    setCompareCountries([]);
+    setCompareMode(false);
+  }, []);
+
   const handleExportCSV = useCallback(() => {
     const header = 'Name,Fuel,Capacity_MW,Country,Latitude,Longitude,Year\n';
     const rows = filteredPlants
@@ -757,22 +815,64 @@ export default function EnergyMap() {
         </div>
       )}
 
-      {/* Plant detail panel */}
-      {selectedPlant && (
-        <PlantPanel
-          plant={selectedPlant}
-          onClose={() => setSelectedPlant(null)}
-        />
-      )}
+      {/* Compare mode toggle */}
+      <button
+        onClick={handleToggleCompareMode}
+        className={`absolute bottom-6 right-4 px-3 py-1.5 rounded-full text-xs font-medium transition-all backdrop-blur-xl ${
+          compareMode
+            ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+            : 'bg-black/60 text-slate-400 border border-white/[0.06] hover:text-white hover:border-white/10'
+        }`}
+        style={{ zIndex: 15 }}
+      >
+        <span className="flex items-center gap-1.5">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="3" width="7" height="18" rx="1" />
+            <rect x="14" y="3" width="7" height="18" rx="1" />
+          </svg>
+          {compareMode ? 'Exit Compare' : 'Compare'}
+        </span>
+      </button>
 
-      {/* Price sparkline panel */}
-      {selectedCountryPrice && selectedCountryPrice.hourly && (
-        <PriceSparkline
-          hourly={selectedCountryPrice.hourly}
-          countryName={selectedCountryPrice.country}
-          avgPrice={selectedCountryPrice.price}
-          onClose={() => setSelectedCountryPrice(null)}
+      {/* Compare panel (replaces plant/price panels when active) */}
+      {compareCountries.length > 0 ? (
+        <ComparePanel
+          selectedCountries={compareCountries}
+          plants={plants}
+          prices={prices}
+          flows={flows}
+          onRemoveCountry={handleRemoveCompareCountry}
+          onClose={handleClearCompare}
         />
+      ) : (
+        <>
+          {/* Plant detail panel */}
+          {selectedPlant && (
+            <PlantPanel
+              plant={selectedPlant}
+              onClose={() => setSelectedPlant(null)}
+            />
+          )}
+
+          {/* Price sparkline panel */}
+          {selectedCountryPrice && selectedCountryPrice.hourly && (
+            <PriceSparkline
+              hourly={selectedCountryPrice.hourly}
+              countryName={selectedCountryPrice.country}
+              avgPrice={selectedCountryPrice.price}
+              onClose={() => setSelectedCountryPrice(null)}
+            />
+          )}
+        </>
       )}
 
       <Sidebar

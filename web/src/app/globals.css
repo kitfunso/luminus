@@ -201,6 +201,33 @@ body {
   to { transform: translateX(0); opacity: 1; }
 }
 
+/* Compare panel (side-by-side country cards) */
+.compare-panel {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  max-width: 680px;
+  z-index: 15;
+  background: rgba(10, 14, 23, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: slideInRight 0.2s ease-out;
+}
+
+.compare-card {
+  position: relative;
+  min-width: 280px;
+  max-width: 300px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 14px;
+}
+
 /* Export button style */
 .export-btn {
   display: flex;
