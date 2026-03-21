@@ -8,6 +8,7 @@ const path = require('path');
 const { extractXmlDocumentsFromZipBuffer, parseCurrentGenerationOutage } = require('./lib/entsoe-outages');
 const { WIND_PSR, SOLAR_PSR, extractTimeSeriesQuantities, computeForecastMetrics } = require('./lib/entsoe-forecast');
 const { extractHourlyPrices } = require('./lib/entsoe-history');
+const { mergePricesWithFallback } = require('./lib/price-merge');
 
 const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
 const WRI_URL =
@@ -348,20 +349,27 @@ async function fetchAllPrices() {
 
   const cache = new Map();
   const iso2s = Object.keys(COUNTRY_NAMES);
-  const prices = [];
+  const live = [];
 
   for (const iso2 of iso2s) {
     const price = await fetchPrice(iso2, cache);
-    if (price) prices.push(price);
+    if (price) live.push(price);
   }
 
-  const missing = iso2s.filter((iso2) => !prices.some((price) => price.iso2 === iso2));
+  const missing = iso2s.filter((iso2) => !live.some((price) => price.iso2 === iso2));
   if (missing.length > 0) {
-    console.warn(`  Missing live prices for: ${missing.join(', ')}`);
+    console.warn(`  Missing live prices for: ${missing.join(', ')} — preserving fallback entries from DEMO_PRICES`);
   }
 
-  console.log(`  -> ${prices.length}/${iso2s.length} country prices fetched`);
-  return prices.length > 0 ? prices : null;
+  // Merge live results onto the full baseline so prices.json always covers every
+  // country. Countries with no live fetch get source:'fallback'; live successes
+  // get source:'live'. This means the bundled file never shrinks on partial API outages.
+  const merged = mergePricesWithFallback(live, DEMO_PRICES);
+
+  const liveCount = merged.filter((p) => p.source === 'live').length;
+  const fallbackCount = merged.filter((p) => p.source === 'fallback').length;
+  console.log(`  -> ${liveCount} live, ${fallbackCount} fallback (total ${merged.length}/${iso2s.length})`);
+  return merged;
 }
 
 // --- ENTSO-E flows ---
@@ -786,6 +794,8 @@ async function main() {
   ]);
 
   const plantsOut = plants || [];
+  // prices is always a fully-merged array from fetchAllPrices (never null).
+  // DEMO_PRICES fallback is only used if the entire function throws unexpectedly.
   const pricesOut = prices || DEMO_PRICES;
   const flowsOut = flows || DEMO_FLOWS;
   const outagesOut = outages || [];

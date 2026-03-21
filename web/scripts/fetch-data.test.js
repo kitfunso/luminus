@@ -10,6 +10,7 @@ const {
 const {
   extractHourlyPrices,
 } = require('./lib/entsoe-history');
+const { mergePricesWithFallback } = require('./lib/price-merge');
 
 function buildDataDescriptorZip(files) {
   const localParts = [];
@@ -171,4 +172,53 @@ test('extractHourlyPrices averages duplicate time series and aggregates 15-minut
   assert.equal(parsed.startUtc, '2026-03-18T23:00:00.000Z');
   assert.equal(parsed.endUtc, '2026-03-19T01:00:00.000Z');
   assert.deepEqual(parsed.hourly, [111, 131]);
+});
+
+// --- mergePricesWithFallback ---
+
+const BASELINE = [
+  { iso2: 'DE', country: 'Germany', price: 72.4 },
+  { iso2: 'FR', country: 'France', price: 58.3 },
+  { iso2: 'GB', country: 'United Kingdom', price: 85.1 },
+];
+
+test('mergePricesWithFallback: live countries tagged source:live', () => {
+  const live = [
+    { iso2: 'DE', country: 'Germany', price: 90.0 },
+    { iso2: 'FR', country: 'France', price: 61.0 },
+  ];
+  const result = mergePricesWithFallback(live, BASELINE);
+  const de = result.find((p) => p.iso2 === 'DE');
+  const fr = result.find((p) => p.iso2 === 'FR');
+  assert.equal(de.source, 'live');
+  assert.equal(de.price, 90.0);
+  assert.equal(fr.source, 'live');
+  assert.equal(fr.price, 61.0);
+});
+
+test('mergePricesWithFallback: missing live country preserved from baseline as source:fallback', () => {
+  const live = [
+    { iso2: 'DE', country: 'Germany', price: 90.0 },
+  ];
+  const result = mergePricesWithFallback(live, BASELINE);
+  const gb = result.find((p) => p.iso2 === 'GB');
+  assert.ok(gb, 'GB must be present even when missing from live results');
+  assert.equal(gb.source, 'fallback');
+  assert.equal(gb.price, 85.1); // baseline price preserved
+});
+
+test('mergePricesWithFallback: output length equals baseline length when all live missing', () => {
+  const result = mergePricesWithFallback([], BASELINE);
+  assert.equal(result.length, BASELINE.length);
+  assert.ok(result.every((p) => p.source === 'fallback'));
+});
+
+test('mergePricesWithFallback: live-only country not in baseline is still included', () => {
+  const live = [
+    { iso2: 'NO', country: 'Norway', price: 28.0 },
+  ];
+  const result = mergePricesWithFallback(live, BASELINE);
+  const no = result.find((p) => p.iso2 === 'NO');
+  assert.ok(no, 'Live-only entry must appear in output');
+  assert.equal(no.source, 'live');
 });

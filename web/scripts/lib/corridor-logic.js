@@ -178,6 +178,36 @@ function corridorMidpoint(from, to, flows, centroids) {
   return null;
 }
 
+/**
+ * Honest headroom display: does NOT describe negative values as available capacity.
+ *
+ * When flow > capacity (live data can exceed static NTC reference):
+ *   - reports overflow magnitude (flow - capacity)
+ *   - label describes it as "above reference" so it's clear this is not spare capacity
+ *
+ * When flow <= capacity:
+ *   - reports headroom (capacity - flow) as available
+ *
+ * @param {number} flowMW
+ * @param {number} capacityMW
+ * @returns {{ headroomMW: number, overflow: boolean, label: string }}
+ */
+function headroomDisplay(flowMW, capacityMW) {
+  const diff = capacityMW - flowMW;
+  if (diff < 0) {
+    return {
+      headroomMW: Math.abs(diff),
+      overflow: true,
+      label: 'Above reference cap',
+    };
+  }
+  return {
+    headroomMW: diff,
+    overflow: false,
+    label: 'Available',
+  };
+}
+
 module.exports = {
   utilisationLevel,
   computeSpread,
@@ -188,4 +218,5 @@ module.exports = {
   corridorForLine,
   matchCorridorLines,
   corridorMidpoint,
+  headroomDisplay,
 };

@@ -11,6 +11,7 @@ const {
   corridorForLine,
   matchCorridorLines,
   corridorMidpoint,
+  headroomDisplay,
 } = require('./lib/corridor-logic');
 
 // --- utilisationLevel ---
@@ -201,4 +202,26 @@ test('corridorMidpoint: falls back to centroid average when no flow', () => {
 test('corridorMidpoint: returns null when no flow and missing centroid', () => {
   const mid = corridorMidpoint('XX', 'YY', [], {});
   assert.equal(mid, null);
+});
+
+// --- headroomDisplay ---
+
+test('headroomDisplay: normal flow reports available headroom, not overflow', () => {
+  const r = headroomDisplay(2100, 3000);
+  assert.equal(r.overflow, false);
+  assert.equal(r.headroomMW, 900);
+  assert.equal(r.label, 'Available');
+});
+
+test('headroomDisplay: flow equals capacity reports zero headroom, not overflow', () => {
+  const r = headroomDisplay(1400, 1400);
+  assert.equal(r.overflow, false);
+  assert.equal(r.headroomMW, 0);
+});
+
+test('headroomDisplay: flow exceeds capacity reports overflow, not negative headroom', () => {
+  const r = headroomDisplay(4072, 3000);
+  assert.equal(r.overflow, true);
+  assert.equal(r.headroomMW, 1072);
+  assert.ok(r.label.toLowerCase().includes('above'), 'label must mention overflow not spare capacity');
 });

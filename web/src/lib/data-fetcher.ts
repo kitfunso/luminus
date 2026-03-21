@@ -13,6 +13,8 @@ export interface CountryPrice {
   iso2: string;
   price: number;
   hourly?: number[];
+  /** 'live' = freshly fetched at build time; 'fallback' = preserved from reference baseline when live fetch failed */
+  source?: 'live' | 'fallback';
 }
 
 export interface TransmissionLine {

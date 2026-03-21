@@ -153,7 +153,11 @@ export default function CorridorPanel({
     [outages, flow.from, flow.to]
   );
 
-  const headroom = flow.capacityMW - flow.flowMW;
+  // Honest headroom: when live flow exceeds the static NTC reference cap, do
+  // not show a negative number as if it were spare capacity.
+  const headroomRaw = flow.capacityMW - flow.flowMW;
+  const isOverflow = headroomRaw < 0;
+  const headroomAbs = Math.abs(headroomRaw);
 
   const cid = corridorId(flow.from, flow.to);
   const physicalLines = CORRIDOR_LINE_MAP[cid] ?? [];
@@ -209,14 +213,18 @@ export default function CorridorPanel({
           <p className="text-[10px] text-slate-500">MW (NTC)</p>
         </div>
         <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Headroom</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">
+            {isOverflow ? 'Overflow' : 'Headroom'}
+          </p>
           <p
             className="text-lg font-bold tabular-nums"
-            style={{ color: headroom < flow.capacityMW * 0.2 ? '#f87171' : '#4ade80' }}
+            style={{ color: isOverflow ? '#f87171' : headroomAbs < flow.capacityMW * 0.2 ? '#facc15' : '#4ade80' }}
           >
-            {headroom.toLocaleString()}
+            {isOverflow ? '+' : ''}{headroomAbs.toLocaleString()}
           </p>
-          <p className="text-[10px] text-slate-500">MW available</p>
+          <p className="text-[10px] text-slate-500">
+            {isOverflow ? 'MW above reference cap' : 'MW available'}
+          </p>
         </div>
         <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
           <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1">Spread</p>
