@@ -285,6 +285,24 @@ body {
   padding: 14px;
 }
 
+/* Corridor detail panel (slide-in from right) */
+.corridor-panel {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 360px;
+  z-index: 15;
+  background: rgba(10, 14, 23, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: slideInRight 0.2s ease-out;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
 /* Export button style */
 .export-btn {
   display: flex;
@@ -312,7 +330,8 @@ body {
   .outage-panel,
   .forecast-panel,
   .sparkline-panel,
-  .compare-panel {
+  .compare-panel,
+  .corridor-panel {
     left: 12px;
     right: 12px;
     width: auto;
@@ -322,7 +341,8 @@ body {
   .plant-panel,
   .outage-panel,
   .forecast-panel,
-  .compare-panel {
+  .compare-panel,
+  .corridor-panel {
     top: 76px;
     max-height: calc(100vh - 88px);
   }

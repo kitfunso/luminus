@@ -22,6 +22,8 @@ import ComparePanel from './ComparePanel';
 import OutageRadar from './OutageRadar';
 import ForecastPanel from './ForecastPanel';
 import TimeScrubber from './TimeScrubber';
+import CorridorPanel from './CorridorPanel';
+import TyndpPanel from './TyndpPanel';
 import {
   getFuelColor,
   normalizeFuel,
@@ -243,6 +245,8 @@ export default function EnergyMap() {
   const [selectedPlant, setSelectedPlant] = useState<PowerPlant | null>(null);
   const [selectedCountryPrice, setSelectedCountryPrice] =
     useState<CountryPrice | null>(null);
+  const [selectedFlow, setSelectedFlow] = useState<CrossBorderFlow | null>(null);
+  const [selectedTyndp, setSelectedTyndp] = useState<TyndpProject | null>(null);
 
   // Compare mode
   const [compareMode, setCompareMode] = useState(false);
@@ -416,6 +420,28 @@ export default function EnergyMap() {
       .filter(Boolean) as { position: [number, number]; text: string; iso: string }[];
   }, [filteredPlants]);
 
+  // --- Spread labels: mid-arc price differential text ---
+
+  const spreadLabelData = useMemo(() => {
+    if (!layerVisibility.flows) return [];
+    return flows
+      .map((f) => {
+        const fp = priceLookup.get(f.from);
+        const tp = priceLookup.get(f.to);
+        if (!fp || !tp) return null;
+        const spread = Math.round((tp.price - fp.price) * 10) / 10;
+        const lon = (f.fromLon + f.toLon) / 2;
+        const lat = (f.fromLat + f.toLat) / 2;
+        const sign = spread >= 0 ? '+' : '';
+        return {
+          position: [lon, lat] as [number, number],
+          text: `${sign}€${Math.abs(spread).toFixed(0)}`,
+          spread,
+        };
+      })
+      .filter(Boolean) as { position: [number, number]; text: string; spread: number }[];
+  }, [flows, priceLookup, layerVisibility.flows]);
+
   // --- Zoom-responsive visibility ---
 
   const effectiveVis = useMemo(
@@ -426,6 +452,7 @@ export default function EnergyMap() {
       lines: layerVisibility.lines && zoomLevel > 6,
       tyndp: layerVisibility.tyndp && zoomLevel >= 4,
       genMix: layerVisibility.genMix && zoomLevel < 6,
+      spreadLabels: layerVisibility.flows && zoomLevel >= 4 && zoomLevel < 7,
     }),
     [layerVisibility, zoomLevel]
   );
@@ -497,6 +524,8 @@ export default function EnergyMap() {
             if (priceData) {
               setSelectedCountryPrice(priceData);
               setSelectedPlant(null);
+              setSelectedFlow(null);
+              setSelectedTyndp(null);
             }
           },
         })
@@ -536,12 +565,12 @@ export default function EnergyMap() {
       );
     }
 
-    // 3. Cross-border flow arrows (colored by utilization stress)
+    // 3. Cross-border flow arrows (colored by utilization stress, clickable for corridor detail)
     if (effectiveVis.flows) {
       const stressColor = (d: CrossBorderFlow): [number, number, number, number] => {
         const util = d.capacityMW > 0 ? d.flowMW / d.capacityMW : 0;
-        if (util > 0.8) return [248, 113, 113, 200];
-        if (util > 0.5) return [250, 204, 21, 200];
+        if (util > 0.8) return [248, 113, 113, 220];
+        if (util > 0.5) return [250, 204, 21, 220];
         return [74, 222, 128, 200];
       };
       result.push(
@@ -553,10 +582,12 @@ export default function EnergyMap() {
           getSourceColor: (d) => stressColor(d),
           getTargetColor: (d) => stressColor(d),
           getWidth: (d) => Math.max(1, d.flowMW / 500),
-          widthMinPixels: 1,
-          widthMaxPixels: 8,
+          widthMinPixels: 2,
+          widthMaxPixels: 10,
           greatCircle: true,
           pickable: true,
+          autoHighlight: true,
+          highlightColor: [255, 255, 255, 60],
           onHover: (info: PickingInfo<CrossBorderFlow>) => {
             if (!info.object) {
               setTooltip(null);
@@ -567,7 +598,10 @@ export default function EnergyMap() {
             const toName = COUNTRY_CENTROIDS[d.to]?.name || d.to;
             const util = d.capacityMW > 0 ? d.flowMW / d.capacityMW : 0;
             const pct = (util * 100).toFixed(0);
-            const stressLabel = util > 0.8 ? 'Congested' : util > 0.5 ? 'Moderate' : 'Low';
+            const stressLabel = util > 0.8 ? 'Congested' : util > 0.5 ? 'Stressed' : 'Low';
+            const fp = priceLookup.get(d.from);
+            const tp = priceLookup.get(d.to);
+            const spread = fp && tp ? (tp.price - fp.price).toFixed(1) : null;
             setTooltip({
               x: info.x,
               y: info.y,
@@ -575,9 +609,46 @@ export default function EnergyMap() {
                 Flow: `${fromName} \u2192 ${toName}`,
                 MW: d.flowMW.toLocaleString(),
                 'Capacity %': `${pct}% (${stressLabel})`,
+                ...(spread != null && { Spread: `${parseFloat(spread) >= 0 ? '+' : ''}\u20ac${spread}/MWh` }),
+                '': 'Click for corridor detail',
               },
             });
           },
+          onClick: (info: PickingInfo<CrossBorderFlow>) => {
+            if (!info.object) return;
+            setSelectedFlow(info.object);
+            setSelectedPlant(null);
+            setSelectedCountryPrice(null);
+            setSelectedTyndp(null);
+          },
+        })
+      );
+    }
+
+    // 3b. Spread label overlays on flow arcs (visible at zoom 4-7)
+    if (effectiveVis.spreadLabels && spreadLabelData.length > 0) {
+      result.push(
+        new TextLayer({
+          id: 'spread-labels',
+          data: spreadLabelData,
+          getPosition: (d: { position: [number, number] }) => d.position,
+          getText: (d: { text: string }) => d.text,
+          getSize: 11,
+          getColor: (d: { spread: number }) =>
+            d.spread > 5
+              ? [74, 222, 128, 210]
+              : d.spread < -5
+              ? [248, 113, 113, 210]
+              : [250, 204, 21, 200],
+          fontFamily: 'system-ui, sans-serif',
+          fontWeight: 700,
+          outlineWidth: 3,
+          outlineColor: [10, 14, 23, 220],
+          billboard: true,
+          characterSet: 'auto',
+          getTextAnchor: 'middle',
+          getAlignmentBaseline: 'center',
+          pickable: false,
         })
       );
     }
@@ -619,13 +690,21 @@ export default function EnergyMap() {
             if (!info.object) return;
             setSelectedPlant(info.object);
             setSelectedCountryPrice(null);
+            setSelectedFlow(null);
+            setSelectedTyndp(null);
           },
         })
       );
     }
 
-    // 5. TYNDP pipeline (hollow circles)
+    // 5. TYNDP pipeline (hollow circles, clickable for project detail)
     if (effectiveVis.tyndp) {
+      const tyndpStatusColor = (d: TyndpProject): [number, number, number, number] => {
+        if (d.status === 'under_construction') return [74, 222, 128, 210];
+        if (d.status === 'permitted') return [56, 189, 248, 190];
+        if (d.status === 'planned') return [250, 204, 21, 170];
+        return [148, 163, 184, 140];
+      };
       result.push(
         new ScatterplotLayer<TyndpProject>({
           id: 'tyndp-projects',
@@ -633,17 +712,16 @@ export default function EnergyMap() {
           getPosition: (d) => [d.lon, d.lat],
           getRadius: (d) => Math.max(1200, Math.sqrt(d.capacity) * 150),
           radiusMinPixels: 4,
-          radiusMaxPixels: 25,
+          radiusMaxPixels: 28,
           filled: false,
           stroked: true,
-          getLineColor: (d) =>
-            d.status === 'under_construction'
-              ? [255, 255, 255, 200]
-              : [255, 255, 255, 120],
+          getLineColor: tyndpStatusColor,
           getLineWidth: 2,
           lineWidthMinPixels: 2,
           lineWidthMaxPixels: 4,
           pickable: true,
+          autoHighlight: true,
+          highlightColor: [255, 255, 255, 40],
           onHover: (info: PickingInfo<TyndpProject>) => {
             if (!info.object) {
               setTooltip(null);
@@ -656,12 +734,20 @@ export default function EnergyMap() {
               y: info.y,
               content: {
                 Project: d.name,
-                Fuel: d.fuel,
+                Type: d.fuel,
                 Capacity: `${d.capacity.toLocaleString()} MW`,
                 Status: statusLabel.charAt(0).toUpperCase() + statusLabel.slice(1),
                 Expected: d.expectedYear,
+                '': 'Click for project detail',
               },
             });
+          },
+          onClick: (info: PickingInfo<TyndpProject>) => {
+            if (!info.object) return;
+            setSelectedTyndp(info.object);
+            setSelectedPlant(null);
+            setSelectedCountryPrice(null);
+            setSelectedFlow(null);
           },
         })
       );
@@ -698,6 +784,7 @@ export default function EnergyMap() {
     priceLookup,
     effectiveVis,
     genMixData,
+    spreadLabelData,
     zoomLevel,
     compareMode,
   ]);
@@ -895,8 +982,26 @@ export default function EnergyMap() {
         />
       ) : (
         <>
+          {/* Corridor detail panel */}
+          {selectedFlow && (
+            <CorridorPanel
+              flow={selectedFlow}
+              prices={prices}
+              outages={outages}
+              onClose={() => setSelectedFlow(null)}
+            />
+          )}
+
+          {/* TYNDP project detail panel */}
+          {selectedTyndp && !selectedFlow && (
+            <TyndpPanel
+              project={selectedTyndp}
+              onClose={() => setSelectedTyndp(null)}
+            />
+          )}
+
           {/* Plant detail panel */}
-          {selectedPlant && (
+          {selectedPlant && !selectedFlow && !selectedTyndp && (
             <PlantPanel
               plant={selectedPlant}
               onClose={() => setSelectedPlant(null)}
@@ -904,7 +1009,7 @@ export default function EnergyMap() {
           )}
 
           {/* Price sparkline panel */}
-          {selectedCountryPrice && selectedCountryPrice.hourly && (
+          {selectedCountryPrice && selectedCountryPrice.hourly && !selectedFlow && !selectedTyndp && (
             <PriceSparkline
               hourly={selectedCountryPrice.hourly}
               countryName={selectedCountryPrice.country}
@@ -914,7 +1019,7 @@ export default function EnergyMap() {
           )}
 
           {/* Outage radar panel */}
-          {layerVisibility.outages && !layerVisibility.forecast && !selectedPlant && !selectedCountryPrice && (
+          {layerVisibility.outages && !layerVisibility.forecast && !selectedPlant && !selectedCountryPrice && !selectedFlow && !selectedTyndp && (
             <OutageRadar
               outages={outages}
               plants={plants}
@@ -923,7 +1028,7 @@ export default function EnergyMap() {
           )}
 
           {/* Forecast vs actual panel */}
-          {layerVisibility.forecast && !selectedPlant && !selectedCountryPrice && (
+          {layerVisibility.forecast && !selectedPlant && !selectedCountryPrice && !selectedFlow && !selectedTyndp && (
             <ForecastPanel
               forecasts={forecasts}
               onClose={() => handleToggleLayer('forecast')}
