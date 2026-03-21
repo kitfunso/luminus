@@ -91,10 +91,63 @@ function corridorId(from, to) {
   return [from, to].sort().join('-');
 }
 
+/**
+ * Static mapping from canonical corridorId to real line names in transmission-lines.json.
+ * Coverage: 19 of 20 named interconnectors. Keys use corridorId() format (sorted A-Z).
+ */
+const CORRIDOR_LINE_MAP = {
+  'FR-GB': ['IFA FR-GB', 'IFA2 FR-GB'],
+  'GB-NL': ['BritNed NL-GB'],
+  'GB-NO': ['North Sea Link NO-GB'],
+  'DE-FR': ['Vigy-Uchtelfangen FR-DE'],
+  'DE-NL': ['Meeden-Diele DE-NL'],
+  'ES-FR': ['Baixas-Santa Llogaia FR-ES'],
+  'AT-DE': ['St Peter-Simbach DE-AT'],
+  'AT-IT': ['Lienz-Soverzene AT-IT'],
+  'FR-IT': ['Albertville-Piossasco FR-IT'],
+  'DE-PL': ['Vierraden-Krajnik DE-PL'],
+  'CZ-DE': ['Hradec-Rohrsdorf DE-CZ'],
+  'DE-DK': ['Kasso-Audorf DE-DK'],
+  'NO-SE': ['Halden-Hasle NO-SE'],
+  'FI-SE': ['Fennoskan SE-FI'],
+  'BE-FR': ['Avelin-Avelgem FR-BE'],
+  'CH-DE': ['Beznau-Tiengen DE-CH'],
+  'AT-HU': ['Wien-Gyor AT-HU'],
+  'CZ-PL': ['Dobrzen-Albrechtice PL-CZ'],
+  'ES-PT': ['Balboa-Alqueva ES-PT'],
+};
+
+/**
+ * Find the corridorId for a named transmission line, or null if unmapped.
+ * @param {string} lineName
+ * @returns {string|null}
+ */
+function corridorForLine(lineName) {
+  for (const [cid, names] of Object.entries(CORRIDOR_LINE_MAP)) {
+    if (names.includes(lineName)) return cid;
+  }
+  return null;
+}
+
+/**
+ * Filter an array of line objects (must have .name) to only those belonging to a corridorId.
+ * @param {string} cid
+ * @param {{ name: string }[]} lines
+ * @returns {{ name: string }[]}
+ */
+function matchCorridorLines(cid, lines) {
+  const names = CORRIDOR_LINE_MAP[cid];
+  if (!names || !names.length) return [];
+  return lines.filter((l) => names.includes(l.name));
+}
+
 module.exports = {
   utilisationLevel,
   computeSpread,
   syntheticFlowProfile,
   arcMidpoint,
   corridorId,
+  CORRIDOR_LINE_MAP,
+  corridorForLine,
+  matchCorridorLines,
 };

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
+import { corridorId, CORRIDOR_LINE_MAP } from '@/lib/corridor-lines';
 import type {
   CrossBorderFlow,
   CountryPrice,
@@ -154,6 +155,9 @@ export default function CorridorPanel({
 
   const headroom = flow.capacityMW - flow.flowMW;
 
+  const cid = corridorId(flow.from, flow.to);
+  const physicalLines = CORRIDOR_LINE_MAP[cid] ?? [];
+
   return (
     <div className="corridor-panel">
       {/* Header */}
@@ -287,6 +291,30 @@ export default function CorridorPanel({
           </div>
         </div>
       )}
+
+      {/* Physical interconnectors for this corridor */}
+      <div className="border-t border-white/[0.06] pt-3 mb-4">
+        <h3 className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">
+          Physical Interconnectors
+        </h3>
+        {physicalLines.length > 0 ? (
+          <ul className="space-y-1">
+            {physicalLines.map((name) => (
+              <li key={name} className="flex items-center gap-2 text-[11px]">
+                <span
+                  className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: util.color }}
+                />
+                <span className="text-slate-300">{name}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[11px] text-slate-600 italic">
+            No mapped interconnector for this corridor
+          </p>
+        )}
+      </div>
 
       {/* Outages on corridor countries */}
       {relevantOutages.length > 0 && (

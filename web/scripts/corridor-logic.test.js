@@ -7,6 +7,9 @@ const {
   syntheticFlowProfile,
   arcMidpoint,
   corridorId,
+  CORRIDOR_LINE_MAP,
+  corridorForLine,
+  matchCorridorLines,
 } = require('./lib/corridor-logic');
 
 // --- utilisationLevel ---
@@ -110,4 +113,57 @@ test('corridorId: order-independent', () => {
 
 test('corridorId: produces stable string', () => {
   assert.equal(corridorId('DE', 'FR'), 'DE-FR');
+});
+
+// --- CORRIDOR_LINE_MAP ---
+
+test('CORRIDOR_LINE_MAP: FR-GB maps IFA and IFA2', () => {
+  const names = CORRIDOR_LINE_MAP['FR-GB'];
+  assert.ok(Array.isArray(names));
+  assert.ok(names.includes('IFA FR-GB'));
+  assert.ok(names.includes('IFA2 FR-GB'));
+});
+
+test('CORRIDOR_LINE_MAP: has at least 10 corridors', () => {
+  assert.ok(Object.keys(CORRIDOR_LINE_MAP).length >= 10);
+});
+
+// --- corridorForLine ---
+
+test('corridorForLine: IFA FR-GB returns FR-GB', () => {
+  assert.equal(corridorForLine('IFA FR-GB'), 'FR-GB');
+});
+
+test('corridorForLine: BritNed NL-GB returns GB-NL', () => {
+  assert.equal(corridorForLine('BritNed NL-GB'), 'GB-NL');
+});
+
+test('corridorForLine: unknown line returns null', () => {
+  assert.equal(corridorForLine('Unknown Line'), null);
+});
+
+// --- matchCorridorLines ---
+
+test('matchCorridorLines: returns FR-GB lines from dataset', () => {
+  const lines = [
+    { name: 'IFA FR-GB', voltage: 400 },
+    { name: 'IFA2 FR-GB', voltage: 400 },
+    { name: 'Meeden-Diele DE-NL', voltage: 400 },
+  ];
+  const matched = matchCorridorLines('FR-GB', lines);
+  assert.equal(matched.length, 2);
+  assert.ok(matched.some((l) => l.name === 'IFA FR-GB'));
+  assert.ok(matched.some((l) => l.name === 'IFA2 FR-GB'));
+});
+
+test('matchCorridorLines: unknown corridorId returns empty array', () => {
+  const lines = [{ name: 'IFA FR-GB', voltage: 400 }];
+  const matched = matchCorridorLines('XX-YY', lines);
+  assert.deepEqual(matched, []);
+});
+
+test('matchCorridorLines: no matching lines returns empty array', () => {
+  const lines = [{ name: 'Meeden-Diele DE-NL', voltage: 400 }];
+  const matched = matchCorridorLines('FR-GB', lines);
+  assert.deepEqual(matched, []);
 });

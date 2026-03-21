@@ -55,6 +55,7 @@ import {
   type PriceHistory,
 } from '@/lib/data-fetcher';
 import { TYNDP_PROJECTS, type TyndpProject } from '@/lib/tyndp';
+import { corridorId, corridorForLine } from '@/lib/corridor-lines';
 
 // --- URL hash state ---
 
@@ -62,7 +63,7 @@ const DEFAULT_LAYER_VISIBILITY: Record<LayerKey, boolean> = {
   plants: true,
   prices: true,
   flows: true,
-  lines: false,
+  lines: true,
   tyndp: false,
   genMix: true,
   outages: false,
@@ -445,6 +446,22 @@ export default function EnergyMap() {
       .filter(Boolean) as { position: [number, number]; text: string; iso: string }[];
   }, [filteredPlants]);
 
+  // --- Flow stress lookup by corridorId (for line coloring) ---
+
+  const flowStressByCorridor = useMemo(() => {
+    const map = new Map<string, { util: number; flowMW: number; capacityMW: number; from: string; to: string }>();
+    for (const f of flows) {
+      const cid = corridorId(f.from, f.to);
+      const util = f.capacityMW > 0 ? f.flowMW / f.capacityMW : 0;
+      const existing = map.get(cid);
+      // Keep the highest utilisation entry if there are duplicate corridors
+      if (!existing || util > existing.util) {
+        map.set(cid, { util, flowMW: f.flowMW, capacityMW: f.capacityMW, from: f.from, to: f.to });
+      }
+    }
+    return map;
+  }, [flows]);
+
   // --- Spread labels: mid-arc price differential text ---
 
   const spreadLabelData = useMemo(() => {
@@ -474,7 +491,7 @@ export default function EnergyMap() {
       plants: layerVisibility.plants && zoomLevel >= 4,
       prices: layerVisibility.prices,
       flows: layerVisibility.flows && zoomLevel >= 4,
-      lines: layerVisibility.lines && zoomLevel > 6,
+      lines: layerVisibility.lines && zoomLevel >= 4,
       tyndp: layerVisibility.tyndp && zoomLevel >= 4,
       genMix: layerVisibility.genMix && zoomLevel < 6,
       spreadLabels: layerVisibility.flows && zoomLevel >= 4 && zoomLevel < 7,
@@ -557,34 +574,89 @@ export default function EnergyMap() {
       );
     }
 
-    // 2. Transmission lines (PathLayer)
+    // 2. Transmission lines (PathLayer) — colored by corridor stress, clickable
     if (effectiveVis.lines && transmissionLines.length > 0) {
+      // Precompute selected-corridor line names for highlight
+      const selectedCid = selectedFlow
+        ? corridorId(selectedFlow.from, selectedFlow.to)
+        : null;
+
+      const lineStressColor = (d: TransmissionLine): [number, number, number, number] => {
+        const cid = corridorForLine(d.name);
+        if (cid) {
+          const stress = flowStressByCorridor.get(cid);
+          if (stress) {
+            if (stress.util > 0.8) return [248, 113, 113, 210]; // Congested: red
+            if (stress.util > 0.5) return [250, 204, 21, 210];  // Stressed: amber
+            return [74, 222, 128, 180];                          // Low: green
+          }
+        }
+        // No flow data for this line — dim default by voltage
+        return d.voltage >= 400 ? [100, 120, 160, 120] : [80, 100, 130, 100];
+      };
+
+      const lineWidth = (d: TransmissionLine): number => {
+        const cid = corridorForLine(d.name);
+        const isSelected = cid !== null && cid === selectedCid;
+        if (isSelected) return d.voltage >= 400 ? 600 : 400;
+        return d.voltage >= 400 ? 300 : 200;
+      };
+
       result.push(
         new PathLayer<TransmissionLine>({
           id: 'transmission-lines',
           data: transmissionLines,
           getPath: (d) => d.path,
-          getColor: (d) =>
-            d.voltage >= 400
-              ? [255, 80, 80, 180]
-              : [255, 160, 60, 180],
-          getWidth: (d) => (d.voltage >= 400 ? 300 : 200),
+          getColor: lineStressColor,
+          getWidth: lineWidth,
           widthMinPixels: 1,
-          widthMaxPixels: 4,
+          widthMaxPixels: 6,
           pickable: true,
+          updateTriggers: {
+            getColor: [flowStressByCorridor],
+            getWidth: [selectedFlow],
+          },
           onHover: (info: PickingInfo<TransmissionLine>) => {
             if (!info.object) {
               setTooltip(null);
               return;
             }
+            const d = info.object;
+            const cid = corridorForLine(d.name);
+            const stress = cid ? flowStressByCorridor.get(cid) : null;
+            const stressLabel = stress
+              ? stress.util > 0.8
+                ? 'Congested'
+                : stress.util > 0.5
+                ? 'Stressed'
+                : 'Low'
+              : null;
             setTooltip({
               x: info.x,
               y: info.y,
               content: {
-                Line: info.object.name,
-                Voltage: `${info.object.voltage} kV`,
+                Line: d.name,
+                Voltage: `${d.voltage} kV`,
+                ...(stress && { 'Flow': `${stress.flowMW.toLocaleString()} MW` }),
+                ...(stressLabel && { 'Status': stressLabel }),
+                ...(cid && { '': 'Click for corridor detail' }),
               },
             });
+          },
+          onClick: (info: PickingInfo<TransmissionLine>) => {
+            if (!info.object) return;
+            const cid = corridorForLine(info.object.name);
+            if (!cid) return;
+            // Find the matching flow and open CorridorPanel
+            const matchedFlow = flows.find(
+              (f) => corridorId(f.from, f.to) === cid
+            );
+            if (matchedFlow) {
+              setSelectedFlow(matchedFlow);
+              setSelectedPlant(null);
+              setSelectedCountryPrice(null);
+              setSelectedTyndp(null);
+            }
           },
         })
       );
@@ -812,6 +884,8 @@ export default function EnergyMap() {
     spreadLabelData,
     zoomLevel,
     compareMode,
+    flowStressByCorridor,
+    selectedFlow,
   ]);
 
   // --- Handlers ---
