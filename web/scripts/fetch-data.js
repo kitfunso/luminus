@@ -641,14 +641,16 @@ async function fetchCountryHistory(iso2) {
     const res = await fetchWithTimeout(`${ENTSOE_API}?${params}`, 30000);
     if (!res.ok) return null;
     const xml = await res.text();
-    const hourly = extractHourlyPrices(xml);
+    const parsed = extractHourlyPrices(xml);
 
-    if (hourly.length === 0) return null;
+    if (parsed.hourly.length === 0) return null;
 
     return {
       iso2,
       country: COUNTRY_NAMES[iso2],
-      hourly: hourly.map((p) => Math.round(p * 10) / 10),
+      startUtc: parsed.startUtc,
+      endUtc: parsed.endUtc,
+      hourly: parsed.hourly,
     };
   } catch {
     return null;
@@ -663,17 +665,14 @@ async function fetchAllHistory() {
 
   if (history.length === 0) return null;
 
-  // Compute time axis
-  const now = new Date();
-  const endDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const startDay = new Date(endDay);
-  startDay.setUTCDate(startDay.getUTCDate() - HISTORY_DAYS);
+  const starts = history.map((c) => c.startUtc).filter(Boolean).sort();
+  const ends = history.map((c) => c.endUtc).filter(Boolean).sort();
 
   return {
-    startUtc: startDay.toISOString(),
-    endUtc: endDay.toISOString(),
+    startUtc: starts[0] || '',
+    endUtc: ends[ends.length - 1] || '',
     days: HISTORY_DAYS,
-    countries: history,
+    countries: history.map(({ startUtc, endUtc, ...rest }) => rest),
   };
 }
 

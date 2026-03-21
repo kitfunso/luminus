@@ -7,6 +7,9 @@ const {
   parseCurrentGenerationOutage,
   parseResolutionMs,
 } = require('./lib/entsoe-outages');
+const {
+  extractHourlyPrices,
+} = require('./lib/entsoe-history');
 
 function buildDataDescriptorZip(files) {
   const localParts = [];
@@ -122,4 +125,50 @@ test('parseCurrentGenerationOutage computes current unavailable MW from availabl
     start: '2026-03-21T10:00:00.000Z',
     expectedReturn: '2026-03-21T13:00:00.000Z',
   });
+});
+
+test('extractHourlyPrices averages duplicate time series and aggregates 15-minute points to hourly values', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Publication_MarketDocument>
+  <TimeSeries>
+    <Period>
+      <timeInterval>
+        <start>2026-03-18T23:00Z</start>
+        <end>2026-03-19T01:00Z</end>
+      </timeInterval>
+      <resolution>PT15M</resolution>
+      <Point><position>1</position><price.amount>100</price.amount></Point>
+      <Point><position>2</position><price.amount>104</price.amount></Point>
+      <Point><position>3</position><price.amount>108</price.amount></Point>
+      <Point><position>4</position><price.amount>112</price.amount></Point>
+      <Point><position>5</position><price.amount>120</price.amount></Point>
+      <Point><position>6</position><price.amount>124</price.amount></Point>
+      <Point><position>7</position><price.amount>128</price.amount></Point>
+      <Point><position>8</position><price.amount>132</price.amount></Point>
+    </Period>
+  </TimeSeries>
+  <TimeSeries>
+    <Period>
+      <timeInterval>
+        <start>2026-03-18T23:00Z</start>
+        <end>2026-03-19T01:00Z</end>
+      </timeInterval>
+      <resolution>PT15M</resolution>
+      <Point><position>1</position><price.amount>110</price.amount></Point>
+      <Point><position>2</position><price.amount>114</price.amount></Point>
+      <Point><position>3</position><price.amount>118</price.amount></Point>
+      <Point><position>4</position><price.amount>122</price.amount></Point>
+      <Point><position>5</position><price.amount>130</price.amount></Point>
+      <Point><position>6</position><price.amount>134</price.amount></Point>
+      <Point><position>7</position><price.amount>138</price.amount></Point>
+      <Point><position>8</position><price.amount>142</price.amount></Point>
+    </Period>
+  </TimeSeries>
+</Publication_MarketDocument>`;
+
+  const parsed = extractHourlyPrices(xml);
+
+  assert.equal(parsed.startUtc, '2026-03-18T23:00:00.000Z');
+  assert.equal(parsed.endUtc, '2026-03-19T01:00:00.000Z');
+  assert.deepEqual(parsed.hourly, [111, 131]);
 });
