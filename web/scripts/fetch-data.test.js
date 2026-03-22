@@ -16,6 +16,7 @@ const {
   aggregateHourlyPrices,
   extractGbMarketIndexPrice,
 } = require('./lib/gb-market-index');
+const { resolveIso2Code } = require('./lib/geo-country');
 
 function buildDataDescriptorZip(files) {
   const localParts = [];
@@ -265,4 +266,9 @@ test('extractGbMarketIndexPrice builds a GB hourly surface from BMRS market-inde
   assert.equal(result.provider, 'elexon');
   assert.deepEqual(result.hourly, [102, 112]);
   assert.equal(result.avg, 107);
+});
+
+test('resolveIso2Code ignores Natural Earth -99 sentinel and falls back to ISO_A2_EH', () => {
+  assert.equal(resolveIso2Code({ ISO_A2: '-99', ISO_A2_EH: 'FR' }), 'FR');
+  assert.equal(resolveIso2Code({ ISO_A2: '-99', ISO_A2_EH: 'NO' }), 'NO');
 });

@@ -10,6 +10,7 @@ const { WIND_PSR, SOLAR_PSR, extractTimeSeriesQuantities, computeForecastMetrics
 const { extractHourlyPrices } = require('./lib/entsoe-history');
 const { extractGbMarketIndexPrice } = require('./lib/gb-market-index');
 const { mergePricesWithFallback } = require('./lib/price-merge');
+const { resolveIso2Code } = require('./lib/geo-country');
 
 const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
 const WRI_URL =
@@ -745,21 +746,13 @@ async function fetchGeoJSON() {
 
     const features = data.features
       .filter((f) => {
-        const iso =
-          f.properties?.ISO_A2 ||
-          f.properties?.iso_a2 ||
-          f.properties?.ISO_A2_EH ||
-          '';
+        const iso = resolveIso2Code(f.properties);
         return EU_ISO2_SET.has(iso);
       })
       .map((f) => ({
         type: 'Feature',
         properties: {
-          ISO_A2:
-            f.properties?.ISO_A2 ||
-            f.properties?.iso_a2 ||
-            f.properties?.ISO_A2_EH ||
-            '',
+          ISO_A2: resolveIso2Code(f.properties),
           name:
             f.properties?.ADMIN ||
             f.properties?.NAME ||
