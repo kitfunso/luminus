@@ -16,7 +16,7 @@ const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
 const WRI_URL =
   'https://raw.githubusercontent.com/wri/global-power-plant-database/master/output_database/global_power_plant_database.csv';
 const NE_GEOJSON_URL =
-  'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
+  'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson';
 const ENTSOE_API = 'https://web-api.tp.entsoe.eu/api';
 const BMRS_API = 'https://data.elexon.co.uk/bmrs/api/v1';
 const ENTSOE_KEY =
