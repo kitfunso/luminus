@@ -14,7 +14,7 @@
  * Storage key: luminus:presets (JSON array of UserPreset)
  */
 
-import type { LayerKey } from '../components/Sidebar';
+import type { LayerKey } from './store';
 
 export interface PresetState {
   layerVisibility: Record<LayerKey, boolean>;

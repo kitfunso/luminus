@@ -34,22 +34,25 @@ export function getFuelColor(fuel: string): [number, number, number, number] {
   return FUEL_COLORS[normalizeFuel(fuel)] ?? FUEL_COLORS.other;
 }
 
-/** Price gradient: green (cheap) -> yellow (mid) -> red (expensive) */
+/** Price gradient optimised for dark map backgrounds.
+ *  Stepped palette with slightly desaturated, higher-luminance colors.
+ *  Negative prices get a distinct teal. */
 export function priceToColor(
   price: number,
   minPrice: number = 0,
   maxPrice: number = 200
 ): [number, number, number, number] {
+  // Negative prices: distinct teal
+  if (price < 0) return [13, 148, 136, 200];
+
   const t = Math.max(0, Math.min(1, (price - minPrice) / (maxPrice - minPrice)));
 
-  if (t < 0.5) {
-    // green -> yellow
-    const s = t * 2;
-    return [Math.round(s * 255), 200, Math.round((1 - s) * 80), 200];
-  }
-  // yellow -> red
-  const s = (t - 0.5) * 2;
-  return [255, Math.round((1 - s) * 200), 0, 200];
+  // Stepped palette: green -> yellow-green -> amber -> orange -> red
+  if (t < 0.15) return [34, 197, 94, 200];    // Green: very low
+  if (t < 0.3)  return [163, 230, 53, 200];   // Yellow-green: low
+  if (t < 0.5)  return [234, 179, 8, 200];    // Amber: moderate
+  if (t < 0.75) return [249, 115, 22, 200];   // Orange: high
+  return [239, 68, 68, 200];                    // Red: extreme
 }
 
 /** Fuel type display labels */

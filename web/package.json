@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@deck.gl/core": "^9.1.0",
+    "@deck.gl/extensions": "^9.2.11",
     "@deck.gl/layers": "^9.1.0",
     "@deck.gl/react": "^9.1.0",
     "@loaders.gl/core": "^4.3.0",
@@ -21,7 +22,8 @@
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-map-gl": "^7.1.0"
+    "react-map-gl": "^7.1.0",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

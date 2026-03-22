@@ -1,0 +1,64 @@
+import { TextLayer } from '@deck.gl/layers';
+
+export interface SpreadLabelDatum {
+  position: [number, number];
+  text: string;
+  spread: number;
+}
+
+export interface GenMixLabelDatum {
+  position: [number, number];
+  text: string;
+}
+
+export interface SpreadLabelLayerOptions {
+  data: SpreadLabelDatum[];
+}
+
+export interface GenMixLabelLayerOptions {
+  data: GenMixLabelDatum[];
+}
+
+export function createSpreadLabelLayer({ data }: SpreadLabelLayerOptions) {
+  return new TextLayer<SpreadLabelDatum>({
+    id: 'spread-labels',
+    data,
+    getPosition: (d) => d.position,
+    getText: (d) => d.text,
+    getSize: 11,
+    getColor: (d) =>
+      d.spread > 5
+        ? [74, 222, 128, 210]
+        : d.spread < -5
+          ? [248, 113, 113, 210]
+          : [250, 204, 21, 200],
+    fontFamily: 'system-ui, sans-serif',
+    fontWeight: 700,
+    outlineWidth: 3,
+    outlineColor: [10, 14, 23, 220],
+    billboard: true,
+    characterSet: 'auto',
+    getTextAnchor: 'middle',
+    getAlignmentBaseline: 'center',
+    pickable: false,
+  });
+}
+
+export function createGenMixLabelLayer({ data }: GenMixLabelLayerOptions) {
+  return new TextLayer<GenMixLabelDatum>({
+    id: 'gen-mix-labels',
+    data,
+    getPosition: (d) => d.position,
+    getText: (d) => d.text,
+    getSize: 16,
+    getColor: [255, 255, 255, 220],
+    fontFamily: 'system-ui, sans-serif',
+    fontWeight: 700,
+    outlineWidth: 3,
+    outlineColor: [10, 14, 23, 200],
+    billboard: true,
+    characterSet: 'auto',
+    getTextAnchor: 'middle',
+    getAlignmentBaseline: 'center',
+  });
+}

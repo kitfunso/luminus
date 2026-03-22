@@ -1,12 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #0a0e17;
-  --bg-secondary: #111827;
-  --bg-card: #1a2332;
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --border: #1e293b;
+  --bg-primary: #0F1117;
+  --bg-surface: #161B22;
+  --bg-elevated: #1C2128;
+  --text-primary: #E6EDF3;     /* 15:1 contrast on bg-primary */
+  --text-secondary: #8B949E;   /* 5:1 contrast on bg-primary */
+  --text-muted: #484F58;       /* Disabled states only */
+  --border: #30363D;
+  --border-subtle: #21262D;
   --accent: #38bdf8;
 }
 
@@ -162,24 +164,6 @@ body {
   background: rgba(148, 163, 184, 0.4);
 }
 
-/* Plant detail panel (slide-in from right) */
-.plant-panel {
-  position: absolute;
-  right: 16px;
-  top: 16px;
-  width: 320px;
-  z-index: 15;
-  background: rgba(10, 14, 23, 0.92);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  animation: slideInRight 0.2s ease-out;
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-}
-
 /* Outage radar panel (slide-in from right) */
 .outage-panel {
   position: absolute;
@@ -214,22 +198,6 @@ body {
   animation: slideInRight 0.2s ease-out;
   max-height: calc(100vh - 32px);
   overflow-y: auto;
-}
-
-/* Price sparkline panel */
-.sparkline-panel {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  width: 300px;
-  z-index: 15;
-  background: rgba(10, 14, 23, 0.92);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  animation: slideInRight 0.2s ease-out;
 }
 
 /* Time scrubber bar (bottom of screen) */
@@ -285,24 +253,6 @@ body {
   padding: 14px;
 }
 
-/* Corridor detail panel (slide-in from right) */
-.corridor-panel {
-  position: absolute;
-  right: 16px;
-  top: 16px;
-  width: 360px;
-  z-index: 15;
-  background: rgba(10, 14, 23, 0.92);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-  animation: slideInRight 0.2s ease-out;
-  max-height: calc(100vh - 32px);
-  overflow-y: auto;
-}
-
 /* Export button style */
 .export-btn {
   display: flex;
@@ -325,6 +275,42 @@ body {
   border-color: rgba(56, 189, 248, 0.2);
 }
 
+/* Unified detail panel */
+.detail-panel {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 380px;
+  z-index: 15;
+  background: rgba(10, 14, 23, 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  animation: slideInRight 0.2s ease-out;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+/* Map legend (bottom-left floating) */
+.map-legend {
+  position: absolute;
+  bottom: 16px;
+  left: 304px;
+  z-index: 12;
+  background: rgba(10, 14, 23, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-width: 140px;
+  max-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 /* -----------------------------------------------------------------------
    Mobile sheet panels
    All right-side detail panels become bottom-anchored sheets on phones.
@@ -344,11 +330,10 @@ body {
 
 @media (max-width: 767px) {
   /* Full-width, bottom-anchored sheet for all detail panels */
-  .plant-panel,
   .outage-panel,
   .forecast-panel,
   .compare-panel,
-  .corridor-panel,
+  .detail-panel,
   .right-panel {
     left: 0;
     right: 0;
@@ -364,21 +349,19 @@ body {
   }
 
   /* Sheet inner padding-top: the handle replaces the top gap */
-  .plant-panel > *:first-child,
   .outage-panel > *:first-child,
   .forecast-panel > *:first-child,
   .compare-panel > *:first-child,
-  .corridor-panel > *:first-child,
+  .detail-panel > *:first-child,
   .right-panel > *:first-child {
     padding-top: 16px;
   }
 
   /* Insert the drag handle pill at the top of each sheet */
-  .plant-panel::before,
   .outage-panel::before,
   .forecast-panel::before,
   .compare-panel::before,
-  .corridor-panel::before,
+  .detail-panel::before,
   .right-panel::before {
     content: '';
     display: block;
@@ -388,26 +371,6 @@ body {
     background: rgba(148, 163, 184, 0.2);
     margin: 10px auto 4px;
     flex-shrink: 0;
-  }
-
-  .sparkline-panel {
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    border-radius: 20px 20px 0 0;
-    padding: 8px 16px 20px;
-    box-shadow: 0 -8px 48px rgba(0, 0, 0, 0.7);
-  }
-
-  .sparkline-panel::before {
-    content: '';
-    display: block;
-    width: 36px;
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(148, 163, 184, 0.2);
-    margin: 0 auto 8px;
   }
 
   .time-scrubber {
@@ -423,6 +386,11 @@ body {
   .compare-card {
     min-width: min(78vw, 260px);
     max-width: min(78vw, 280px);
+  }
+
+  .map-legend {
+    left: 16px;
+    bottom: 16px;
   }
 
   /* Soften the sidebar backdrop to feel intentional, not accidental */
