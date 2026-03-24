@@ -8,17 +8,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import Sidebar from './Sidebar';
 import Tooltip, { type TooltipData } from './Tooltip';
 import ComparePanel from './ComparePanel';
-import OutageRadar from './OutageRadar';
-import ForecastPanel from './ForecastPanel';
 import TimeScrubber from './TimeScrubber';
 import AssetTimeSeries, { type TimeSeriesAsset } from './AssetTimeSeries';
 import AlertsPanel from './AlertsPanel';
-import TraderDashboard from './TraderDashboard';
 import PipelinePanel from './PipelinePanel';
 import DetailPanel from './detail/DetailPanel';
 import MapLegend from './MapLegend';
 import Onboarding from './Onboarding';
 import MobileActionBar from './MobileActionBar';
+import MarketIntelligenceRail from './MarketIntelligenceRail';
 
 import { useMapStore } from '@/lib/store';
 import type { LayerKey, ViewState } from '@/lib/store';
@@ -27,8 +25,8 @@ import { deliverFirings } from '@/lib/alert-delivery';
 import { normalizeFuel, FUEL_FILTER_MAP, FUEL_EMOJI, FILTER_FUELS } from '@/lib/colors';
 import { COUNTRY_CENTROIDS, EU_COUNTRY_CODES } from '@/lib/countries';
 import {
-  fetchPowerPlants, fetchDayAheadPrices, fetchCrossBorderFlows,
-  fetchTransmissionLines, fetchOutages, fetchForecasts, fetchHistory,
+  fetchPowerPlants, fetchDayAheadPricesDataset, fetchCrossBorderFlowsDataset,
+  fetchTransmissionLines, fetchOutagesDataset, fetchForecastsDataset, fetchHistoryDataset,
   type CountryPrice, type CrossBorderFlow, type PowerPlant,
 } from '@/lib/data-fetcher';
 import { TYNDP_PROJECTS } from '@/lib/tyndp';
@@ -42,6 +40,13 @@ import {
   createGenMixLabelLayer, createTyndpLayer, layerOpacity,
   type FlowStressEntry, type SpreadLabelDatum, type GenMixLabelDatum,
 } from '@/lib/layers';
+import {
+  beginDatasetRefresh,
+  createEmptyLiveDatasetMap,
+  summarizeLiveStatus,
+  type LiveDatasetMap,
+} from '@/lib/live-data-store';
+import type { TutorialStepId } from './tutorial/tutorial-state';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -91,6 +96,7 @@ export default function EnergyMap() {
   const selectedCountries = useMapStore((s) => s.selectedCountries);
   const detail = useMapStore((s) => s.detail);
   const compareCountries = useMapStore((s) => s.compareCountries);
+  const intelligenceView = useMapStore((s) => s.intelligenceView);
 
   // Store actions
   const setData = useMapStore((s) => s.setData);
@@ -104,8 +110,12 @@ export default function EnergyMap() {
   const selectAllCountries = useMapStore((s) => s.selectAllCountries);
   const clearCountries = useMapStore((s) => s.clearCountries);
   const selectDetail = useMapStore((s) => s.selectDetail);
+  const clearDetail = useMapStore((s) => s.clearDetail);
   const toggleCompareCountry = useMapStore((s) => s.toggleCompareCountry);
   const clearCompare = useMapStore((s) => s.clearCompare);
+  const setSidebarCollapsed = useMapStore((s) => s.setSidebarCollapsed);
+  const setSidebarTab = useMapStore((s) => s.setSidebarTab);
+  const setIntelligenceView = useMapStore((s) => s.setIntelligenceView);
 
   // --- Local state ---
   const [geoJson, setGeoJson] = useState<unknown>(null);
@@ -115,17 +125,22 @@ export default function EnergyMap() {
   const [animTimestamp, setAnimTimestamp] = useState(0);
   const [timeSeriesAsset, setTimeSeriesAsset] = useState<TimeSeriesAsset | null>(null);
   const [showAlerts, setShowAlerts] = useState(false);
-  const [showDashboard, setShowDashboard] = useState(false);
   const [showPipeline, setShowPipeline] = useState(false);
   const [watchlistVersion, setWatchlistVersion] = useState(0);
   const [presetsVersion, setPresetsVersion] = useState(0);
   const [compareMode, setCompareMode] = useState(false);
+  const [liveDatasets, setLiveDatasets] = useState<LiveDatasetMap>(() => createEmptyLiveDatasetMap());
 
   const shiftHeld = useRef(false);
   const animRef = useRef(0);
   const hashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const liveDatasetsRef = useRef(liveDatasets);
 
   const zoomLevel = viewState.zoom;
+  const liveStatus = useMemo(
+    () => summarizeLiveStatus(liveDatasets, REFRESH_INTERVAL),
+    [liveDatasets],
+  );
 
   // ---------------------------------------------------------------------------
   // Effects
@@ -180,18 +195,40 @@ export default function EnergyMap() {
 
   // Data loading
   const loadData = useCallback(async () => {
-    setLoading(true);
+    const currentLive = liveDatasetsRef.current;
+    const hasExistingData = currentLive.prices.data.length > 0 || currentLive.flows.data.length > 0;
+    setLoading(!hasExistingData);
+    setLiveDatasets({
+      prices: beginDatasetRefresh(currentLive.prices),
+      flows: beginDatasetRefresh(currentLive.flows),
+      outages: beginDatasetRefresh(currentLive.outages),
+      forecasts: beginDatasetRefresh(currentLive.forecasts),
+      history: beginDatasetRefresh(currentLive.history),
+    });
     const [plantsData, pricesData, flowsData, linesData, outagesData, forecastsData, historyData] =
       await Promise.all([
-        fetchPowerPlants(), fetchDayAheadPrices(), fetchCrossBorderFlows(),
-        fetchTransmissionLines(), fetchOutages(), fetchForecasts(), fetchHistory(),
+        fetchPowerPlants(),
+        fetchDayAheadPricesDataset(currentLive.prices),
+        fetchCrossBorderFlowsDataset(currentLive.flows),
+        fetchTransmissionLines(),
+        fetchOutagesDataset(currentLive.outages),
+        fetchForecastsDataset(currentLive.forecasts),
+        fetchHistoryDataset(currentLive.history),
       ]);
+    const nextLive = {
+      prices: pricesData,
+      flows: flowsData,
+      outages: outagesData,
+      forecasts: forecastsData,
+      history: historyData,
+    };
+    setLiveDatasets(nextLive);
     setData({
-      plants: plantsData, prices: pricesData, flows: flowsData,
-      transmissionLines: linesData, outages: outagesData,
-      forecasts: forecastsData, history: historyData,
+      plants: plantsData, prices: pricesData.data, flows: flowsData.data,
+      transmissionLines: linesData, outages: outagesData.data,
+      forecasts: forecastsData.data, history: historyData.data,
     });
-    setLastUpdate(new Date().toLocaleTimeString());
+    setLastUpdate(summarizeLiveStatus(nextLive, REFRESH_INTERVAL).timestampLabel);
     setLoading(false);
 
     // Apply hash country filter now that we have plant data
@@ -204,6 +241,10 @@ export default function EnergyMap() {
       }
     }
   }, [setData, setLoading, setLastUpdate]);
+
+  useEffect(() => {
+    liveDatasetsRef.current = liveDatasets;
+  }, [liveDatasets]);
 
   useEffect(() => {
     fetch('/data/eu-countries.geojson').then((r) => r.json()).then((data) => {
@@ -471,16 +512,47 @@ export default function EnergyMap() {
   }, [storeSetViewState]);
 
   const handleToggleLayer = useCallback((layer: LayerKey) => {
+    const nextValue = !layerVisibility[layer];
     toggleLayer(layer);
+    if (layer === 'outages' && nextValue) {
+      setIntelligenceView('outages');
+    } else if (layer === 'forecast' && nextValue) {
+      setIntelligenceView('forecast');
+    } else if (layer === 'outages' && !nextValue && intelligenceView === 'outages') {
+      setIntelligenceView(layerVisibility.forecast ? 'forecast' : 'none');
+    } else if (layer === 'forecast' && !nextValue && intelligenceView === 'forecast') {
+      setIntelligenceView(layerVisibility.outages ? 'outages' : 'none');
+    }
     setMobileSidebarOpen(false);
-  }, [toggleLayer]);
+  }, [intelligenceView, layerVisibility, setIntelligenceView, toggleLayer]);
 
   const handleToggleCountry = useCallback((code: string) => toggleCountry(code, allCountryCodes), [toggleCountry, allCountryCodes]);
 
   // Panel open helpers (clear competing overlays)
-  const openAlerts = useCallback(() => { setShowAlerts(true); setShowDashboard(false); setShowPipeline(false); setTimeSeriesAsset(null); }, []);
-  const openDashboard = useCallback(() => { setShowDashboard(true); setShowAlerts(false); setShowPipeline(false); setTimeSeriesAsset(null); }, []);
-  const openPipeline = useCallback(() => { setShowPipeline(true); setShowDashboard(false); setShowAlerts(false); setTimeSeriesAsset(null); }, []);
+  const openAlerts = useCallback(() => {
+    setShowAlerts(true);
+    setShowPipeline(false);
+    setTimeSeriesAsset(null);
+    setIntelligenceView('none');
+    clearCompare();
+    setCompareMode(false);
+  }, [clearCompare, setIntelligenceView]);
+  const openDashboard = useCallback(() => {
+    setShowAlerts(false);
+    setShowPipeline(false);
+    setTimeSeriesAsset(null);
+    setIntelligenceView('brief');
+    clearCompare();
+    setCompareMode(false);
+  }, [clearCompare, setIntelligenceView]);
+  const openPipeline = useCallback(() => {
+    setShowPipeline(true);
+    setShowAlerts(false);
+    setTimeSeriesAsset(null);
+    setIntelligenceView('none');
+    clearCompare();
+    setCompareMode(false);
+  }, [clearCompare, setIntelligenceView]);
 
   const flyTo = useCallback((lat: number, lon: number, minZoom: number) => {
     const vs = useMapStore.getState().viewState;
@@ -489,20 +561,20 @@ export default function EnergyMap() {
 
   const handleSearchSelectPlant = useCallback((plant: PowerPlant) => {
     selectDetail({ kind: 'plant', data: plant });
-    setTimeSeriesAsset(null); setShowAlerts(false); setShowDashboard(false);
+    setTimeSeriesAsset(null); setShowAlerts(false); setShowPipeline(false);
     flyTo(plant.lat, plant.lon, 7);
   }, [selectDetail, flyTo]);
 
   const handleSearchSelectCountry = useCallback((iso2: string) => {
     const pd = prices.find((p) => p.iso2 === iso2);
     if (pd) selectDetail({ kind: 'country', data: pd });
-    setShowAlerts(false); setShowDashboard(false);
+    setShowAlerts(false); setShowPipeline(false);
     const c = COUNTRY_CENTROIDS[iso2];
     if (c) flyTo(c.lat, c.lon, 5);
   }, [prices, selectDetail, flyTo]);
 
   const handleOpenTimeSeries = useCallback((iso2: string) => {
-    setTimeSeriesAsset({ kind: 'country', iso2 }); setShowAlerts(false); setShowDashboard(false);
+    setTimeSeriesAsset({ kind: 'country', iso2 }); setShowAlerts(false); setShowPipeline(false);
   }, []);
 
   const handleWatchlistSelectPlant = useCallback((item: WatchlistItem) => {
@@ -514,7 +586,7 @@ export default function EnergyMap() {
   const selectCorridorFlow = useCallback((from: string, to: string) => {
     const mf = flows.find((f) => (f.from === from && f.to === to) || (f.from === to && f.to === from));
     if (mf) selectDetail({ kind: 'corridor', data: mf });
-    setTimeSeriesAsset(null); setShowAlerts(false); setShowDashboard(false); setShowPipeline(false);
+    setTimeSeriesAsset(null); setShowAlerts(false); setShowPipeline(false);
     const midLon = mf ? (mf.fromLon + mf.toLon) / 2 : (() => { const fc = COUNTRY_CENTROIDS[from]; const tc = COUNTRY_CENTROIDS[to]; return fc && tc ? (fc.lon + tc.lon) / 2 : null; })();
     const midLat = mf ? (mf.fromLat + mf.toLat) / 2 : (() => { const fc = COUNTRY_CENTROIDS[from]; const tc = COUNTRY_CENTROIDS[to]; return fc && tc ? (fc.lat + tc.lat) / 2 : null; })();
     if (midLon != null && midLat != null) {
@@ -572,18 +644,91 @@ export default function EnergyMap() {
     }
   }, [allCountryCodes]);
 
+  const handleRefreshNow = useCallback(() => {
+    void loadData();
+  }, [loadData]);
+
+  const focusTutorialStep = useCallback((stepId: TutorialStepId) => {
+    setSidebarCollapsed(false);
+    setMobileSidebarOpen(false);
+    clearCompare();
+    setCompareMode(false);
+
+    switch (stepId) {
+      case 'live-status':
+        setSidebarTab('overview');
+        setShowAlerts(false);
+        setShowPipeline(false);
+        setTimeSeriesAsset(null);
+        setIntelligenceView('brief');
+        break;
+      case 'country-detail':
+        setSidebarTab('overview');
+        setShowAlerts(false);
+        setShowPipeline(false);
+        setTimeSeriesAsset(null);
+        clearDetail();
+        break;
+      case 'flows-layer':
+        setSidebarTab('layers');
+        if (!layerVisibility.flows) {
+          toggleLayer('flows');
+        }
+        break;
+      case 'outage-radar':
+        setSidebarTab('layers');
+        if (!layerVisibility.outages) {
+          toggleLayer('outages');
+        }
+        setShowAlerts(false);
+        setShowPipeline(false);
+        setTimeSeriesAsset(null);
+        setIntelligenceView('outages');
+        break;
+      case 'forecast-actual':
+        setSidebarTab('layers');
+        if (!layerVisibility.forecast) {
+          toggleLayer('forecast');
+        }
+        setShowAlerts(false);
+        setShowPipeline(false);
+        setTimeSeriesAsset(null);
+        setIntelligenceView('forecast');
+        break;
+      case 'morning-brief':
+        setSidebarTab('overview');
+        setShowAlerts(false);
+        setShowPipeline(false);
+        setTimeSeriesAsset(null);
+        setIntelligenceView('brief');
+        break;
+      case 'filters-replay':
+        setSidebarTab('filters');
+        break;
+    }
+  }, [
+    clearCompare,
+    clearDetail,
+    layerVisibility.flows,
+    layerVisibility.forecast,
+    layerVisibility.outages,
+    setIntelligenceView,
+    setSidebarCollapsed,
+    setSidebarTab,
+    toggleLayer,
+  ]);
+
   // hasRightPanel for sidebar layout
   const hasRightPanel = detail.kind !== 'none' || compareCountries.length > 0 ||
-    !!timeSeriesAsset || showAlerts || showDashboard || showPipeline ||
-    (layerVisibility.outages && !layerVisibility.forecast && detail.kind === 'none') ||
-    (layerVisibility.forecast && detail.kind === 'none');
+    !!timeSeriesAsset || showAlerts || showPipeline ||
+    (intelligenceView !== 'none' && detail.kind === 'none');
 
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="w-screen h-screen relative">
+    <div className="w-screen h-screen relative" data-tour-id="map-stage">
       <DeckGL viewState={viewState} onViewStateChange={handleViewStateChange as any} controller={true} layers={layers as any[]}>
         <MapLibre mapStyle={MAP_STYLE} />
       </DeckGL>
@@ -617,32 +762,35 @@ export default function EnergyMap() {
         </span>
       </button>
 
-      {/* Old panels: compare, outage, forecast */}
       {compareCountries.length > 0 ? (
         <ComparePanel selectedCountries={compareCountries} plants={plants} prices={prices} flows={flows}
           onRemoveCountry={(iso2) => toggleCompareCountry(iso2)} onClose={() => { clearCompare(); setCompareMode(false); }} />
       ) : (
-        <>
-          {layerVisibility.outages && !layerVisibility.forecast && detail.kind === 'none' && (
-            <OutageRadar outages={outages} plants={plants} onClose={() => handleToggleLayer('outages')} />
-          )}
-          {layerVisibility.forecast && detail.kind === 'none' && (
-            <ForecastPanel forecasts={forecasts} onClose={() => handleToggleLayer('forecast')} />
-          )}
-        </>
+        !showAlerts && !showPipeline && !timeSeriesAsset && detail.kind === 'none' && intelligenceView !== 'none' && (
+          <MarketIntelligenceRail
+            activeView={intelligenceView}
+            prices={prices}
+            flows={flows}
+            outages={outages}
+            forecasts={forecasts}
+            plants={plants}
+            projects={TYNDP_PROJECTS}
+            liveStatus={liveStatus}
+            onViewChange={setIntelligenceView}
+            onRefresh={handleRefreshNow}
+            onSelectCountry={handleSearchSelectCountry}
+            onSelectCorridor={selectCorridorFlow}
+            onClose={() => setIntelligenceView('none')}
+          />
+        )
       )}
 
       <DetailPanel />
 
-      {timeSeriesAsset && !showAlerts && !showDashboard && !showPipeline && (
+      {timeSeriesAsset && !showAlerts && !showPipeline && (
         <AssetTimeSeries asset={timeSeriesAsset} prices={prices} flows={flows} history={history} onClose={() => setTimeSeriesAsset(null)} />
       )}
       {showAlerts && <AlertsPanel onClose={() => setShowAlerts(false)} />}
-      {showDashboard && (
-        <TraderDashboard prices={prices} flows={flows} outages={outages} forecasts={forecasts} projects={TYNDP_PROJECTS}
-          onSelectCountry={(iso2) => { handleSearchSelectCountry(iso2); setShowDashboard(false); }}
-          onSelectCorridor={selectCorridorFlow} onClose={() => setShowDashboard(false)} />
-      )}
       {showPipeline && (
         <PipelinePanel projects={TYNDP_PROJECTS} prices={prices} flows={flows}
           onSelectProject={(p) => { selectDetail({ kind: 'tyndp', data: p }); setShowPipeline(false); }}
@@ -654,7 +802,7 @@ export default function EnergyMap() {
       )}
 
       {/* Mobile action bar (visible when no panel is open) */}
-      {!mobileSidebarOpen && !showAlerts && !showDashboard && !showPipeline && !timeSeriesAsset &&
+      {!mobileSidebarOpen && !showAlerts && !showPipeline && !timeSeriesAsset &&
         detail.kind === 'none' && compareCountries.length === 0 && (
         <MobileActionBar onOpenDashboard={openDashboard} onOpenAlerts={openAlerts}
           onOpenLayers={() => setMobileSidebarOpen(true)} onOpenPipeline={openPipeline} />
@@ -662,7 +810,7 @@ export default function EnergyMap() {
 
       <Sidebar
         plants={plants} filteredPlants={filteredPlants} prices={prices} flows={flows}
-        lastUpdate={lastUpdate ?? 'loading...'} layerVisibility={layerVisibility}
+        lastUpdate={liveStatus.timestampLabel || lastUpdate || 'loading...'} layerVisibility={layerVisibility}
         onToggleLayer={handleToggleLayer} isLoading={isLoading}
         selectedFuels={selectedFuels} onToggleFuel={toggleFuel}
         minCapacity={minCapacity} onSetMinCapacity={storeSetMinCapacity}
@@ -682,7 +830,7 @@ export default function EnergyMap() {
       />
 
       <MapLegend />
-      <Onboarding />
+      <Onboarding onStepFocus={focusTutorialStep} />
     </div>
   );
 }

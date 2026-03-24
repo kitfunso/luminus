@@ -296,8 +296,8 @@ body {
 /* Map legend (bottom-left floating) */
 .map-legend {
   position: absolute;
-  bottom: 16px;
-  left: 304px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  left: max(16px, env(safe-area-inset-left));
   z-index: 12;
   background: rgba(10, 14, 23, 0.85);
   backdrop-filter: blur(12px);

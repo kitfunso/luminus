@@ -1,4 +1,11 @@
 import type { LiveDataSource, LiveDataset } from './live-data-types';
+import type {
+  CountryForecast,
+  CountryOutage,
+  CountryPrice,
+  CrossBorderFlow,
+  PriceHistory,
+} from './data-fetcher';
 
 interface CreateLiveDatasetOptions {
   lastUpdated?: string | null;
@@ -13,6 +20,137 @@ interface CreateLiveDatasetOptions {
 interface FailedRefreshOptions {
   hasFallback?: boolean;
   source?: LiveDataSource;
+}
+
+export interface LiveDatasetMap {
+  prices: LiveDataset<CountryPrice[]>;
+  flows: LiveDataset<CrossBorderFlow[]>;
+  outages: LiveDataset<CountryOutage[]>;
+  forecasts: LiveDataset<CountryForecast[]>;
+  history: LiveDataset<PriceHistory | null>;
+}
+
+export interface LiveStatusSummary {
+  status: 'live' | 'refreshing' | 'stale' | 'fallback';
+  label: string;
+  updatedAtLabel: string;
+  timestampLabel: string;
+  autoRefreshLabel: string;
+  hasFallback: boolean;
+  hasStale: boolean;
+  isRefreshing: boolean;
+}
+
+const EMPTY_PRICES: CountryPrice[] = [];
+const EMPTY_FLOWS: CrossBorderFlow[] = [];
+const EMPTY_OUTAGES: CountryOutage[] = [];
+const EMPTY_FORECASTS: CountryForecast[] = [];
+
+function formatUtcLabel(iso: string | null): { updatedAtLabel: string; timestampLabel: string } {
+  if (!iso) {
+    return {
+      updatedAtLabel: 'Updated pending',
+      timestampLabel: 'pending',
+    };
+  }
+
+  const formatted = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'UTC',
+  }).format(new Date(iso));
+
+  return {
+    updatedAtLabel: `Updated ${formatted} UTC`,
+    timestampLabel: `${formatted} UTC`,
+  };
+}
+
+export function createEmptyLiveDatasetMap(): LiveDatasetMap {
+  return {
+    prices: createLiveDataset(EMPTY_PRICES, { isLoading: true }),
+    flows: createLiveDataset(EMPTY_FLOWS, { isLoading: true }),
+    outages: createLiveDataset(EMPTY_OUTAGES, { isLoading: true }),
+    forecasts: createLiveDataset(EMPTY_FORECASTS, { isLoading: true }),
+    history: createLiveDataset<PriceHistory | null>(null, { isLoading: true }),
+  };
+}
+
+export function beginDatasetRefresh<T>(current: LiveDataset<T>): LiveDataset<T> {
+  return {
+    ...current,
+    isLoading: current.data == null || (Array.isArray(current.data) && current.data.length === 0),
+    isRefreshing: true,
+    error: null,
+  };
+}
+
+export function summarizeLiveStatus(
+  datasets: LiveDatasetMap,
+  refreshIntervalMs: number,
+): LiveStatusSummary {
+  const entries = Object.values(datasets);
+  const lastUpdatedCandidates = entries
+    .map((dataset) => dataset.lastUpdated)
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => Date.parse(b) - Date.parse(a));
+  const mostRecentUpdatedAt = lastUpdatedCandidates[0] ?? null;
+  const hasFallback = entries.some((dataset) => dataset.hasFallback || dataset.source === 'fallback');
+  const hasStale = entries.some((dataset) => dataset.isStale);
+  const isRefreshing = entries.some((dataset) => dataset.isRefreshing);
+  const autoRefreshMinutes = Math.max(1, Math.round(refreshIntervalMs / 60_000));
+  const timestamp = formatUtcLabel(mostRecentUpdatedAt);
+
+  if (isRefreshing) {
+    return {
+      status: 'refreshing',
+      label: 'Refreshing',
+      updatedAtLabel: timestamp.updatedAtLabel,
+      timestampLabel: timestamp.timestampLabel,
+      autoRefreshLabel: `Auto-refresh ${autoRefreshMinutes}m`,
+      hasFallback,
+      hasStale,
+      isRefreshing,
+    };
+  }
+
+  if (hasStale) {
+    return {
+      status: 'stale',
+      label: 'Stale',
+      updatedAtLabel: timestamp.updatedAtLabel,
+      timestampLabel: timestamp.timestampLabel,
+      autoRefreshLabel: `Auto-refresh ${autoRefreshMinutes}m`,
+      hasFallback,
+      hasStale,
+      isRefreshing,
+    };
+  }
+
+  if (hasFallback) {
+    return {
+      status: 'fallback',
+      label: 'Fallback',
+      updatedAtLabel: timestamp.updatedAtLabel,
+      timestampLabel: timestamp.timestampLabel,
+      autoRefreshLabel: `Auto-refresh ${autoRefreshMinutes}m`,
+      hasFallback,
+      hasStale,
+      isRefreshing,
+    };
+  }
+
+  return {
+    status: 'live',
+    label: 'Live',
+    updatedAtLabel: timestamp.updatedAtLabel,
+    timestampLabel: timestamp.timestampLabel,
+    autoRefreshLabel: `Auto-refresh ${autoRefreshMinutes}m`,
+    hasFallback,
+    hasStale,
+    isRefreshing,
+  };
 }
 
 export function createLiveDataset<T>(

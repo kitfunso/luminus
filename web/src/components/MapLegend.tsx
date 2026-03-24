@@ -30,7 +30,7 @@ export default function MapLegend() {
   if (!showPrices && !showFlows && !showPlants) return null;
 
   return (
-    <div className="map-legend" style={{ pointerEvents: 'auto' }}>
+    <div className="map-legend" data-tour-id="price-card" style={{ pointerEvents: 'auto' }}>
       {/* Price heatmap */}
       {showPrices && (
         <div className="flex flex-col gap-1">

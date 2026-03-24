@@ -1,31 +1,31 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import type { CountryForecast, ForecastSource } from '@/lib/data-fetcher';
 
 interface ForecastPanelProps {
   forecasts: CountryForecast[];
   onClose: () => void;
+  embedded?: boolean;
 }
 
 function countryFlag(iso2: string): string {
   return iso2
     .toUpperCase()
     .split('')
-    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .map((char) => String.fromCodePoint(0x1f1e6 + char.charCodeAt(0) - 65))
     .join('');
 }
 
 function SurpriseIndicator({ source }: { source: ForecastSource }) {
-  if (source.surpriseDirection === 'none') return null;
+  if (source.surpriseDirection === 'none') {
+    return null;
+  }
+
   const isAbove = source.surpriseDirection === 'above';
   return (
-    <span
-      className={`text-[10px] font-medium ${
-        isAbove ? 'text-emerald-400' : 'text-red-400'
-      }`}
-    >
+    <span className={`text-[10px] font-medium ${isAbove ? 'text-emerald-400' : 'text-red-400'}`}>
       {isAbove ? '\u25B2' : '\u25BC'} {source.surpriseMagnitude.toLocaleString()} MW
     </span>
   );
@@ -45,38 +45,35 @@ function MiniDualLine({
     return <span className="text-[10px] text-slate-600">No {label} data</span>;
   }
 
-  const allVals = [...forecastHourly, ...actualHourly];
-  const min = Math.min(...allVals);
-  const max = Math.max(...allVals);
+  const allValues = [...forecastHourly, ...actualHourly];
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
   const range = max - min || 1;
-  const w = 200;
-  const h = 44;
-  const pad = 2;
+  const width = 200;
+  const height = 44;
+  const padding = 2;
 
-  const toPoints = (data: number[]) =>
-    data
-      .map((v, i) => {
-        const x = pad + (i / (maxLen - 1 || 1)) * (w - pad * 2);
-        const y = h - pad - ((v - min) / range) * (h - pad * 2);
+  const toPoints = (series: number[]) =>
+    series
+      .map((value, index) => {
+        const x = padding + (index / (maxLen - 1 || 1)) * (width - padding * 2);
+        const y = height - padding - ((value - min) / range) * (height - padding * 2);
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(' ');
 
-  const fcPoints = toPoints(forecastHourly);
-  const actPoints = toPoints(actualHourly);
-
   return (
     <div>
       <svg
-        width={w}
-        height={h}
-        viewBox={`0 0 ${w} ${h}`}
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
         className="w-full"
         preserveAspectRatio="none"
       >
         {forecastHourly.length > 0 && (
           <polyline
-            points={fcPoints}
+            points={toPoints(forecastHourly)}
             fill="none"
             stroke="rgba(148, 163, 184, 0.4)"
             strokeWidth="1"
@@ -86,7 +83,7 @@ function MiniDualLine({
         )}
         {actualHourly.length > 0 && (
           <polyline
-            points={actPoints}
+            points={toPoints(actualHourly)}
             fill="none"
             stroke={label === 'Wind' ? 'rgb(56, 189, 248)' : 'rgb(250, 204, 21)'}
             strokeWidth="1.5"
@@ -95,7 +92,7 @@ function MiniDualLine({
           />
         )}
       </svg>
-      <div className="flex justify-between text-[9px] text-slate-600 mt-0.5 px-0.5">
+      <div className="mt-0.5 flex justify-between px-0.5 text-[9px] text-slate-600">
         <span>{min.toLocaleString()} MW</span>
         <span>{max.toLocaleString()} MW</span>
       </div>
@@ -103,7 +100,15 @@ function MiniDualLine({
   );
 }
 
-function SourceRow({ label, source, emoji }: { label: string; source: ForecastSource; emoji: string }) {
+function SourceRow({
+  label,
+  source,
+  emoji,
+}: {
+  label: string;
+  source: ForecastSource;
+  emoji: string;
+}) {
   const errorPct = source.forecastMW > 0
     ? ((source.actualMW - source.forecastMW) / source.forecastMW * 100).toFixed(1)
     : '0.0';
@@ -113,7 +118,7 @@ function SourceRow({ label, source, emoji }: { label: string; source: ForecastSo
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <span className="text-sm">{emoji}</span>
-        <span className="text-xs text-slate-300 font-medium">{label}</span>
+        <span className="text-xs font-medium text-slate-300">{label}</span>
         <SurpriseIndicator source={source} />
       </div>
 
@@ -126,15 +131,15 @@ function SourceRow({ label, source, emoji }: { label: string; source: ForecastSo
       <div className="grid grid-cols-3 gap-2 text-[11px]">
         <div>
           <div className="text-slate-500">Forecast</div>
-          <div className="text-slate-300 tabular-nums">{source.forecastMW.toLocaleString()} MW</div>
+          <div className="tabular-nums text-slate-300">{source.forecastMW.toLocaleString()} MW</div>
         </div>
         <div>
           <div className="text-slate-500">Actual</div>
-          <div className="text-slate-300 tabular-nums">{source.actualMW.toLocaleString()} MW</div>
+          <div className="tabular-nums text-slate-300">{source.actualMW.toLocaleString()} MW</div>
         </div>
         <div>
           <div className="text-slate-500">Error</div>
-          <div className={`tabular-nums font-medium ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+          <div className={`font-medium tabular-nums ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
             {isPositive ? '+' : ''}{errorPct}%
           </div>
         </div>
@@ -164,25 +169,25 @@ function CountryForecastCard({
   const totalError = totalForecast > 0
     ? Math.abs(((totalActual - totalForecast) / totalForecast) * 100)
     : 0;
-
   const hasWindSurprise = forecast.wind.surpriseDirection !== 'none';
   const hasSolarSurprise = forecast.solar.surpriseDirection !== 'none';
 
   return (
     <div>
       <button
+        type="button"
         onClick={onToggle}
-        className="w-full text-left px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors"
+        className="w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/[0.03]"
       >
         <div className="flex items-center gap-2">
           <span className="text-sm">{countryFlag(forecast.iso2)}</span>
-          <span className="text-sm text-slate-200 font-medium flex-1">
+          <span className="flex-1 text-sm font-medium text-slate-200">
             {countryName}
           </span>
           {(hasWindSurprise || hasSolarSurprise) && (
-            <span className="text-[9px] text-amber-400 font-medium">SURPRISE</span>
+            <span className="text-[9px] font-medium text-amber-400">SURPRISE</span>
           )}
-          <span className="text-xs text-slate-400 tabular-nums">
+          <span className="text-xs tabular-nums text-slate-400">
             {totalError.toFixed(1)}% err
           </span>
           <span className="text-[10px] text-slate-600">
@@ -192,20 +197,20 @@ function CountryForecastCard({
       </button>
 
       {isExpanded && (
-        <div className="ml-2 mr-2 mb-3 space-y-4 px-2 py-3 rounded-lg bg-white/[0.02]">
+        <div className="mb-3 ml-2 mr-2 space-y-4 rounded-lg bg-white/[0.02] px-2 py-3">
           {(forecast.wind.forecastHourly.length > 0 || forecast.wind.actualHourly.length > 0) && (
-            <SourceRow label="Wind" source={forecast.wind} emoji={String.fromCodePoint(0x1F4A8)} />
+            <SourceRow label="Wind" source={forecast.wind} emoji={String.fromCodePoint(0x1f4a8)} />
           )}
           {(forecast.solar.forecastHourly.length > 0 || forecast.solar.actualHourly.length > 0) && (
             <SourceRow label="Solar" source={forecast.solar} emoji={String.fromCodePoint(0x2600)} />
           )}
-          <div className="flex items-center gap-3 pt-2 border-t border-white/[0.06] text-[10px] text-slate-600">
+          <div className="flex items-center gap-3 border-t border-white/[0.06] pt-2 text-[10px] text-slate-600">
             <span className="flex items-center gap-1">
-              <span className="w-4 h-px inline-block" style={{ borderTop: '1px dashed rgba(148,163,184,0.4)' }} />
+              <span className="inline-block h-px w-4" style={{ borderTop: '1px dashed rgba(148,163,184,0.4)' }} />
               Forecast
             </span>
             <span className="flex items-center gap-1">
-              <span className="w-4 h-px inline-block bg-sky-400" />
+              <span className="inline-block h-px w-4 bg-sky-400" />
               Actual
             </span>
           </div>
@@ -215,56 +220,59 @@ function CountryForecastCard({
   );
 }
 
-export default function ForecastPanel({ forecasts, onClose }: ForecastPanelProps) {
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      className="absolute right-4 top-4 text-lg text-slate-500 transition-colors hover:text-white"
+      aria-label="Close forecast panel"
+    >
+      &#10005;
+    </button>
+  );
+}
+
+export default function ForecastPanel({
+  forecasts,
+  onClose,
+  embedded = false,
+}: ForecastPanelProps) {
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
 
-  const sorted = useMemo(() => {
-    return [...forecasts].sort((a, b) => {
-      const aErr = Math.abs(a.wind.bias) + Math.abs(a.solar.bias);
-      const bErr = Math.abs(b.wind.bias) + Math.abs(b.solar.bias);
-      return bErr - aErr;
-    });
-  }, [forecasts]);
+  const sorted = useMemo(
+    () => [...forecasts].sort((a, b) => (Math.abs(b.wind.bias) + Math.abs(b.solar.bias)) - (Math.abs(a.wind.bias) + Math.abs(a.solar.bias))),
+    [forecasts],
+  );
 
   const surpriseCount = useMemo(
-    () =>
-      sorted.filter(
-        (f) => f.wind.surpriseDirection !== 'none' || f.solar.surpriseDirection !== 'none'
-      ).length,
-    [sorted]
+    () => sorted.filter((forecast) => forecast.wind.surpriseDirection !== 'none' || forecast.solar.surpriseDirection !== 'none').length,
+    [sorted],
   );
+
+  const containerClass = embedded ? 'flex h-full flex-col' : 'forecast-panel';
 
   if (sorted.length === 0) {
     return (
-      <div className="forecast-panel">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors text-lg"
-        >
-          &#10005;
-        </button>
-        <h2 className="text-lg font-bold text-white mb-1">Forecast vs Actual</h2>
+      <div className={embedded ? 'space-y-2' : containerClass}>
+        {!embedded && <CloseButton onClose={onClose} />}
+        <h2 className="text-lg font-bold text-white">Forecast vs Actual</h2>
         <p className="text-sm text-slate-400">No forecast data available for today.</p>
       </div>
     );
   }
 
   return (
-    <div className="forecast-panel">
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors text-lg"
-      >
-        &#10005;
-      </button>
+    <div className={containerClass}>
+      {!embedded && <CloseButton onClose={onClose} />}
 
-      <h2 className="text-lg font-bold text-white mb-1">Forecast vs Actual</h2>
-      <p className="text-xs text-slate-500 mb-4">
+      <h2 className="text-lg font-bold text-white">Forecast vs Actual</h2>
+      <p className="mb-4 text-xs text-slate-500">
         Wind &amp; solar generation: forecast vs reality today
       </p>
 
       {surpriseCount > 0 && (
-        <div className="flex items-baseline gap-2 mb-4 pb-3 border-b border-white/[0.06]">
+        <div className="mb-4 flex items-baseline gap-2 border-b border-white/[0.06] pb-3">
           <span className="text-2xl font-bold text-amber-400">{surpriseCount}</span>
           <span className="text-sm text-slate-400">
             {surpriseCount === 1 ? 'country' : 'countries'} with surprises
@@ -272,15 +280,13 @@ export default function ForecastPanel({ forecasts, onClose }: ForecastPanelProps
         </div>
       )}
 
-      <div className="space-y-1 max-h-[60vh] overflow-y-auto sidebar-scroll">
-        {sorted.map((f) => (
+      <div className={`space-y-1 overflow-y-auto sidebar-scroll ${embedded ? 'flex-1 pr-1' : 'max-h-[60vh]'}`}>
+        {sorted.map((forecast) => (
           <CountryForecastCard
-            key={f.iso2}
-            forecast={f}
-            isExpanded={expandedCountry === f.iso2}
-            onToggle={() =>
-              setExpandedCountry((prev) => (prev === f.iso2 ? null : f.iso2))
-            }
+            key={forecast.iso2}
+            forecast={forecast}
+            isExpanded={expandedCountry === forecast.iso2}
+            onToggle={() => setExpandedCountry((prev) => (prev === forecast.iso2 ? null : forecast.iso2))}
           />
         ))}
       </div>

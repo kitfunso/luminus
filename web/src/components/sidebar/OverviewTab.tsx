@@ -90,6 +90,11 @@ export default function OverviewTab({
       .slice(0, 4);
   }, [filteredPlants]);
 
+  const replayTour = () => {
+    window.dispatchEvent(new CustomEvent('luminus:replay-tour'));
+    if (mobileOpen) onToggleMobile();
+  };
+
   return (
     <>
       {/* Metrics grid */}
@@ -186,7 +191,7 @@ export default function OverviewTab({
 
       {/* Quick-access buttons */}
       <div className={`${CARD} p-3`}>
-        <div className="flex gap-1.5">
+        <div className="grid grid-cols-2 gap-1.5">
           <button
             onClick={onOpenDashboard}
             className="flex-1 text-[10px] text-slate-500 hover:text-sky-400 transition-colors py-1.5 rounded-lg border border-white/[0.06] hover:border-sky-500/30 hover:bg-sky-500/[0.06]"
@@ -204,6 +209,12 @@ export default function OverviewTab({
             className="flex-1 text-[10px] text-slate-500 hover:text-emerald-400 transition-colors py-1.5 rounded-lg border border-white/[0.06] hover:border-emerald-500/30 hover:bg-emerald-500/[0.06]"
           >
             Pipeline
+          </button>
+          <button
+            onClick={replayTour}
+            className="flex-1 text-[10px] text-slate-500 hover:text-cyan-300 transition-colors py-1.5 rounded-lg border border-white/[0.06] hover:border-cyan-300/30 hover:bg-cyan-300/[0.06]"
+          >
+            Guided Tour
           </button>
         </div>
       </div>

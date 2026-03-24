@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import type { CountryOutage, PowerPlant } from '@/lib/data-fetcher';
 
@@ -8,17 +8,15 @@ interface OutageRadarProps {
   outages: CountryOutage[];
   plants: PowerPlant[];
   onClose: () => void;
+  embedded?: boolean;
 }
 
-// Rough installed capacity per country (GW) from plant data
-function getInstalledCapacity(
-  plants: PowerPlant[]
-): Record<string, number> {
-  const cap: Record<string, number> = {};
-  for (const p of plants) {
-    cap[p.country] = (cap[p.country] || 0) + p.capacity;
+function getInstalledCapacity(plants: PowerPlant[]): Record<string, number> {
+  const capacity: Record<string, number> = {};
+  for (const plant of plants) {
+    capacity[plant.country] = (capacity[plant.country] || 0) + plant.capacity;
   }
-  return cap;
+  return capacity;
 }
 
 function severityColor(pct: number): string {
@@ -37,12 +35,11 @@ function countryFlag(iso2: string): string {
   return iso2
     .toUpperCase()
     .split('')
-    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .map((char) => String.fromCodePoint(0x1f1e6 + char.charCodeAt(0) - 65))
     .join('');
 }
 
 function formatUtcShort(iso: string): string {
-  const date = new Date(iso);
   return new Intl.DateTimeFormat('en-GB', {
     month: 'short',
     day: 'numeric',
@@ -50,102 +47,99 @@ function formatUtcShort(iso: string): string {
     minute: '2-digit',
     hour12: false,
     timeZone: 'UTC',
-  }).format(date);
+  }).format(new Date(iso));
+}
+
+function CloseButton({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      className="absolute right-4 top-4 text-lg text-slate-500 transition-colors hover:text-white"
+      aria-label="Close outage radar"
+    >
+      &times;
+    </button>
+  );
 }
 
 export default function OutageRadar({
   outages,
   plants,
   onClose,
+  embedded = false,
 }: OutageRadarProps) {
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
-
   const installedCap = useMemo(() => getInstalledCapacity(plants), [plants]);
-
   const sorted = useMemo(
     () => [...outages].sort((a, b) => b.unavailableMW - a.unavailableMW),
-    [outages]
+    [outages],
+  );
+  const totalUnavailable = useMemo(
+    () => sorted.reduce((sum, outage) => sum + outage.unavailableMW, 0),
+    [sorted],
   );
 
-  const totalUnavailable = useMemo(
-    () => sorted.reduce((s, o) => s + o.unavailableMW, 0),
-    [sorted]
-  );
+  const containerClass = embedded ? 'flex h-full flex-col' : 'outage-panel';
 
   if (sorted.length === 0) {
     return (
-      <div className="outage-panel">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors text-lg"
-        >
-          ✕
-        </button>
-        <h2 className="text-lg font-bold text-white mb-1">Outage Radar</h2>
-        <p className="text-sm text-slate-400">No active generation outages in the current ENTSO-E window.</p>
+      <div className={embedded ? 'space-y-2' : containerClass}>
+        {!embedded && <CloseButton onClose={onClose} />}
+        <h2 className="text-lg font-bold text-white">Outage Radar</h2>
+        <p className="text-sm text-slate-400">
+          No active generation outages in the current ENTSO-E window.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="outage-panel">
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors text-lg"
-      >
-        ✕
-      </button>
+    <div className={containerClass}>
+      {!embedded && <CloseButton onClose={onClose} />}
 
-      <h2 className="text-lg font-bold text-white mb-1">Outage Radar</h2>
-      <p className="text-xs text-slate-500 mb-4">
+      <h2 className="text-lg font-bold text-white">Outage Radar</h2>
+      <p className="mb-4 text-xs text-slate-500">
         Generation unavailability across Europe
       </p>
 
-      {/* Total banner */}
-      <div className="flex items-baseline gap-2 mb-4 pb-3 border-b border-white/[0.06]">
+      <div className="mb-4 flex items-baseline gap-2 border-b border-white/[0.06] pb-3">
         <span className="text-2xl font-bold text-red-400">
           {(totalUnavailable / 1000).toFixed(1)}
         </span>
         <span className="text-sm text-slate-400">GW unavailable</span>
       </div>
 
-      {/* Country rows */}
-      <div className="space-y-1 max-h-[60vh] overflow-y-auto sidebar-scroll">
-        {sorted.map((o) => {
-          const capMW = installedCap[o.iso2] || 0;
-          const pct = capMW > 0 ? (o.unavailableMW / capMW) * 100 : 0;
+      <div className={`space-y-1 overflow-y-auto sidebar-scroll ${embedded ? 'flex-1 pr-1' : 'max-h-[60vh]'}`}>
+        {sorted.map((outage) => {
+          const capMW = installedCap[outage.iso2] || 0;
+          const pct = capMW > 0 ? (outage.unavailableMW / capMW) * 100 : 0;
           const color = severityColor(pct);
-          const isExpanded = expandedCountry === o.iso2;
-          const countryName =
-            COUNTRY_CENTROIDS[o.iso2]?.name || o.country;
+          const isExpanded = expandedCountry === outage.iso2;
+          const countryName = COUNTRY_CENTROIDS[outage.iso2]?.name || outage.country;
 
           return (
-            <div key={o.iso2}>
+            <div key={outage.iso2}>
               <button
-                onClick={() =>
-                  setExpandedCountry(isExpanded ? null : o.iso2)
-                }
-                className="w-full text-left px-2 py-2 rounded-lg hover:bg-white/[0.03] transition-colors"
+                type="button"
+                onClick={() => setExpandedCountry(isExpanded ? null : outage.iso2)}
+                className="w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/[0.03]"
               >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm">{countryFlag(o.iso2)}</span>
-                  <span className="text-sm text-slate-200 font-medium flex-1">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="text-sm">{countryFlag(outage.iso2)}</span>
+                  <span className="flex-1 text-sm font-medium text-slate-200">
                     {countryName}
                   </span>
-                  <span
-                    className="text-xs font-medium tabular-nums"
-                    style={{ color }}
-                  >
-                    {o.unavailableMW.toLocaleString()} MW
+                  <span className="text-xs font-medium tabular-nums" style={{ color }}>
+                    {outage.unavailableMW.toLocaleString()} MW
                   </span>
-                  <span className="text-[10px] text-slate-600 ml-1">
+                  <span className="ml-1 text-[10px] text-slate-600">
                     {isExpanded ? '\u25B4' : '\u25BE'}
                   </span>
                 </div>
 
-                {/* Severity bar */}
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 rounded-full bg-slate-800/80 overflow-hidden">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800/80">
                     <div
                       className="h-full rounded-full transition-all duration-300"
                       style={{
@@ -154,35 +148,31 @@ export default function OutageRadar({
                       }}
                     />
                   </div>
-                  <span className="text-[10px] text-slate-500 w-12 text-right tabular-nums">
+                  <span className="w-12 text-right text-[10px] tabular-nums text-slate-500">
                     {pct.toFixed(1)}%
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="mt-0.5 flex items-center gap-2">
                   <span className="text-[10px] text-slate-600">
-                    {o.outageCount} outage{o.outageCount !== 1 ? 's' : ''}
+                    {outage.outageCount} outage{outage.outageCount !== 1 ? 's' : ''}
                   </span>
-                  <span
-                    className="text-[10px] font-medium"
-                    style={{ color }}
-                  >
+                  <span className="text-[10px] font-medium" style={{ color }}>
                     {severityLabel(pct)}
                   </span>
                 </div>
               </button>
 
-              {/* Expanded: top outages */}
-              {isExpanded && o.topOutages.length > 0 && (
-                <div className="ml-7 mr-2 mb-2 space-y-1">
-                  {o.topOutages.map((entry, i) => (
+              {isExpanded && outage.topOutages.length > 0 && (
+                <div className="mb-2 ml-7 mr-2 space-y-1">
+                  {outage.topOutages.map((entry, index) => (
                     <div
-                      key={i}
-                      className="py-1.5 px-2 rounded bg-white/[0.02] space-y-0.5"
+                      key={`${outage.iso2}-${index}`}
+                      className="space-y-0.5 rounded bg-white/[0.02] px-2 py-1.5"
                     >
                       <div className="flex items-center gap-2">
                         <span
-                          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                          className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
                           style={{
                             backgroundColor:
                               entry.type === 'unplanned'
@@ -190,21 +180,19 @@ export default function OutageRadar({
                                 : 'rgb(250, 204, 21)',
                           }}
                         />
-                        <span className="text-[11px] text-slate-300 flex-1 truncate">
+                        <span className="flex-1 truncate text-[11px] text-slate-300">
                           {entry.name}
                         </span>
-                        <span className="text-[11px] text-slate-400 tabular-nums">
+                        <span className="text-[11px] tabular-nums text-slate-400">
                           {entry.unavailableMW.toLocaleString()} MW
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 ml-3.5">
-                        <span className="text-[9px] text-slate-600 uppercase">
+                      <div className="ml-3.5 flex items-center gap-2">
+                        <span className="text-[9px] uppercase text-slate-600">
                           {entry.type === 'unplanned' ? 'UNP' : 'PLN'}
                         </span>
                         {entry.fuel && (
-                          <span className="text-[9px] text-slate-600">
-                            {entry.fuel}
-                          </span>
+                          <span className="text-[9px] text-slate-600">{entry.fuel}</span>
                         )}
                         {entry.expectedReturn && (
                           <span className="text-[9px] text-slate-600">

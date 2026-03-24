@@ -1,10 +1,15 @@
 'use client';
 
-import { useMemo } from 'react';
-import type { CountryPrice, CrossBorderFlow, CountryOutage, CountryForecast } from '@/lib/data-fetcher';
-import type { TyndpProject } from '@/lib/tyndp';
-import { identifyMarketReads } from '@/lib/pipeline-intel';
+import React, { useMemo } from 'react';
+import type {
+  CountryForecast,
+  CountryOutage,
+  CountryPrice,
+  CrossBorderFlow,
+} from '@/lib/data-fetcher';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
+import { identifyMarketReads } from '@/lib/pipeline-intel';
+import type { TyndpProject } from '@/lib/tyndp';
 
 interface TraderDashboardProps {
   prices: CountryPrice[];
@@ -15,11 +20,14 @@ interface TraderDashboardProps {
   onSelectCountry: (iso2: string) => void;
   onSelectCorridor: (from: string, to: string) => void;
   onClose: () => void;
+  embedded?: boolean;
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h4 className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-2">{children}</h4>
+    <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+      {children}
+    </h4>
   );
 }
 
@@ -34,22 +42,31 @@ function PriceRow({
   delta?: number;
   onClick: () => void;
 }) {
-  const deltaColor = delta === undefined ? '' : delta > 0 ? 'text-red-400' : delta < 0 ? 'text-emerald-400' : 'text-slate-500';
+  const deltaColor = delta === undefined
+    ? ''
+    : delta > 0
+      ? 'text-red-400'
+      : delta < 0
+        ? 'text-emerald-400'
+        : 'text-slate-500';
   const priceColor = price > 100 ? 'text-red-400' : price > 60 ? 'text-yellow-400' : 'text-emerald-400';
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="flex items-center justify-between w-full py-1.5 hover:bg-white/[0.03] rounded-lg px-1 transition-colors group text-left"
+      className="group flex w-full items-center justify-between rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-white/[0.03]"
     >
-      <span className="text-[12px] text-slate-300 group-hover:text-white truncate">{name}</span>
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <span className="truncate text-[12px] text-slate-300 group-hover:text-white">{name}</span>
+      <div className="ml-2 flex flex-shrink-0 items-center gap-2">
         {delta !== undefined && (
           <span className={`text-[10px] tabular-nums ${deltaColor}`}>
             {delta >= 0 ? '+' : ''}{delta.toFixed(0)}
           </span>
         )}
-        <span className={`text-[12px] font-medium tabular-nums ${priceColor}`}>€{price.toFixed(0)}</span>
+        <span className={`text-[12px] font-medium tabular-nums ${priceColor}`}>
+          EUR {price.toFixed(0)}
+        </span>
       </div>
     </button>
   );
@@ -64,210 +81,221 @@ export default function TraderDashboard({
   onSelectCountry,
   onSelectCorridor,
   onClose,
+  embedded = false,
 }: TraderDashboardProps) {
-  // Top 5 highest prices
-  const topPrices = useMemo(() => {
-    return [...prices]
-      .sort((a, b) => b.price - a.price)
-      .slice(0, 5)
-      .map((p) => ({
-        iso2: p.iso2,
-        name: p.country,
-        price: p.price,
-      }));
-  }, [prices]);
-
-  // Top 5 lowest prices
-  const bottomPrices = useMemo(() => {
-    return [...prices]
-      .sort((a, b) => a.price - b.price)
-      .slice(0, 5)
-      .map((p) => ({
-        iso2: p.iso2,
-        name: p.country,
-        price: p.price,
-      }));
-  }, [prices]);
-
-  // Avg price
+  const topPrices = useMemo(
+    () => [...prices].sort((a, b) => b.price - a.price).slice(0, 5),
+    [prices],
+  );
+  const bottomPrices = useMemo(
+    () => [...prices].sort((a, b) => a.price - b.price).slice(0, 5),
+    [prices],
+  );
   const avgPrice = useMemo(() => {
-    if (prices.length === 0) return 0;
-    return prices.reduce((s, p) => s + p.price, 0) / prices.length;
+    if (prices.length === 0) {
+      return 0;
+    }
+    return prices.reduce((sum, price) => sum + price.price, 0) / prices.length;
   }, [prices]);
-
-  // Most congested corridors
-  const topCongested = useMemo(() => {
-    return [...flows]
-      .map((f) => ({
-        ...f,
-        util: f.capacityMW > 0 ? f.flowMW / f.capacityMW : 0,
-      }))
-      .filter((f) => f.util > 0.3)
-      .sort((a, b) => b.util - a.util)
-      .slice(0, 4);
-  }, [flows]);
-
-  // Top outages by MW
-  const topOutages = useMemo(() => {
-    return [...outages]
-      .filter((o) => o.unavailableMW > 0)
-      .sort((a, b) => b.unavailableMW - a.unavailableMW)
-      .slice(0, 4);
-  }, [outages]);
-
-  // Biggest forecast misses
+  const topCongested = useMemo(
+    () =>
+      [...flows]
+        .map((flow) => ({
+          ...flow,
+          util: flow.capacityMW > 0 ? flow.flowMW / flow.capacityMW : 0,
+        }))
+        .filter((flow) => flow.util > 0.3)
+        .sort((a, b) => b.util - a.util)
+        .slice(0, 4),
+    [flows],
+  );
+  const topOutages = useMemo(
+    () =>
+      [...outages]
+        .filter((outage) => outage.unavailableMW > 0)
+        .sort((a, b) => b.unavailableMW - a.unavailableMW)
+        .slice(0, 4),
+    [outages],
+  );
   const topForecastMisses = useMemo(() => {
     const entries: { name: string; iso2: string; source: string; mape: number; direction: string }[] = [];
-    for (const f of forecasts) {
-      if (f.wind.mape > 5) entries.push({ name: f.country, iso2: f.iso2, source: 'Wind', mape: f.wind.mape, direction: f.wind.surpriseDirection });
-      if (f.solar.mape > 5) entries.push({ name: f.country, iso2: f.iso2, source: 'Solar', mape: f.solar.mape, direction: f.solar.surpriseDirection });
+    for (const forecast of forecasts) {
+      if (forecast.wind.mape > 5) {
+        entries.push({
+          name: forecast.country,
+          iso2: forecast.iso2,
+          source: 'Wind',
+          mape: forecast.wind.mape,
+          direction: forecast.wind.surpriseDirection,
+        });
+      }
+      if (forecast.solar.mape > 5) {
+        entries.push({
+          name: forecast.country,
+          iso2: forecast.iso2,
+          source: 'Solar',
+          mape: forecast.solar.mape,
+          direction: forecast.solar.surpriseDirection,
+        });
+      }
     }
     return entries.sort((a, b) => b.mape - a.mape).slice(0, 4);
   }, [forecasts]);
-
-  const hasOutages = topOutages.length > 0;
-  const hasForecasts = topForecastMisses.length > 0;
-  const hasCongestion = topCongested.length > 0;
-
-  // Pipeline market reads (derived from TYNDP + live prices + flows)
   const marketReads = useMemo(
     () => identifyMarketReads(projects, prices, flows).slice(0, 3),
-    [projects, prices, flows]
+    [projects, prices, flows],
   );
+
+  const wrapperClass = embedded
+    ? 'flex h-full flex-col'
+    : 'right-panel absolute right-4 flex max-h-[calc(100vh-32px)] w-[300px] flex-col rounded-2xl border border-white/[0.06] bg-[#0a0e17]/92 shadow-2xl backdrop-blur-xl';
 
   return (
     <div
-      className="right-panel absolute right-4 bg-[#0a0e17]/92 backdrop-blur-xl border border-white/[0.06] rounded-2xl shadow-2xl w-[300px] max-h-[calc(100vh-32px)] flex flex-col"
-      style={{ top: 16, zIndex: 15, animation: 'slideInRight 0.2s ease-out' }}
+      className={wrapperClass}
+      style={embedded ? undefined : { top: 16, zIndex: 15, animation: 'slideInRight 0.2s ease-out' }}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0 border-b border-white/[0.04]">
+      <div className={`flex flex-shrink-0 items-center justify-between border-b border-white/[0.04] ${embedded ? 'pb-3' : 'px-4 pb-2 pt-4'}`}>
         <div>
           <h3 className="text-sm font-bold text-white">Morning Brief</h3>
-          <p className="text-[10px] text-slate-500 mt-0.5">
-            EU avg <span className="text-slate-400 font-medium">€{avgPrice.toFixed(0)}/MWh</span>
+          <p className="mt-0.5 text-[10px] text-slate-500">
+            EU avg <span className="font-medium text-slate-400">EUR {avgPrice.toFixed(0)}/MWh</span>
             {' · '}{prices.length} zones
           </p>
         </div>
-        <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors text-sm">✕</button>
+        {!embedded && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-slate-500 transition-colors hover:text-white"
+            aria-label="Close morning brief"
+          >
+            &times;
+          </button>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto sidebar-scroll px-4 py-3 space-y-4">
-        {/* Price extremes */}
+      <div className={`flex-1 space-y-4 overflow-y-auto sidebar-scroll ${embedded ? 'pr-1 pt-3' : 'px-4 py-3'}`}>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <SectionTitle>Most expensive</SectionTitle>
-            {topPrices.map((p) => (
+            {topPrices.map((price) => (
               <PriceRow
-                key={p.iso2}
-                name={p.name}
-                price={p.price}
-                delta={p.price - avgPrice}
-                onClick={() => onSelectCountry(p.iso2)}
+                key={price.iso2}
+                name={price.country}
+                price={price.price}
+                delta={price.price - avgPrice}
+                onClick={() => onSelectCountry(price.iso2)}
               />
             ))}
           </div>
           <div>
             <SectionTitle>Cheapest</SectionTitle>
-            {bottomPrices.map((p) => (
+            {bottomPrices.map((price) => (
               <PriceRow
-                key={p.iso2}
-                name={p.name}
-                price={p.price}
-                delta={p.price - avgPrice}
-                onClick={() => onSelectCountry(p.iso2)}
+                key={price.iso2}
+                name={price.country}
+                price={price.price}
+                delta={price.price - avgPrice}
+                onClick={() => onSelectCountry(price.iso2)}
               />
             ))}
           </div>
         </div>
 
-        {/* Congestion */}
-        {hasCongestion && (
+        {topCongested.length > 0 && (
           <div>
             <SectionTitle>Congested corridors</SectionTitle>
-            {topCongested.map((f) => {
-              const fromName = COUNTRY_CENTROIDS[f.from]?.name ?? f.from;
-              const toName = COUNTRY_CENTROIDS[f.to]?.name ?? f.to;
-              const pct = (f.util * 100).toFixed(0);
+            {topCongested.map((flow) => {
+              const fromName = COUNTRY_CENTROIDS[flow.from]?.name ?? flow.from;
+              const toName = COUNTRY_CENTROIDS[flow.to]?.name ?? flow.to;
+              const pct = (flow.util * 100).toFixed(0);
               return (
                 <button
-                  key={`${f.from}-${f.to}`}
-                  className="flex items-center justify-between w-full py-1.5 hover:bg-white/[0.03] rounded-lg px-1 cursor-pointer transition-colors text-left"
-                  onClick={() => onSelectCorridor(f.from, f.to)}
+                  key={`${flow.from}-${flow.to}`}
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-white/[0.03]"
+                  onClick={() => onSelectCorridor(flow.from, flow.to)}
                 >
-                  <span className="text-[11px] text-slate-400 truncate">{fromName} → {toName}</span>
-                  <span className={`text-[11px] font-medium tabular-nums flex-shrink-0 ml-2 ${
-                    f.util > 0.8 ? 'text-red-400' : f.util > 0.5 ? 'text-yellow-400' : 'text-emerald-400'
-                  }`}>{pct}%</span>
+                  <span className="truncate text-[11px] text-slate-400">{fromName} &rarr; {toName}</span>
+                  <span className={`ml-2 flex-shrink-0 text-[11px] font-medium tabular-nums ${
+                    flow.util > 0.8 ? 'text-red-400' : flow.util > 0.5 ? 'text-yellow-400' : 'text-emerald-400'
+                  }`}>
+                    {pct}%
+                  </span>
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* Outages */}
-        {hasOutages && (
+        {topOutages.length > 0 && (
           <div>
             <SectionTitle>Largest outages</SectionTitle>
-            {topOutages.map((o) => (
-              <div
-                key={o.iso2}
-                className="flex items-center justify-between py-1.5 hover:bg-white/[0.03] rounded-lg px-1 cursor-pointer transition-colors"
-                onClick={() => onSelectCountry(o.iso2)}
+            {topOutages.map((outage) => (
+              <button
+                key={outage.iso2}
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-white/[0.03]"
+                onClick={() => onSelectCountry(outage.iso2)}
               >
-                <span className="text-[11px] text-slate-400 truncate">{o.country}</span>
-                <span className="text-[11px] font-medium text-amber-400 tabular-nums flex-shrink-0 ml-2">
-                  {o.unavailableMW.toLocaleString()} MW
+                <span className="truncate text-[11px] text-slate-400">{outage.country}</span>
+                <span className="ml-2 flex-shrink-0 text-[11px] font-medium tabular-nums text-amber-400">
+                  {outage.unavailableMW.toLocaleString()} MW
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         )}
 
-        {/* Forecast misses */}
-        {hasForecasts && (
+        {topForecastMisses.length > 0 && (
           <div>
             <SectionTitle>Forecast misses</SectionTitle>
-            {topForecastMisses.map((f, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between py-1.5 hover:bg-white/[0.03] rounded-lg px-1 cursor-pointer transition-colors"
-                onClick={() => onSelectCountry(f.iso2)}
+            {topForecastMisses.map((forecast, index) => (
+              <button
+                key={`${forecast.iso2}-${forecast.source}-${index}`}
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-white/[0.03]"
+                onClick={() => onSelectCountry(forecast.iso2)}
               >
-                <span className="text-[11px] text-slate-400 truncate">{f.name} {f.source}</span>
-                <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                  <span className="text-[10px] text-slate-600">{f.direction === 'above' ? '▲' : f.direction === 'below' ? '▼' : '–'}</span>
-                  <span className="text-[11px] font-medium text-orange-400 tabular-nums">{f.mape.toFixed(1)}%</span>
+                <span className="truncate text-[11px] text-slate-400">{forecast.name} {forecast.source}</span>
+                <div className="ml-2 flex flex-shrink-0 items-center gap-1.5">
+                  <span className="text-[10px] text-slate-600">
+                    {forecast.direction === 'above' ? '▲' : forecast.direction === 'below' ? '▼' : '–'}
+                  </span>
+                  <span className="text-[11px] font-medium tabular-nums text-orange-400">
+                    {forecast.mape.toFixed(1)}%
+                  </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
 
-        {/* Pipeline market reads */}
         {marketReads.length > 0 && (
           <div>
             <SectionTitle>Pipeline reads</SectionTitle>
             <div className="space-y-1.5">
-              {marketReads.map((read, i) => {
+              {marketReads.map((read, index) => {
                 const color =
                   read.type === 'congestion_price_driver'
                     ? '#f87171'
                     : read.type === 'pipeline_near_term'
-                    ? '#4ade80'
-                    : '#38bdf8';
+                      ? '#4ade80'
+                      : '#38bdf8';
                 return (
                   <button
-                    key={i}
+                    key={`${read.label}-${index}`}
+                    type="button"
                     onClick={() => read.iso2 && onSelectCountry(read.iso2)}
                     disabled={!read.iso2}
-                    className="w-full text-left rounded-xl px-2.5 py-2 border transition-colors hover:bg-white/[0.03]"
-                    style={{ borderColor: color + '28', backgroundColor: color + '0a' }}
+                    className="w-full rounded-xl border px-2.5 py-2 text-left transition-colors hover:bg-white/[0.03]"
+                    style={{ borderColor: `${color}28`, backgroundColor: `${color}0a` }}
                   >
                     <p className="text-[11px] font-medium leading-tight" style={{ color }}>
                       {read.label}
                     </p>
-                    <p className="text-[10px] text-slate-600 mt-0.5 leading-relaxed">
+                    <p className="mt-0.5 text-[10px] leading-relaxed text-slate-600">
                       {read.detail}
                     </p>
                   </button>
@@ -277,9 +305,11 @@ export default function TraderDashboard({
           </div>
         )}
 
-        {!hasCongestion && !hasOutages && !hasForecasts && marketReads.length === 0 && (
+        {topCongested.length === 0 && topOutages.length === 0 && topForecastMisses.length === 0 && marketReads.length === 0 && (
           <div className="py-2 text-center">
-            <p className="text-[11px] text-slate-600">Enable Outage Radar and Forecast layers to see market intelligence here.</p>
+            <p className="text-[11px] text-slate-600">
+              Enable outage and forecast layers to see market intelligence here.
+            </p>
           </div>
         )}
       </div>

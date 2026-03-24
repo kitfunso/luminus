@@ -118,6 +118,10 @@ export default function SidebarShell(props: SidebarProps) {
     return () => window.removeEventListener('resize', check);
   }, [setIsMobile]);
 
+  useEffect(() => {
+    setActiveTab(sidebarTab);
+  }, [sidebarTab]);
+
   // Desktop collapsed icon rail
   if (sidebarCollapsed && !isMobile) {
     return (
@@ -187,6 +191,7 @@ export default function SidebarShell(props: SidebarProps) {
 
       {/* Sidebar panel */}
       <div
+        data-tour-id="sidebar-shell"
         className={`relative m-4 md:m-4 flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-3 pointer-events-auto max-h-[calc(100vh-2rem)] overflow-y-auto sidebar-scroll transition-all duration-200 ease-out md:translate-x-0 ${
           mobileOpen ? 'translate-x-0 opacity-100' : '-translate-x-[calc(100%+1rem)] opacity-0 md:opacity-100'
         }`}
@@ -228,7 +233,12 @@ export default function SidebarShell(props: SidebarProps) {
             {TABS.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                type="button"
+                data-tour-id={`sidebar-${tab.key}`}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setSidebarTab(tab.key);
+                }}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] font-medium transition-colors ${
                   activeTab === tab.key
                     ? 'bg-white/[0.08] text-white'

@@ -1,3 +1,10 @@
+import {
+  createLiveDataset,
+  failLiveDatasetRefresh,
+  markDatasetStale,
+} from './live-data-store';
+import type { LiveDataset, LiveDatasetResponse } from './live-data-types';
+
 export interface PowerPlant {
   name: string;
   fuel: string;
@@ -85,20 +92,177 @@ export interface PriceHistory {
   countries: HistoryCountry[];
 }
 
+interface BundledResponse<T> {
+  data: T;
+  lastUpdated: string | null;
+}
+
 /** Try to load a bundled JSON file (generated at build time), return null on failure */
 async function loadBundled<T>(path: string): Promise<T | null> {
+  const bundled = await loadBundledWithMeta<T>(path);
+  return bundled?.data ?? null;
+}
+
+async function loadBundledWithMeta<T>(path: string): Promise<BundledResponse<T> | null> {
   try {
-    const res = await fetch(path);
+    const res = await fetch(path, { cache: 'no-store' });
     if (!res.ok) return null;
     const data = await res.json();
     // Handle both direct arrays and { prices: [...] } wrapper
-    if (Array.isArray(data) && data.length > 0) return data as T;
+    if (Array.isArray(data) && data.length > 0) {
+      return {
+        data: data as T,
+        lastUpdated: res.headers.get('last-modified'),
+      };
+    }
     if (data && typeof data === 'object' && 'prices' in data && Array.isArray(data.prices) && data.prices.length > 0) {
-      return data.prices as T;
+      return {
+        data: data.prices as T,
+        lastUpdated: res.headers.get('last-modified'),
+      };
     }
     return null;
   } catch {
     return null;
+  }
+}
+
+function withSyntheticHourly(prices: CountryPrice[]): CountryPrice[] {
+  return prices.map((price) => ({
+    ...price,
+    hourly: price.hourly ?? syntheticHourly(price.price),
+  }));
+}
+
+async function fetchRuntimeDataset<T>(
+  datasetName: string,
+  livePath: string,
+  bundledPath: string,
+  current: LiveDataset<T> | null,
+  demoFallback: T,
+  transform?: (value: T) => T,
+  staleAfterMs = 8 * 60 * 1000,
+): Promise<LiveDataset<T>> {
+  const live = await loadLive<T>(livePath);
+  if (live) {
+    return markDatasetStale(
+      createLiveDataset(transform ? transform(live.data) : live.data, {
+        lastUpdated: live.lastUpdated,
+        source: live.source,
+        hasFallback: live.hasFallback,
+        error: live.error ?? null,
+      }),
+      Date.now(),
+      staleAfterMs,
+    );
+  }
+
+  const bundled = await loadBundledWithMeta<T>(bundledPath);
+  if (bundled) {
+    return markDatasetStale(
+      createLiveDataset(transform ? transform(bundled.data) : bundled.data, {
+        lastUpdated: bundled.lastUpdated,
+        source: 'bootstrap',
+        hasFallback: true,
+        error: `Live ${datasetName} unavailable`,
+      }),
+      Date.now(),
+      staleAfterMs,
+    );
+  }
+
+  if (current) {
+    return markDatasetStale(
+      failLiveDatasetRefresh(current, new Error(`Live ${datasetName} unavailable`), {
+        hasFallback: true,
+        source: current.source === 'live' ? 'fallback' : current.source,
+      }),
+      Date.now(),
+      staleAfterMs,
+    );
+  }
+
+  return createLiveDataset(transform ? transform(demoFallback) : demoFallback, {
+    source: 'fallback',
+    hasFallback: true,
+    error: `Live ${datasetName} unavailable`,
+  });
+}
+
+export async function fetchDayAheadPricesDataset(
+  current: LiveDataset<CountryPrice[]> | null = null,
+): Promise<LiveDataset<CountryPrice[]>> {
+  return fetchRuntimeDataset(
+    'prices',
+    '/api/live/prices',
+    '/data/prices.json',
+    current,
+    getDemoPrices(),
+    withSyntheticHourly,
+  );
+}
+
+export async function fetchCrossBorderFlowsDataset(
+  current: LiveDataset<CrossBorderFlow[]> | null = null,
+): Promise<LiveDataset<CrossBorderFlow[]>> {
+  return fetchRuntimeDataset(
+    'flows',
+    '/api/live/flows',
+    '/data/flows.json',
+    current,
+    getDemoFlows(),
+  );
+}
+
+export async function fetchOutagesDataset(
+  current: LiveDataset<CountryOutage[]> | null = null,
+): Promise<LiveDataset<CountryOutage[]>> {
+  return fetchRuntimeDataset(
+    'outages',
+    '/api/live/outages',
+    '/data/outages.json',
+    current,
+    [],
+  );
+}
+
+export async function fetchForecastsDataset(
+  current: LiveDataset<CountryForecast[]> | null = null,
+): Promise<LiveDataset<CountryForecast[]>> {
+  return fetchRuntimeDataset(
+    'forecasts',
+    '/api/live/forecasts',
+    '/data/forecast-errors.json',
+    current,
+    [],
+  );
+}
+
+export async function fetchHistoryDataset(
+  current: LiveDataset<PriceHistory | null> | null = null,
+): Promise<LiveDataset<PriceHistory | null>> {
+  return fetchRuntimeDataset(
+    'history',
+    '/api/live/history',
+    '/data/history.json',
+    current,
+    null,
+  );
+}
+
+async function loadLive<T>(path: string): Promise<LiveDatasetResponse<T> | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(path, { cache: 'no-store', signal: controller.signal });
+    if (!res.ok) return null;
+    const data = (await res.json()) as LiveDatasetResponse<T>;
+    if (!data || typeof data !== 'object' || !('data' in data)) return null;
+    return data;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -112,20 +276,14 @@ export async function fetchPowerPlants(): Promise<PowerPlant[]> {
 
 /** Fetch day-ahead prices: bundled JSON -> demo fallback */
 export async function fetchDayAheadPrices(): Promise<CountryPrice[]> {
-  const bundled = await loadBundled<CountryPrice[]>('/data/prices.json');
-  const prices = bundled ?? getDemoPrices();
-  // Ensure every price entry has hourly data (synthetic if missing)
-  return prices.map((p) => ({
-    ...p,
-    hourly: p.hourly ?? syntheticHourly(p.price),
-  }));
+  const prices = await fetchDayAheadPricesDataset();
+  return prices.data;
 }
 
 /** Fetch cross-border flows: bundled JSON -> demo fallback */
 export async function fetchCrossBorderFlows(): Promise<CrossBorderFlow[]> {
-  const bundled = await loadBundled<CrossBorderFlow[]>('/data/flows.json');
-  if (bundled) return bundled;
-  return getDemoFlows();
+  const flows = await fetchCrossBorderFlowsDataset();
+  return flows.data;
 }
 
 /** Fetch transmission lines: bundled JSON */
@@ -136,27 +294,20 @@ export async function fetchTransmissionLines(): Promise<TransmissionLine[]> {
 
 /** Fetch generation outages: bundled JSON */
 export async function fetchOutages(): Promise<CountryOutage[]> {
-  const bundled = await loadBundled<CountryOutage[]>('/data/outages.json');
-  return bundled ?? [];
+  const outages = await fetchOutagesDataset();
+  return outages.data;
 }
 
 /** Fetch forecast vs actual data: bundled JSON */
 export async function fetchForecasts(): Promise<CountryForecast[]> {
-  const bundled = await loadBundled<CountryForecast[]>('/data/forecast-errors.json');
-  return bundled ?? [];
+  const forecasts = await fetchForecastsDataset();
+  return forecasts.data;
 }
 
 /** Fetch price history: bundled JSON */
 export async function fetchHistory(): Promise<PriceHistory | null> {
-  try {
-    const res = await fetch('/data/history.json');
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data && data.countries && data.countries.length > 0) return data;
-    return null;
-  } catch {
-    return null;
-  }
+  const history = await fetchHistoryDataset();
+  return history.data;
 }
 
 /** Generate synthetic 24h price profile from an average */

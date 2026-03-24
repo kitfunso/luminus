@@ -28,6 +28,7 @@ export interface ViewState {
 
 export type FocusMode = 'none' | 'prices' | 'flows' | 'plants';
 export type SidebarTab = 'overview' | 'layers' | 'filters';
+export type IntelligenceView = 'none' | 'brief' | 'outages' | 'forecast';
 
 interface DataSlice {
   plants: PowerPlant[];
@@ -54,6 +55,7 @@ interface MapState extends DataSlice {
   sidebarOpen: boolean;
   sidebarCollapsed: boolean;
   sidebarTab: SidebarTab;
+  intelligenceView: IntelligenceView;
 
   // Actions
   setData: (partial: Partial<DataSlice>) => void;
@@ -75,6 +77,7 @@ interface MapState extends DataSlice {
   setSidebarOpen: (v: boolean) => void;
   setSidebarCollapsed: (v: boolean) => void;
   setSidebarTab: (tab: SidebarTab) => void;
+  setIntelligenceView: (view: IntelligenceView) => void;
 }
 
 // --- Defaults ---
@@ -122,6 +125,7 @@ export const useMapStore = create<MapState>()((set) => ({
   sidebarOpen: true,
   sidebarCollapsed: false,
   sidebarTab: 'overview',
+  intelligenceView: 'none',
 
   // --- Actions ---
   setData: (partial) => set((s) => ({ ...s, ...partial })),
@@ -173,4 +177,5 @@ export const useMapStore = create<MapState>()((set) => ({
   setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
   setSidebarTab: (sidebarTab) => set({ sidebarTab }),
+  setIntelligenceView: (intelligenceView) => set({ intelligenceView }),
 }));
