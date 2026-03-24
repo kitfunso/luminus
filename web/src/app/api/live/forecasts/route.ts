@@ -1,9 +1,9 @@
-import { getLiveForecastsResponse } from '@/lib/live-dashboard-server';
+import { getLiveForecastsResponse } from '@/lib/live-dashboard-edge';
 
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 
-export async function GET() {
-  return Response.json(await getLiveForecastsResponse(), {
+export async function GET(request: Request) {
+  return Response.json(await getLiveForecastsResponse(request.url), {
     headers: {
       'Cache-Control': 'no-store, max-age=0',
     },

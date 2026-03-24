@@ -4,10 +4,13 @@ export { createLineLayer, type LineLayerOptions, type FlowStressEntry } from './
 export { createPlantLayer, type PlantLayerOptions } from './plant-layer';
 export {
   createSpreadLabelLayer,
+  createMetricLabelLayer,
   createGenMixLabelLayer,
   type SpreadLabelLayerOptions,
+  type MetricLabelLayerOptions,
   type GenMixLabelLayerOptions,
   type SpreadLabelDatum,
+  type MetricLabelDatum,
   type GenMixLabelDatum,
 } from './label-layer';
 export { createTyndpLayer, type TyndpLayerOptions } from './tyndp-layer';

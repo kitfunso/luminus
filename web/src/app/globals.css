@@ -10,6 +10,9 @@
   --border: #30363D;
   --border-subtle: #21262D;
   --accent: #38bdf8;
+  --sidebar-dock-width: 18rem;
+  --right-dock-width: 22.5rem;
+  --dock-bottom-lane: 7rem;
 }
 
 * {
@@ -204,8 +207,8 @@ body {
 .time-scrubber {
   position: absolute;
   bottom: 16px;
-  left: 288px;
-  right: 16px;
+  left: calc(var(--sidebar-dock-width) + 1rem);
+  right: calc(var(--right-dock-width) + 2rem);
   z-index: 15;
   background: rgba(10, 14, 23, 0.92);
   backdrop-filter: blur(20px);
@@ -293,6 +296,28 @@ body {
   overflow-y: auto;
 }
 
+.right-panel {
+  bottom: calc(var(--dock-bottom-lane) + env(safe-area-inset-bottom));
+  max-height: calc(100vh - var(--dock-bottom-lane) - 2rem) !important;
+}
+
+.top-context-dock {
+  top: 1rem;
+  left: calc(var(--sidebar-dock-width) + 2rem);
+  right: calc(var(--right-dock-width) + 2rem);
+  max-height: calc(100vh - var(--dock-bottom-lane) - 2rem);
+  overflow-y: auto;
+}
+
+.expanded-series-panel {
+  left: calc(var(--sidebar-dock-width) + 2rem);
+  right: calc(var(--right-dock-width) + 2rem);
+  top: auto;
+  bottom: calc(var(--dock-bottom-lane) + env(safe-area-inset-bottom));
+  width: auto !important;
+  max-height: calc(60vh) !important;
+}
+
 /* Map legend (bottom-left floating) */
 .map-legend {
   position: absolute;
@@ -326,6 +351,12 @@ body {
   border-radius: 2px;
   background: rgba(148, 163, 184, 0.25);
   margin: 0 auto 12px;
+}
+
+.guide-shell,
+.guide-chip {
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
 }
 
 @media (max-width: 767px) {
@@ -391,6 +422,31 @@ body {
   .map-legend {
     left: env(safe-area-inset-left);
     bottom: env(safe-area-inset-bottom);
+  }
+
+  .top-context-dock {
+    left: 0.75rem;
+    right: 0.75rem;
+    top: 0.75rem;
+    max-height: 50vh;
+    border-radius: 1.5rem;
+    padding: 1rem;
+  }
+
+  .expanded-series-panel {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    max-height: 78vh !important;
+    border-radius: 1.25rem 1.25rem 0 0;
+  }
+
+  .guide-shell,
+  .guide-chip {
+    right: 0.75rem;
+    bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    width: min(18rem, calc(100vw - 1.5rem));
   }
 
   /* Soften the sidebar backdrop to feel intentional, not accidental */

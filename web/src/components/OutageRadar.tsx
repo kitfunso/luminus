@@ -2,13 +2,15 @@
 
 import React, { useMemo, useState } from 'react';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
-import type { CountryOutage, PowerPlant } from '@/lib/data-fetcher';
+import type { CountryOutage, OutageEntry, PowerPlant } from '@/lib/data-fetcher';
 
 interface OutageRadarProps {
   outages: CountryOutage[];
   plants: PowerPlant[];
   onClose: () => void;
   embedded?: boolean;
+  onSelectCountry?: (iso2: string) => void;
+  onSelectPlant?: (entry: OutageEntry) => void;
 }
 
 function getInstalledCapacity(plants: PowerPlant[]): Record<string, number> {
@@ -68,6 +70,8 @@ export default function OutageRadar({
   plants,
   onClose,
   embedded = false,
+  onSelectCountry,
+  onSelectPlant,
 }: OutageRadarProps) {
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
   const installedCap = useMemo(() => getInstalledCapacity(plants), [plants]);
@@ -130,6 +134,26 @@ export default function OutageRadar({
                   <span className="flex-1 text-sm font-medium text-slate-200">
                     {countryName}
                   </span>
+                  {onSelectCountry && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectCountry(outage.iso2);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onSelectCountry(outage.iso2);
+                        }
+                      }}
+                      className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-slate-400 transition-colors hover:text-white"
+                    >
+                      Open
+                    </span>
+                  )}
                   <span className="text-xs font-medium tabular-nums" style={{ color }}>
                     {outage.unavailableMW.toLocaleString()} MW
                   </span>
@@ -166,9 +190,11 @@ export default function OutageRadar({
               {isExpanded && outage.topOutages.length > 0 && (
                 <div className="mb-2 ml-7 mr-2 space-y-1">
                   {outage.topOutages.map((entry, index) => (
-                    <div
+                    <button
                       key={`${outage.iso2}-${index}`}
-                      className="space-y-0.5 rounded bg-white/[0.02] px-2 py-1.5"
+                      type="button"
+                      onClick={() => onSelectPlant?.(entry)}
+                      className="w-full space-y-0.5 rounded bg-white/[0.02] px-2 py-1.5 text-left transition-colors hover:bg-white/[0.05]"
                     >
                       <div className="flex items-center gap-2">
                         <span
@@ -200,7 +226,7 @@ export default function OutageRadar({
                           </span>
                         )}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

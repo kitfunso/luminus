@@ -13,6 +13,8 @@ import AssetTimeSeries, { type TimeSeriesAsset } from './AssetTimeSeries';
 import AlertsPanel from './AlertsPanel';
 import PipelinePanel from './PipelinePanel';
 import DetailPanel from './detail/DetailPanel';
+import ExpandedSeriesPanel, { type ExpandedSeriesConfig } from './charts/ExpandedSeriesPanel';
+import TopContextDock from './context/TopContextDock';
 import MapLegend from './MapLegend';
 import Onboarding from './Onboarding';
 import MobileActionBar from './MobileActionBar';
@@ -22,12 +24,12 @@ import { useMapStore } from '@/lib/store';
 import type { LayerKey, ViewState } from '@/lib/store';
 import { evaluateAlerts } from '@/lib/alerts';
 import { deliverFirings } from '@/lib/alert-delivery';
-import { normalizeFuel, FUEL_FILTER_MAP, FUEL_EMOJI, FILTER_FUELS } from '@/lib/colors';
+import { normalizeFuel, FUEL_FILTER_MAP, FILTER_FUELS } from '@/lib/colors';
 import { COUNTRY_CENTROIDS, EU_COUNTRY_CODES } from '@/lib/countries';
 import {
   fetchPowerPlants, fetchDayAheadPricesDataset, fetchCrossBorderFlowsDataset,
   fetchTransmissionLines, fetchOutagesDataset, fetchForecastsDataset, fetchHistoryDataset,
-  type CountryPrice, type CrossBorderFlow, type PowerPlant,
+  type CountryPrice, type CrossBorderFlow, type OutageEntry, type PowerPlant,
 } from '@/lib/data-fetcher';
 import { TYNDP_PROJECTS } from '@/lib/tyndp';
 import { corridorId } from '@/lib/corridor-lines';
@@ -37,9 +39,13 @@ import { parseHashState, buildHash } from '@/lib/url-hash';
 import {
   createPriceLayer, createFlowLayer, createAnimatedFlowLayer,
   createPlantLayer, createLineLayer, createSpreadLabelLayer,
-  createGenMixLabelLayer, createTyndpLayer, layerOpacity,
-  type FlowStressEntry, type SpreadLabelDatum, type GenMixLabelDatum,
+  createMetricLabelLayer, createTyndpLayer, layerOpacity,
+  type FlowStressEntry, type SpreadLabelDatum, type MetricLabelDatum,
 } from '@/lib/layers';
+import {
+  buildCountryMarketPulse,
+  buildMapMetricLabelData,
+} from '@/lib/map-insights';
 import {
   beginDatasetRefresh,
   createEmptyLiveDatasetMap,
@@ -129,6 +135,7 @@ export default function EnergyMap() {
   const [watchlistVersion, setWatchlistVersion] = useState(0);
   const [presetsVersion, setPresetsVersion] = useState(0);
   const [compareMode, setCompareMode] = useState(false);
+  const [expandedSeries, setExpandedSeries] = useState<ExpandedSeriesConfig | null>(null);
   const [liveDatasets, setLiveDatasets] = useState<LiveDatasetMap>(() => createEmptyLiveDatasetMap());
 
   const shiftHeld = useRef(false);
@@ -337,25 +344,10 @@ export default function EnergyMap() {
     return map;
   }, [prices, historyPriceOverride]);
 
-  const genMixData: GenMixLabelDatum[] = useMemo(() => {
-    const cf: Record<string, Record<string, number>> = {};
-    for (const p of filteredPlants) {
-      const fuel = normalizeFuel(p.fuel);
-      if (!cf[p.country]) cf[p.country] = {};
-      cf[p.country][fuel] = (cf[p.country][fuel] || 0) + p.capacity;
-    }
-    return Object.entries(COUNTRY_CENTROIDS)
-      .map(([iso, { lat, lon }]) => {
-        const fuels = cf[iso];
-        if (!fuels) return null;
-        const entries = Object.entries(fuels).sort((a, b) => b[1] - a[1]);
-        const dom = entries[0];
-        if (!dom) return null;
-        const total = entries.reduce((s, [, v]) => s + v, 0);
-        return { position: [lon, lat] as [number, number], text: `${FUEL_EMOJI[dom[0]] || '\u26A1'} ${Math.round((dom[1] / total) * 100)}%` };
-      })
-      .filter(Boolean) as GenMixLabelDatum[];
-  }, [filteredPlants]);
+  const metricLabelData: MetricLabelDatum[] = useMemo(
+    () => buildMapMetricLabelData([...priceLookup.values()]),
+    [priceLookup],
+  );
 
   const flowStressByCorridor = useMemo(() => {
     const map = new Map<string, FlowStressEntry>();
@@ -415,7 +407,14 @@ export default function EnergyMap() {
         geoJson, priceLookup,
         onHover: (info) => {
           if (!info) { setTooltip(null); return; }
-          setTooltip({ x: info.x, y: info.y, content: { Country: info.country, 'Day-Ahead Price': info.price != null ? `${info.price} EUR/MWh` : 'N/A' } });
+          const pulse = buildCountryMarketPulse(info.iso2, prices, flows, outages, forecasts);
+          setTooltip({
+            x: info.x,
+            y: info.y,
+            title: pulse.title,
+            eyebrow: pulse.eyebrow,
+            content: pulse.content,
+          });
         },
         onClick: (iso2) => {
           if (compareMode || shiftHeld.current) { toggleCompareCountry(iso2); return; }
@@ -491,16 +490,16 @@ export default function EnergyMap() {
       }));
     }
 
-    if (effectiveVis.genMix && genMixData.length > 0) {
-      result.push(createGenMixLabelLayer({ data: genMixData }));
+    if (effectiveVis.genMix && metricLabelData.length > 0) {
+      result.push(createMetricLabelLayer({ data: metricLabelData }));
     }
 
     return result;
   }, [
     effectiveVis, geoJson, priceLookup, focusMode, compareMode,
     transmissionLines, flowStressByCorridor, selectedFlowForLines, flows,
-    animTimestamp, spreadLabelData, filteredPlants, zoomLevel, genMixData,
-    selectDetail, toggleCompareCountry,
+    animTimestamp, spreadLabelData, filteredPlants, zoomLevel, metricLabelData,
+    selectDetail, toggleCompareCountry, prices, outages, forecasts,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -533,6 +532,7 @@ export default function EnergyMap() {
     setShowAlerts(true);
     setShowPipeline(false);
     setTimeSeriesAsset(null);
+    setExpandedSeries(null);
     setIntelligenceView('none');
     clearCompare();
     setCompareMode(false);
@@ -541,6 +541,7 @@ export default function EnergyMap() {
     setShowAlerts(false);
     setShowPipeline(false);
     setTimeSeriesAsset(null);
+    setExpandedSeries(null);
     setIntelligenceView('brief');
     clearCompare();
     setCompareMode(false);
@@ -549,6 +550,7 @@ export default function EnergyMap() {
     setShowPipeline(true);
     setShowAlerts(false);
     setTimeSeriesAsset(null);
+    setExpandedSeries(null);
     setIntelligenceView('none');
     clearCompare();
     setCompareMode(false);
@@ -561,20 +563,20 @@ export default function EnergyMap() {
 
   const handleSearchSelectPlant = useCallback((plant: PowerPlant) => {
     selectDetail({ kind: 'plant', data: plant });
-    setTimeSeriesAsset(null); setShowAlerts(false); setShowPipeline(false);
+    setTimeSeriesAsset(null); setShowAlerts(false); setShowPipeline(false); setExpandedSeries(null);
     flyTo(plant.lat, plant.lon, 7);
   }, [selectDetail, flyTo]);
 
   const handleSearchSelectCountry = useCallback((iso2: string) => {
     const pd = prices.find((p) => p.iso2 === iso2);
     if (pd) selectDetail({ kind: 'country', data: pd });
-    setShowAlerts(false); setShowPipeline(false);
+    setShowAlerts(false); setShowPipeline(false); setExpandedSeries(null);
     const c = COUNTRY_CENTROIDS[iso2];
     if (c) flyTo(c.lat, c.lon, 5);
   }, [prices, selectDetail, flyTo]);
 
   const handleOpenTimeSeries = useCallback((iso2: string) => {
-    setTimeSeriesAsset({ kind: 'country', iso2 }); setShowAlerts(false); setShowPipeline(false);
+    setTimeSeriesAsset({ kind: 'country', iso2 }); setShowAlerts(false); setShowPipeline(false); setExpandedSeries(null);
   }, []);
 
   const handleWatchlistSelectPlant = useCallback((item: WatchlistItem) => {
@@ -586,7 +588,7 @@ export default function EnergyMap() {
   const selectCorridorFlow = useCallback((from: string, to: string) => {
     const mf = flows.find((f) => (f.from === from && f.to === to) || (f.from === to && f.to === from));
     if (mf) selectDetail({ kind: 'corridor', data: mf });
-    setTimeSeriesAsset(null); setShowAlerts(false); setShowPipeline(false);
+    setTimeSeriesAsset(null); setShowAlerts(false); setShowPipeline(false); setExpandedSeries(null);
     const midLon = mf ? (mf.fromLon + mf.toLon) / 2 : (() => { const fc = COUNTRY_CENTROIDS[from]; const tc = COUNTRY_CENTROIDS[to]; return fc && tc ? (fc.lon + tc.lon) / 2 : null; })();
     const midLat = mf ? (mf.fromLat + mf.toLat) / 2 : (() => { const fc = COUNTRY_CENTROIDS[from]; const tc = COUNTRY_CENTROIDS[to]; return fc && tc ? (fc.lat + tc.lat) / 2 : null; })();
     if (midLon != null && midLat != null) {
@@ -647,6 +649,41 @@ export default function EnergyMap() {
   const handleRefreshNow = useCallback(() => {
     void loadData();
   }, [loadData]);
+
+  const handleExpandSeries = useCallback((config: ExpandedSeriesConfig) => {
+    setExpandedSeries(config);
+  }, []);
+
+  const handleSelectOutagePlant = useCallback((entry: OutageEntry) => {
+    const normalize = (value: string) =>
+      value
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+    const matchedPlant = plants.find((plant) =>
+      (entry.country ? plant.country === entry.country : true)
+      && (
+        normalize(plant.name) === normalize(entry.name)
+        || (entry.coordinates
+          && Math.abs(plant.lat - entry.coordinates[0]) < 0.05
+          && Math.abs(plant.lon - entry.coordinates[1]) < 0.05)
+      ),
+    );
+
+    if (matchedPlant) {
+      handleSearchSelectPlant(matchedPlant);
+      return;
+    }
+
+    if (entry.country) {
+      handleSearchSelectCountry(entry.country);
+    }
+  }, [handleSearchSelectCountry, handleSearchSelectPlant, plants]);
 
   const focusTutorialStep = useCallback((stepId: TutorialStepId) => {
     setSidebarCollapsed(false);
@@ -719,9 +756,9 @@ export default function EnergyMap() {
   ]);
 
   // hasRightPanel for sidebar layout
-  const hasRightPanel = detail.kind !== 'none' || compareCountries.length > 0 ||
-    !!timeSeriesAsset || showAlerts || showPipeline ||
-    (intelligenceView !== 'none' && detail.kind === 'none');
+  const hasRightPanel = compareCountries.length > 0 ||
+    !!timeSeriesAsset || showAlerts || showPipeline || !!expandedSeries ||
+    intelligenceView !== 'none';
 
   // ---------------------------------------------------------------------------
   // Render
@@ -763,10 +800,17 @@ export default function EnergyMap() {
       </button>
 
       {compareCountries.length > 0 ? (
-        <ComparePanel selectedCountries={compareCountries} plants={plants} prices={prices} flows={flows}
-          onRemoveCountry={(iso2) => toggleCompareCountry(iso2)} onClose={() => { clearCompare(); setCompareMode(false); }} />
+        <ComparePanel
+          selectedCountries={compareCountries}
+          plants={plants}
+          prices={prices}
+          flows={flows}
+          onRemoveCountry={(iso2) => toggleCompareCountry(iso2)}
+          onClose={() => { clearCompare(); setCompareMode(false); }}
+          onExpandSeries={handleExpandSeries}
+        />
       ) : (
-        !showAlerts && !showPipeline && !timeSeriesAsset && detail.kind === 'none' && intelligenceView !== 'none' && (
+        !showAlerts && !showPipeline && !timeSeriesAsset && intelligenceView !== 'none' && (
           <MarketIntelligenceRail
             activeView={intelligenceView}
             prices={prices}
@@ -780,15 +824,42 @@ export default function EnergyMap() {
             onRefresh={handleRefreshNow}
             onSelectCountry={handleSearchSelectCountry}
             onSelectCorridor={selectCorridorFlow}
+            onSelectPlant={handleSelectOutagePlant}
+            onExpandSeries={handleExpandSeries}
             onClose={() => setIntelligenceView('none')}
           />
         )
       )}
 
-      <DetailPanel />
+      <TopContextDock
+        detail={detail}
+        plants={plants}
+        prices={prices}
+        flows={flows}
+        outages={outages}
+        forecasts={forecasts}
+        onClose={clearDetail}
+        onExpandSeries={handleExpandSeries}
+      />
+
+      {detail.kind === 'tyndp' && <DetailPanel />}
+
+      {expandedSeries && (
+        <ExpandedSeriesPanel
+          {...expandedSeries}
+          onClose={() => setExpandedSeries(null)}
+        />
+      )}
 
       {timeSeriesAsset && !showAlerts && !showPipeline && (
-        <AssetTimeSeries asset={timeSeriesAsset} prices={prices} flows={flows} history={history} onClose={() => setTimeSeriesAsset(null)} />
+        <AssetTimeSeries
+          asset={timeSeriesAsset}
+          prices={prices}
+          flows={flows}
+          history={history}
+          onClose={() => setTimeSeriesAsset(null)}
+          onExpandSeries={handleExpandSeries}
+        />
       )}
       {showAlerts && <AlertsPanel onClose={() => setShowAlerts(false)} />}
       {showPipeline && (

@@ -268,7 +268,7 @@ async function readBootstrapStat(fileName: string): Promise<string | null> {
 function datasetEnvelope<T>(
   dataset: string,
   data: T,
-  source: 'live' | 'bootstrap' | 'fallback',
+  source: 'live' | 'fallback' | 'estimated',
   lastUpdated: string | null,
   hasFallback: boolean,
   error?: string | null,
@@ -276,8 +276,11 @@ function datasetEnvelope<T>(
   return {
     dataset,
     data,
+    provider: null,
     source,
     lastUpdated,
+    intervalStart: null,
+    intervalEnd: null,
     hasFallback,
     error: error ?? null,
   };
@@ -729,7 +732,7 @@ export async function getLiveHistoryResponse(): Promise<LiveDatasetResponse<Pric
   return datasetEnvelope(
     'history',
     bootstrap,
-    'bootstrap',
+    'fallback',
     await readBootstrapStat('history.json'),
     false,
     null,

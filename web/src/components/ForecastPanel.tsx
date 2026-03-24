@@ -3,11 +3,14 @@
 import React, { useMemo, useState } from 'react';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import type { CountryForecast, ForecastSource } from '@/lib/data-fetcher';
+import InteractiveTimeSeriesChart from './charts/InteractiveTimeSeriesChart';
+import type { ExpandedSeriesConfig } from './charts/ExpandedSeriesPanel';
 
 interface ForecastPanelProps {
   forecasts: CountryForecast[];
   onClose: () => void;
   embedded?: boolean;
+  onExpandSeries?: (config: ExpandedSeriesConfig) => void;
 }
 
 function countryFlag(iso2: string): string {
@@ -31,83 +34,46 @@ function SurpriseIndicator({ source }: { source: ForecastSource }) {
   );
 }
 
-function MiniDualLine({
-  forecastHourly,
-  actualHourly,
-  label,
-}: {
-  forecastHourly: number[];
-  actualHourly: number[];
-  label: string;
-}) {
-  const maxLen = Math.max(forecastHourly.length, actualHourly.length);
-  if (maxLen === 0) {
-    return <span className="text-[10px] text-slate-600">No {label} data</span>;
-  }
-
-  const allValues = [...forecastHourly, ...actualHourly];
-  const min = Math.min(...allValues);
-  const max = Math.max(...allValues);
-  const range = max - min || 1;
-  const width = 200;
-  const height = 44;
-  const padding = 2;
-
-  const toPoints = (series: number[]) =>
-    series
-      .map((value, index) => {
-        const x = padding + (index / (maxLen - 1 || 1)) * (width - padding * 2);
-        const y = height - padding - ((value - min) / range) * (height - padding * 2);
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(' ');
-
-  return (
-    <div>
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        className="w-full"
-        preserveAspectRatio="none"
-      >
-        {forecastHourly.length > 0 && (
-          <polyline
-            points={toPoints(forecastHourly)}
-            fill="none"
-            stroke="rgba(148, 163, 184, 0.4)"
-            strokeWidth="1"
-            strokeDasharray="3,2"
-            strokeLinecap="round"
-          />
-        )}
-        {actualHourly.length > 0 && (
-          <polyline
-            points={toPoints(actualHourly)}
-            fill="none"
-            stroke={label === 'Wind' ? 'rgb(56, 189, 248)' : 'rgb(250, 204, 21)'}
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        )}
-      </svg>
-      <div className="mt-0.5 flex justify-between px-0.5 text-[9px] text-slate-600">
-        <span>{min.toLocaleString()} MW</span>
-        <span>{max.toLocaleString()} MW</span>
-      </div>
-    </div>
+function buildHourlyTimestamps(length: number) {
+  const start = new Date();
+  start.setUTCHours(0, 0, 0, 0);
+  return Array.from(
+    { length },
+    (_, index) => new Date(start.getTime() + index * 60 * 60 * 1000).toISOString(),
   );
+}
+
+function buildSeries(label: 'Wind' | 'Solar', iso2: string, source: ForecastSource) {
+  const actualColor = label === 'Wind' ? 'rgb(56, 189, 248)' : 'rgb(250, 204, 21)';
+  return [
+    {
+      id: `${iso2}-${label.toLowerCase()}-forecast`,
+      label: `${label} forecast`,
+      values: source.forecastHourly,
+      color: 'rgba(148, 163, 184, 0.9)',
+      dashed: true,
+    },
+    {
+      id: `${iso2}-${label.toLowerCase()}-actual`,
+      label: `${label} actual`,
+      values: source.actualHourly,
+      color: actualColor,
+    },
+  ].filter((line) => line.values.length > 1);
 }
 
 function SourceRow({
   label,
   source,
   emoji,
+  onExpand,
+  iso2,
 }: {
-  label: string;
+  label: 'Wind' | 'Solar';
   source: ForecastSource;
   emoji: string;
+  onExpand?: () => void;
+  iso2: string;
 }) {
   const errorPct = source.forecastMW > 0
     ? ((source.actualMW - source.forecastMW) / source.forecastMW * 100).toFixed(1)
@@ -122,10 +88,14 @@ function SourceRow({
         <SurpriseIndicator source={source} />
       </div>
 
-      <MiniDualLine
-        forecastHourly={source.forecastHourly}
-        actualHourly={source.actualHourly}
-        label={label}
+      <InteractiveTimeSeriesChart
+        title={`${label} profile`}
+        subtitle="Hover to inspect forecast and actual values"
+        unitLabel="MW"
+        timestampsUtc={buildHourlyTimestamps(Math.max(source.forecastHourly.length, source.actualHourly.length))}
+        series={buildSeries(label, iso2, source)}
+        height={88}
+        onExpand={onExpand}
       />
 
       <div className="grid grid-cols-3 gap-2 text-[11px]">
@@ -140,7 +110,8 @@ function SourceRow({
         <div>
           <div className="text-slate-500">Error</div>
           <div className={`font-medium tabular-nums ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-            {isPositive ? '+' : ''}{errorPct}%
+            {isPositive ? '+' : ''}
+            {errorPct}%
           </div>
         </div>
       </div>
@@ -158,10 +129,12 @@ function CountryForecastCard({
   forecast,
   isExpanded,
   onToggle,
+  onExpandSeries,
 }: {
   forecast: CountryForecast;
   isExpanded: boolean;
   onToggle: () => void;
+  onExpandSeries?: (config: ExpandedSeriesConfig) => void;
 }) {
   const countryName = COUNTRY_CENTROIDS[forecast.iso2]?.name || forecast.country;
   const totalForecast = forecast.wind.forecastMW + forecast.solar.forecastMW;
@@ -171,6 +144,14 @@ function CountryForecastCard({
     : 0;
   const hasWindSurprise = forecast.wind.surpriseDirection !== 'none';
   const hasSolarSurprise = forecast.solar.surpriseDirection !== 'none';
+  const windSeries = buildSeries('Wind', forecast.iso2, forecast.wind);
+  const solarSeries = buildSeries('Solar', forecast.iso2, forecast.solar);
+  const windTimestamps = buildHourlyTimestamps(
+    Math.max(forecast.wind.forecastHourly.length, forecast.wind.actualHourly.length),
+  );
+  const solarTimestamps = buildHourlyTimestamps(
+    Math.max(forecast.solar.forecastHourly.length, forecast.solar.actualHourly.length),
+  );
 
   return (
     <div>
@@ -178,6 +159,7 @@ function CountryForecastCard({
         type="button"
         onClick={onToggle}
         className="w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/[0.03]"
+        aria-label={countryName}
       >
         <div className="flex items-center gap-2">
           <span className="text-sm">{countryFlag(forecast.iso2)}</span>
@@ -199,10 +181,38 @@ function CountryForecastCard({
       {isExpanded && (
         <div className="mb-3 ml-2 mr-2 space-y-4 rounded-lg bg-white/[0.02] px-2 py-3">
           {(forecast.wind.forecastHourly.length > 0 || forecast.wind.actualHourly.length > 0) && (
-            <SourceRow label="Wind" source={forecast.wind} emoji={String.fromCodePoint(0x1f4a8)} />
+            <SourceRow
+              label="Wind"
+              source={forecast.wind}
+              emoji={String.fromCodePoint(0x1f4a8)}
+              iso2={forecast.iso2}
+              onExpand={onExpandSeries
+                ? () => onExpandSeries({
+                    title: `${countryName} wind analysis`,
+                    unitLabel: 'MW',
+                    timestampsUtc: windTimestamps,
+                    series: windSeries,
+                    candidates: solarSeries,
+                  })
+                : undefined}
+            />
           )}
           {(forecast.solar.forecastHourly.length > 0 || forecast.solar.actualHourly.length > 0) && (
-            <SourceRow label="Solar" source={forecast.solar} emoji={String.fromCodePoint(0x2600)} />
+            <SourceRow
+              label="Solar"
+              source={forecast.solar}
+              emoji={String.fromCodePoint(0x2600)}
+              iso2={forecast.iso2}
+              onExpand={onExpandSeries
+                ? () => onExpandSeries({
+                    title: `${countryName} solar analysis`,
+                    unitLabel: 'MW',
+                    timestampsUtc: solarTimestamps,
+                    series: solarSeries,
+                    candidates: windSeries,
+                  })
+                : undefined}
+            />
           )}
           <div className="flex items-center gap-3 border-t border-white/[0.06] pt-2 text-[10px] text-slate-600">
             <span className="flex items-center gap-1">
@@ -237,6 +247,7 @@ export default function ForecastPanel({
   forecasts,
   onClose,
   embedded = false,
+  onExpandSeries,
 }: ForecastPanelProps) {
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
 
@@ -287,6 +298,7 @@ export default function ForecastPanel({
             forecast={forecast}
             isExpanded={expandedCountry === forecast.iso2}
             onToggle={() => setExpandedCountry((prev) => (prev === forecast.iso2 ? null : forecast.iso2))}
+            onExpandSeries={onExpandSeries}
           />
         ))}
       </div>

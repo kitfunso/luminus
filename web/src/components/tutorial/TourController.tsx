@@ -71,7 +71,7 @@ export default function TourController({ onStepFocus }: TourControllerProps) {
 
   if (state.mode === 'welcome') {
     return (
-      <div className="absolute bottom-5 right-5 z-40 w-[340px] rounded-[28px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(15,22,35,0.98),rgba(8,12,20,0.94))] p-5 shadow-2xl backdrop-blur-2xl">
+      <div className="guide-shell absolute z-40 w-[340px] rounded-[28px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(15,22,35,0.98),rgba(8,12,20,0.94))] p-5 shadow-2xl backdrop-blur-2xl">
         <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-300/80">
           Guided Tour
         </p>
@@ -119,15 +119,15 @@ export default function TourController({ onStepFocus }: TourControllerProps) {
   }
 
   if (collapsed) {
-    return (
-      <button
-        type="button"
-        onClick={() => setCollapsed(false)}
-        className="absolute bottom-5 right-5 z-40 rounded-full border border-white/[0.08] bg-[rgba(10,14,23,0.94)] px-4 py-2 text-[11px] font-medium text-slate-200 shadow-xl backdrop-blur-xl transition-colors hover:text-white"
-      >
-        Guide {state.completedStepIds.length}/7
-      </button>
-    );
+      return (
+        <button
+          type="button"
+          onClick={() => setCollapsed(false)}
+        className="guide-chip absolute z-40 rounded-full border border-white/[0.08] bg-[rgba(10,14,23,0.94)] px-4 py-2 text-[11px] font-medium text-slate-200 shadow-xl backdrop-blur-xl transition-colors hover:text-white"
+        >
+          Guide {state.completedStepIds.length}/7
+        </button>
+      );
   }
 
   return (

@@ -127,6 +127,8 @@ function renderRail(activeView: IntelligenceView = 'outages') {
       onRefresh={onRefresh}
       onSelectCountry={vi.fn()}
       onSelectCorridor={vi.fn()}
+      onSelectPlant={vi.fn()}
+      onExpandSeries={vi.fn()}
       onClose={vi.fn()}
     />,
   );

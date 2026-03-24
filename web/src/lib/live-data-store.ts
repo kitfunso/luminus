@@ -8,7 +8,10 @@ import type {
 } from './data-fetcher';
 
 interface CreateLiveDatasetOptions {
+  provider?: string | null;
   lastUpdated?: string | null;
+  intervalStart?: string | null;
+  intervalEnd?: string | null;
   source?: LiveDataSource;
   isLoading?: boolean;
   isRefreshing?: boolean;
@@ -82,6 +85,7 @@ export function beginDatasetRefresh<T>(current: LiveDataset<T>): LiveDataset<T> 
     ...current,
     isLoading: current.data == null || (Array.isArray(current.data) && current.data.length === 0),
     isRefreshing: true,
+    isStale: false,
     error: null,
   };
 }
@@ -159,8 +163,11 @@ export function createLiveDataset<T>(
 ): LiveDataset<T> {
   return {
     data,
+    provider: options.provider ?? null,
     lastUpdated: options.lastUpdated ?? null,
-    source: options.source ?? 'bootstrap',
+    intervalStart: options.intervalStart ?? null,
+    intervalEnd: options.intervalEnd ?? null,
+    source: options.source ?? 'fallback',
     isLoading: options.isLoading ?? false,
     isRefreshing: options.isRefreshing ?? false,
     isStale: options.isStale ?? false,
@@ -179,6 +186,7 @@ export function failLiveDatasetRefresh<T>(
     source: options.source ?? current.source,
     isLoading: false,
     isRefreshing: false,
+    isStale: current.isStale,
     hasFallback: options.hasFallback ?? current.hasFallback,
     error: error.message,
   };

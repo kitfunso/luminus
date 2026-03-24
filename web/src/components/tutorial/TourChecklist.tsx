@@ -18,7 +18,7 @@ export default function TourChecklist({
   onCollapse,
 }: TourChecklistProps) {
   return (
-    <div className="absolute bottom-5 right-5 z-40 w-[320px] rounded-[28px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(12,18,30,0.96),rgba(8,12,20,0.92))] p-4 shadow-2xl backdrop-blur-2xl">
+    <div className="guide-shell absolute z-40 w-[320px] rounded-[28px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(12,18,30,0.96),rgba(8,12,20,0.92))] p-4 shadow-2xl backdrop-blur-2xl">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-300/80">

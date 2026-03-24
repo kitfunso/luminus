@@ -160,7 +160,7 @@ export default function TraderDashboard({
           <h3 className="text-sm font-bold text-white">Morning Brief</h3>
           <p className="mt-0.5 text-[10px] text-slate-500">
             EU avg <span className="font-medium text-slate-400">EUR {avgPrice.toFixed(0)}/MWh</span>
-            {' · '}{prices.length} zones
+            {' | '}{prices.length} zones
           </p>
         </div>
         {!embedded && (
@@ -217,7 +217,7 @@ export default function TraderDashboard({
                   className="flex w-full items-center justify-between rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-white/[0.03]"
                   onClick={() => onSelectCorridor(flow.from, flow.to)}
                 >
-                  <span className="truncate text-[11px] text-slate-400">{fromName} &rarr; {toName}</span>
+                  <span className="truncate text-[11px] text-slate-400">{fromName} -&gt; {toName}</span>
                   <span className={`ml-2 flex-shrink-0 text-[11px] font-medium tabular-nums ${
                     flow.util > 0.8 ? 'text-red-400' : flow.util > 0.5 ? 'text-yellow-400' : 'text-emerald-400'
                   }`}>
@@ -261,7 +261,7 @@ export default function TraderDashboard({
                 <span className="truncate text-[11px] text-slate-400">{forecast.name} {forecast.source}</span>
                 <div className="ml-2 flex flex-shrink-0 items-center gap-1.5">
                   <span className="text-[10px] text-slate-600">
-                    {forecast.direction === 'above' ? '▲' : forecast.direction === 'below' ? '▼' : '–'}
+                    {forecast.direction === 'above' ? '^' : forecast.direction === 'below' ? 'v' : '-'}
                   </span>
                   <span className="text-[11px] font-medium tabular-nums text-orange-400">
                     {forecast.mape.toFixed(1)}%

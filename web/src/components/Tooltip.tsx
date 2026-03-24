@@ -5,6 +5,8 @@ import { type CSSProperties } from 'react';
 export interface TooltipData {
   x: number;
   y: number;
+  eyebrow?: string;
+  title?: string;
   content: Record<string, string | number>;
 }
 
@@ -33,6 +35,18 @@ export default function Tooltip({ data }: TooltipProps) {
 
   return (
     <div style={{ ...style, left: data.x + 12, top: data.y + 12 }}>
+      {(data.eyebrow || data.title) && (
+        <div className="mb-2 border-b border-white/[0.06] pb-2">
+          {data.eyebrow && (
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">
+              {data.eyebrow}
+            </p>
+          )}
+          {data.title && (
+            <p className="mt-1 text-sm font-semibold text-white">{data.title}</p>
+          )}
+        </div>
+      )}
       {Object.entries(data.content).map(([key, value]) => (
         <div key={key} className="flex justify-between gap-4">
           <span className="text-slate-500 text-xs">{key}</span>

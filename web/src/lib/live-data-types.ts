@@ -8,11 +8,14 @@ import type {
   TransmissionLine,
 } from './data-fetcher';
 
-export type LiveDataSource = 'live' | 'bootstrap' | 'fallback';
+export type LiveDataSource = 'live' | 'fallback' | 'estimated';
 
 export interface LiveDataset<T> {
   data: T;
+  provider: string | null;
   lastUpdated: string | null;
+  intervalStart: string | null;
+  intervalEnd: string | null;
   source: LiveDataSource;
   isLoading: boolean;
   isRefreshing: boolean;
@@ -33,9 +36,14 @@ export interface LiveDashboardData {
 
 export interface LiveDatasetResponse<T> {
   dataset: string;
+  provider: string | null;
   lastUpdated: string | null;
+  intervalStart: string | null;
+  intervalEnd: string | null;
   source: LiveDataSource;
+  isRefreshing?: boolean;
+  isStale?: boolean;
   hasFallback: boolean;
   data: T;
-  error?: string | null;
+  error: string | null;
 }

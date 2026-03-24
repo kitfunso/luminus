@@ -78,7 +78,7 @@ const LAYER_CONFIG: {
   { key: 'flows', label: 'Cross-border Flows', hint: 'Line thickness = flow MW' },
   { key: 'plants', label: 'Power Plants', legend: 'fuels' },
   { key: 'lines', label: 'Transmission Lines' },
-  { key: 'genMix', label: 'Generation Mix' },
+  { key: 'genMix', label: 'Day-Ahead Labels' },
   { key: 'tyndp', label: 'TYNDP Pipeline' },
   { key: 'outages', label: 'Outage Radar' },
   { key: 'forecast', label: 'Forecast vs Actual' },

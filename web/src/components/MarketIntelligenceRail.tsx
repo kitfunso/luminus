@@ -5,9 +5,11 @@ import LiveStatusStrip from './LiveStatusStrip';
 import ForecastPanel from './ForecastPanel';
 import OutageRadar from './OutageRadar';
 import TraderDashboard from './TraderDashboard';
+import type { ExpandedSeriesConfig } from './charts/ExpandedSeriesPanel';
 import type {
   CountryForecast,
   CountryOutage,
+  OutageEntry,
   CountryPrice,
   CrossBorderFlow,
   PowerPlant,
@@ -29,6 +31,8 @@ interface MarketIntelligenceRailProps {
   onRefresh: () => void;
   onSelectCountry: (iso2: string) => void;
   onSelectCorridor: (from: string, to: string) => void;
+  onSelectPlant: (entry: OutageEntry) => void;
+  onExpandSeries: (config: ExpandedSeriesConfig) => void;
   onClose: () => void;
 }
 
@@ -51,6 +55,8 @@ export default function MarketIntelligenceRail({
   onRefresh,
   onSelectCountry,
   onSelectCorridor,
+  onSelectPlant,
+  onExpandSeries,
   onClose,
 }: MarketIntelligenceRailProps) {
   if (activeView === 'none') {
@@ -130,6 +136,8 @@ export default function MarketIntelligenceRail({
             embedded
             outages={outages}
             plants={plants}
+            onSelectCountry={onSelectCountry}
+            onSelectPlant={onSelectPlant}
             onClose={onClose}
           />
         )}
@@ -139,6 +147,7 @@ export default function MarketIntelligenceRail({
             embedded
             forecasts={forecasts}
             onClose={onClose}
+            onExpandSeries={onExpandSeries}
           />
         )}
       </div>

@@ -6,7 +6,7 @@ export interface SpreadLabelDatum {
   spread: number;
 }
 
-export interface GenMixLabelDatum {
+export interface MetricLabelDatum {
   position: [number, number];
   text: string;
 }
@@ -15,8 +15,8 @@ export interface SpreadLabelLayerOptions {
   data: SpreadLabelDatum[];
 }
 
-export interface GenMixLabelLayerOptions {
-  data: GenMixLabelDatum[];
+export interface MetricLabelLayerOptions {
+  data: MetricLabelDatum[];
 }
 
 export function createSpreadLabelLayer({ data }: SpreadLabelLayerOptions) {
@@ -44,9 +44,9 @@ export function createSpreadLabelLayer({ data }: SpreadLabelLayerOptions) {
   });
 }
 
-export function createGenMixLabelLayer({ data }: GenMixLabelLayerOptions) {
-  return new TextLayer<GenMixLabelDatum>({
-    id: 'gen-mix-labels',
+export function createMetricLabelLayer({ data }: MetricLabelLayerOptions) {
+  return new TextLayer<MetricLabelDatum>({
+    id: 'metric-labels',
     data,
     getPosition: (d) => d.position,
     getText: (d) => d.text,
@@ -62,3 +62,7 @@ export function createGenMixLabelLayer({ data }: GenMixLabelLayerOptions) {
     getAlignmentBaseline: 'center',
   });
 }
+
+export type GenMixLabelDatum = MetricLabelDatum;
+export type GenMixLabelLayerOptions = MetricLabelLayerOptions;
+export const createGenMixLabelLayer = createMetricLabelLayer;

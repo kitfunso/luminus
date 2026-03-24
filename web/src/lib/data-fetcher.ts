@@ -41,15 +41,21 @@ export interface CrossBorderFlow {
   toLon: number;
   flowMW: number;
   capacityMW: number;
+  hourlyFlowMW?: number[];
+  hourlyTimestampsUtc?: string[];
 }
 
 export interface OutageEntry {
   name: string;
+  plantKey?: string;
+  country?: string;
   fuel: string;
   unavailableMW: number;
   type: 'planned' | 'unplanned';
+  outageType?: 'planned' | 'unplanned';
   start: string;
   expectedReturn: string;
+  coordinates?: [number, number] | null;
 }
 
 export interface CountryOutage {
@@ -83,6 +89,7 @@ export interface HistoryCountry {
   iso2: string;
   country: string;
   hourly: number[];
+  timestampsUtc?: string[];
 }
 
 export interface PriceHistory {
@@ -147,10 +154,13 @@ async function fetchRuntimeDataset<T>(
   if (live) {
     return markDatasetStale(
       createLiveDataset(transform ? transform(live.data) : live.data, {
+        provider: live.provider,
         lastUpdated: live.lastUpdated,
+        intervalStart: live.intervalStart,
+        intervalEnd: live.intervalEnd,
         source: live.source,
         hasFallback: live.hasFallback,
-        error: live.error ?? null,
+        error: live.error,
       }),
       Date.now(),
       staleAfterMs,
@@ -161,8 +171,9 @@ async function fetchRuntimeDataset<T>(
   if (bundled) {
     return markDatasetStale(
       createLiveDataset(transform ? transform(bundled.data) : bundled.data, {
+        provider: 'bootstrap',
         lastUpdated: bundled.lastUpdated,
-        source: 'bootstrap',
+        source: 'fallback',
         hasFallback: true,
         error: `Live ${datasetName} unavailable`,
       }),
@@ -183,6 +194,7 @@ async function fetchRuntimeDataset<T>(
   }
 
   return createLiveDataset(transform ? transform(demoFallback) : demoFallback, {
+    provider: 'fallback',
     source: 'fallback',
     hasFallback: true,
     error: `Live ${datasetName} unavailable`,

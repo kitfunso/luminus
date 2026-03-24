@@ -1,6 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
+import InteractiveTimeSeriesChart from './charts/InteractiveTimeSeriesChart';
+import type { ExpandedSeriesConfig } from './charts/ExpandedSeriesPanel';
 import { FUEL_COLORS, FUEL_LABELS, normalizeFuel, getFuelColor } from '@/lib/colors';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import type { PowerPlant, CountryPrice, CrossBorderFlow } from '@/lib/data-fetcher';
@@ -17,6 +19,15 @@ function countryFlag(iso2: string): string {
     .join('');
 }
 
+function buildHourlyTimestamps(length: number) {
+  const start = new Date();
+  start.setUTCHours(0, 0, 0, 0);
+  return Array.from(
+    { length },
+    (_, index) => new Date(start.getTime() + index * 60 * 60 * 1000).toISOString(),
+  );
+}
+
 interface ComparePanelProps {
   selectedCountries: string[];
   plants: PowerPlant[];
@@ -24,6 +35,7 @@ interface ComparePanelProps {
   flows: CrossBorderFlow[];
   onRemoveCountry: (iso2: string) => void;
   onClose: () => void;
+  onExpandSeries?: (config: ExpandedSeriesConfig) => void;
 }
 
 interface CountryStats {
@@ -43,25 +55,25 @@ function computeStats(
   iso2: string,
   plants: PowerPlant[],
   prices: CountryPrice[],
-  flows: CrossBorderFlow[]
+  flows: CrossBorderFlow[],
 ): CountryStats {
   const name = COUNTRY_CENTROIDS[iso2]?.name || iso2;
   const flag = countryFlag(iso2);
 
-  const priceData = prices.find((p) => p.iso2 === iso2);
+  const priceData = prices.find((entry) => entry.iso2 === iso2);
   const price = priceData?.price ?? null;
   const hourly = priceData?.hourly ?? [];
 
-  const countryPlants = plants.filter((p) => p.country === iso2);
+  const countryPlants = plants.filter((plant) => plant.country === iso2);
 
   const fuelMap: Record<string, number> = {};
-  for (const p of countryPlants) {
-    const fuel = normalizeFuel(p.fuel);
-    fuelMap[fuel] = (fuelMap[fuel] || 0) + p.capacity;
+  for (const plant of countryPlants) {
+    const fuel = normalizeFuel(plant.fuel);
+    fuelMap[fuel] = (fuelMap[fuel] || 0) + plant.capacity;
   }
-  const totalCapacity = Object.values(fuelMap).reduce((s, v) => s + v, 0);
+  const totalCapacity = Object.values(fuelMap).reduce((sum, value) => sum + value, 0);
   const fuelMix = Object.entries(fuelMap)
-    .sort((a, b) => b[1] - a[1])
+    .sort((left, right) => right[1] - left[1])
     .map(([fuel, capacity]) => ({
       fuel,
       capacity,
@@ -71,81 +83,43 @@ function computeStats(
   let carbonIntensity = 0;
   if (totalCapacity > 0) {
     let weightedCO2 = 0;
-    for (const [fuel, cap] of Object.entries(fuelMap)) {
-      weightedCO2 += cap * (CO2_FACTORS_G[fuel] ?? 500);
+    for (const [fuel, capacity] of Object.entries(fuelMap)) {
+      weightedCO2 += capacity * (CO2_FACTORS_G[fuel] ?? 500);
     }
     carbonIntensity = weightedCO2 / totalCapacity;
   }
 
   let imports = 0;
   let exports = 0;
-  for (const f of flows) {
-    if (f.to === iso2) imports += f.flowMW;
-    if (f.from === iso2) exports += f.flowMW;
+  for (const flow of flows) {
+    if (flow.to === iso2) imports += flow.flowMW;
+    if (flow.from === iso2) exports += flow.flowMW;
   }
   const netFlow = imports - exports;
 
   const topPlants = [...countryPlants]
-    .sort((a, b) => b.capacity - a.capacity)
+    .sort((left, right) => right.capacity - left.capacity)
     .slice(0, 3);
 
-  return { iso2, name, flag, price, hourly, fuelMix, totalCapacity, carbonIntensity, netFlow, topPlants };
-}
-
-function MiniSparkline({ hourly }: { hourly: number[] }) {
-  if (hourly.length === 0) {
-    return <span className="text-[10px] text-slate-600">No hourly data</span>;
-  }
-
-  const min = Math.min(...hourly);
-  const max = Math.max(...hourly);
-  const range = max - min || 1;
-  const w = 140;
-  const h = 36;
-  const pad = 2;
-
-  const points = hourly
-    .map((v, i) => {
-      const x = pad + (i / (hourly.length - 1)) * (w - pad * 2);
-      const y = h - pad - ((v - min) / range) * (h - pad * 2);
-      return `${x},${y}`;
-    })
-    .join(' ');
-
-  const fillPoints = `${pad},${h - pad} ${points} ${w - pad},${h - pad}`;
-
-  return (
-    <div>
-      <svg
-        width={w}
-        height={h}
-        viewBox={`0 0 ${w} ${h}`}
-        className="w-full"
-        preserveAspectRatio="none"
-      >
-        <polygon points={fillPoints} fill="rgba(56, 189, 248, 0.1)" />
-        <polyline
-          points={points}
-          fill="none"
-          stroke="rgb(56, 189, 248)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <div className="flex justify-between text-[9px] text-slate-600 mt-0.5">
-        <span>&euro;{min.toFixed(0)}</span>
-        <span>&euro;{max.toFixed(0)}</span>
-      </div>
-    </div>
-  );
+  return {
+    iso2,
+    name,
+    flag,
+    price,
+    hourly,
+    fuelMix,
+    totalCapacity,
+    carbonIntensity,
+    netFlow,
+    topPlants,
+  };
 }
 
 function FuelBar({ fuelMix }: { fuelMix: CountryStats['fuelMix'] }) {
   if (fuelMix.length === 0) return null;
 
   return (
-    <div className="flex h-3 rounded-full overflow-hidden bg-slate-800/80">
+    <div className="flex h-3 overflow-hidden rounded-full bg-slate-800/80">
       {fuelMix.map(({ fuel, pct }) => {
         const color = FUEL_COLORS[fuel] || FUEL_COLORS.other;
         return (
@@ -166,40 +140,76 @@ function FuelBar({ fuelMix }: { fuelMix: CountryStats['fuelMix'] }) {
 
 function CountryCard({
   stats,
+  comparisonSeries,
   onRemove,
+  onExpandSeries,
 }: {
   stats: CountryStats;
+  comparisonSeries: ExpandedSeriesConfig['series'];
   onRemove: () => void;
+  onExpandSeries?: (config: ExpandedSeriesConfig) => void;
 }) {
+  const baseSeries = stats.hourly.length > 1
+    ? [
+        {
+          id: `${stats.iso2}-price`,
+          label: `${stats.name} price`,
+          values: stats.hourly,
+          color: '#38bdf8',
+        },
+      ]
+    : [];
+  const candidates = comparisonSeries.filter((series) => series.id !== `${stats.iso2}-price`);
+
   return (
     <div className="compare-card">
       <button
         onClick={onRemove}
-        className="absolute top-3 right-3 text-slate-600 hover:text-white transition-colors text-xs"
+        className="absolute right-3 top-3 text-xs text-slate-600 transition-colors hover:text-white"
       >
         &#10005;
       </button>
 
-      <div className="flex items-center gap-2 mb-3">
+      <div className="mb-3 flex items-center gap-2">
         <span className="text-xl">{stats.flag}</span>
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-white truncate">{stats.name}</h3>
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-sm font-bold text-white">{stats.name}</h3>
           <p className="text-[11px] text-slate-400">
             {stats.price !== null
-              ? `\u20AC${stats.price.toFixed(1)}/MWh`
+              ? `EUR ${stats.price.toFixed(1)}/MWh`
               : 'Price N/A'}
           </p>
         </div>
       </div>
 
-      <MiniSparkline hourly={stats.hourly} />
+      {baseSeries.length > 0 ? (
+        <InteractiveTimeSeriesChart
+          title="24h price"
+          subtitle="Hover to track the curve"
+          unitLabel="EUR/MWh"
+          timestampsUtc={buildHourlyTimestamps(stats.hourly.length)}
+          series={baseSeries}
+          height={88}
+          onExpand={onExpandSeries
+            ? () => onExpandSeries({
+                title: `${stats.name} comparison`,
+                unitLabel: 'EUR/MWh',
+                timestampsUtc: buildHourlyTimestamps(stats.hourly.length),
+                series: baseSeries,
+                candidates,
+              })
+            : undefined}
+        />
+      ) : (
+        <span className="text-[10px] text-slate-600">No hourly data</span>
+      )}
 
       <div className="mt-3">
-        <h4 className="text-[10px] text-slate-500 uppercase tracking-widest mb-1.5">
+        <h4 className="mb-1.5 text-[10px] uppercase tracking-widest text-slate-500">
           Capacity Mix
         </h4>
         <FuelBar fuelMix={stats.fuelMix} />
-        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1.5">
+        <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
           {stats.fuelMix.slice(0, 4).map(({ fuel, pct }) => {
             const color = FUEL_COLORS[fuel] || FUEL_COLORS.other;
             return (
@@ -208,7 +218,7 @@ function CountryCard({
                 className="flex items-center gap-1 text-[10px] text-slate-400"
               >
                 <span
-                  className="w-1.5 h-1.5 rounded-full inline-block"
+                  className="inline-block h-1.5 w-1.5 rounded-full"
                   style={{
                     backgroundColor: `rgb(${color[0]},${color[1]},${color[2]})`,
                   }}
@@ -220,11 +230,11 @@ function CountryCard({
         </div>
       </div>
 
-      <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-1.5">
+      <div className="mt-3 space-y-1.5 border-t border-white/[0.06] pt-3">
         <div className="flex justify-between text-[11px]">
-          <span className="text-slate-500">CO&#x2082; Intensity</span>
-          <span className="text-slate-300 font-medium tabular-nums">
-            {stats.carbonIntensity.toFixed(0)} gCO&#x2082;/kWh
+          <span className="text-slate-500">CO2 Intensity</span>
+          <span className="font-medium tabular-nums text-slate-300">
+            {stats.carbonIntensity.toFixed(0)} gCO2/kWh
           </span>
         </div>
         <div className="flex justify-between text-[11px]">
@@ -240,35 +250,35 @@ function CountryCard({
         </div>
         <div className="flex justify-between text-[11px]">
           <span className="text-slate-500">Total Capacity</span>
-          <span className="text-slate-300 font-medium tabular-nums">
+          <span className="font-medium tabular-nums text-slate-300">
             {(stats.totalCapacity / 1000).toFixed(1)} GW
           </span>
         </div>
       </div>
 
       {stats.topPlants.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-white/[0.06]">
-          <h4 className="text-[10px] text-slate-500 uppercase tracking-widest mb-1.5">
+        <div className="mt-3 border-t border-white/[0.06] pt-3">
+          <h4 className="mb-1.5 text-[10px] uppercase tracking-widest text-slate-500">
             Top Plants
           </h4>
-          {stats.topPlants.map((p) => {
-            const color = getFuelColor(p.fuel);
+          {stats.topPlants.map((plant) => {
+            const color = getFuelColor(plant.fuel);
             return (
               <div
-                key={p.name}
-                className="flex items-center gap-2 text-[11px] py-0.5"
+                key={plant.name}
+                className="flex items-center gap-2 py-0.5 text-[11px]"
               >
                 <span
-                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                  className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
                   style={{
                     backgroundColor: `rgb(${color[0]},${color[1]},${color[2]})`,
                   }}
                 />
-                <span className="text-slate-300 truncate flex-1">
-                  {p.name}
+                <span className="flex-1 truncate text-slate-300">
+                  {plant.name}
                 </span>
-                <span className="text-slate-500 tabular-nums flex-shrink-0">
-                  {p.capacity.toLocaleString()} MW
+                <span className="flex-shrink-0 tabular-nums text-slate-500">
+                  {plant.capacity.toLocaleString()} MW
                 </span>
               </div>
             );
@@ -286,46 +296,59 @@ export default function ComparePanel({
   flows,
   onRemoveCountry,
   onClose,
+  onExpandSeries,
 }: ComparePanelProps) {
   const countryStats = useMemo(
+    () => selectedCountries.map((iso) => computeStats(iso, plants, prices, flows)),
+    [selectedCountries, plants, prices, flows],
+  );
+
+  const comparisonSeries = useMemo(
     () =>
-      selectedCountries.map((iso) =>
-        computeStats(iso, plants, prices, flows)
-      ),
-    [selectedCountries, plants, prices, flows]
+      countryStats
+        .filter((stats) => stats.hourly.length > 1)
+        .map((stats) => ({
+          id: `${stats.iso2}-price`,
+          label: `${stats.name} price`,
+          values: stats.hourly,
+          color: stats.iso2 === countryStats[0]?.iso2 ? '#38bdf8' : '#a78bfa',
+        })),
+    [countryStats],
   );
 
   return (
     <div className="compare-panel">
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-bold text-white">
           Compare Countries
-          <span className="text-slate-500 font-normal ml-2">
+          <span className="ml-2 font-normal text-slate-500">
             {selectedCountries.length}/4
           </span>
         </h2>
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
-            className="text-[10px] text-slate-500 hover:text-red-400 transition-colors"
+            className="text-[10px] text-slate-500 transition-colors hover:text-red-400"
           >
             Clear All
           </button>
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-white transition-colors text-sm"
+            className="text-sm text-slate-500 transition-colors hover:text-white"
           >
             &#10005;
           </button>
         </div>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto sidebar-scroll pb-1">
+      <div className="sidebar-scroll flex gap-3 overflow-x-auto pb-1">
         {countryStats.map((stats) => (
           <CountryCard
             key={stats.iso2}
             stats={stats}
+            comparisonSeries={comparisonSeries}
             onRemove={() => onRemoveCountry(stats.iso2)}
+            onExpandSeries={onExpandSeries}
           />
         ))}
       </div>
