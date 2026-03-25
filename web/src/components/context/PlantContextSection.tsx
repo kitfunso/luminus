@@ -10,6 +10,11 @@ import type {
   CountryPrice,
   PowerPlant,
 } from '@/lib/data-fetcher';
+import {
+  formatPriceValue,
+  getPriceUnitLabel,
+  MIXED_PRICE_UNIT_LABEL,
+} from '@/lib/price-format';
 
 interface PlantContextSectionProps {
   data: PowerPlant;
@@ -62,6 +67,7 @@ export default function PlantContextSection({
           label: `${data.country} price`,
           values: countryPrice.hourly,
           color: '#38bdf8',
+          formatValue: (value: number) => formatPriceValue(value, data.country),
         },
       ]
     : [];
@@ -89,12 +95,12 @@ export default function PlantContextSection({
         <InteractiveTimeSeriesChart
           title="Market context"
           subtitle="Country day-ahead price around the selected asset"
-          unitLabel="EUR/MWh"
+          unitLabel={getPriceUnitLabel(data.country)}
           timestampsUtc={buildHourlyTimestamps(priceSeries[0].values.length)}
           series={priceSeries}
           onExpand={() => onExpandSeries({
             title: `${data.name} context analysis`,
-            unitLabel: 'EUR/MWh',
+            unitLabel: MIXED_PRICE_UNIT_LABEL,
             timestampsUtc: buildHourlyTimestamps(priceSeries[0].values.length),
             series: priceSeries,
             candidates: countryForecast

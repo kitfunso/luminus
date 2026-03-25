@@ -51,9 +51,13 @@ export function createMetricLabelLayer({ data }: MetricLabelLayerOptions) {
     getPosition: (d) => d.position,
     getText: (d) => d.text,
     getSize: 16,
+    getPixelOffset: [0, -3],
     getColor: [255, 255, 255, 220],
     fontFamily: 'system-ui, sans-serif',
     fontWeight: 700,
+    fontSettings: {
+      buffer: 8,
+    },
     outlineWidth: 3,
     outlineColor: [10, 14, 23, 200],
     billboard: true,

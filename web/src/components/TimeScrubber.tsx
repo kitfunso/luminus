@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { PriceHistory } from '@/lib/data-fetcher';
+import { MIXED_PRICE_UNIT_LABEL } from '@/lib/price-format';
 
 interface TimeScrubberProps {
   history: PriceHistory;
@@ -9,9 +10,14 @@ interface TimeScrubberProps {
   onClose: () => void;
 }
 
-function formatHour(startUtc: string, hourIndex: number): string {
-  const d = new Date(startUtc);
-  d.setUTCHours(d.getUTCHours() + hourIndex);
+const REPLAY_OFFSET_HOURS = 24;
+const TRACKING_INTERVAL_MS = 60_000;
+
+function formatHour(timestamp: string | undefined): string {
+  if (!timestamp) {
+    return 'No timestamp';
+  }
+
   return new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
     month: 'short',
@@ -20,44 +26,93 @@ function formatHour(startUtc: string, hourIndex: number): string {
     minute: '2-digit',
     hour12: false,
     timeZone: 'UTC',
-  }).format(d);
+  }).format(new Date(timestamp));
+}
+
+function buildFallbackTimestamps(startUtc: string, length: number) {
+  const start = new Date(startUtc);
+  return Array.from({ length }, (_, index) => {
+    const point = new Date(start.getTime() + index * 60 * 60 * 1000);
+    return point.toISOString();
+  });
+}
+
+function findNearestHourIndex(timestampsUtc: string[], targetMs: number) {
+  if (timestampsUtc.length === 0) {
+    return 0;
+  }
+
+  let bestIndex = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  timestampsUtc.forEach((timestamp, index) => {
+    const distance = Math.abs(Date.parse(timestamp) - targetMs);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  });
+
+  return bestIndex;
 }
 
 export default function TimeScrubber({ history, onHourChange, onClose }: TimeScrubberProps) {
   const maxHours = useMemo(() => {
     if (history.countries.length === 0) return 0;
-    return Math.max(...history.countries.map((c) => c.hourly.length));
+    return Math.max(...history.countries.map((country) => country.hourly.length));
   }, [history]);
 
-  const [hour, setHour] = useState(maxHours - 1);
+  const timelineTimestamps = useMemo(() => {
+    const richestTimeline = history.countries.find(
+      (country) => country.timestampsUtc && country.timestampsUtc.length === maxHours,
+    );
+    return richestTimeline?.timestampsUtc ?? buildFallbackTimestamps(history.startUtc, maxHours);
+  }, [history.countries, history.startUtc, maxHours]);
+
+  const trackedHour = useCallback(
+    () => findNearestHourIndex(timelineTimestamps, Date.now() - REPLAY_OFFSET_HOURS * 60 * 60 * 1000),
+    [timelineTimestamps],
+  );
+
+  const [hour, setHour] = useState(() => (maxHours > 0 ? trackedHour() : 0));
   const [playing, setPlaying] = useState(false);
-  const playRef = useRef(false);
+  const [trackingAnchor, setTrackingAnchor] = useState(true);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Compute price snapshot for current hour
+  useEffect(() => {
+    if (maxHours === 0) {
+      setHour(0);
+      return;
+    }
+    setTrackingAnchor(true);
+    setPlaying(false);
+    setHour(trackedHour());
+  }, [maxHours, trackedHour]);
+
   const snapshot = useMemo(() => {
     const snap: Record<string, number> = {};
-    for (const c of history.countries) {
-      if (hour < c.hourly.length) {
-        snap[c.iso2] = c.hourly[hour];
+    for (const country of history.countries) {
+      if (hour < country.hourly.length) {
+        snap[country.iso2] = country.hourly[hour];
       }
     }
     return snap;
   }, [history, hour]);
 
-  // Notify parent of price changes
   useEffect(() => {
     onHourChange(snapshot);
   }, [snapshot, onHourChange]);
 
-  // Reset to live on close
   useEffect(() => {
     return () => onHourChange(null);
   }, [onHourChange]);
 
-  // Play/pause
   useEffect(() => {
-    playRef.current = playing;
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
     if (playing) {
       timerRef.current = setInterval(() => {
         setHour((prev) => {
@@ -68,45 +123,58 @@ export default function TimeScrubber({ history, onHourChange, onClose }: TimeScr
           return prev + 1;
         });
       }, 500);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
+    } else if (trackingAnchor && maxHours > 0) {
+      timerRef.current = setInterval(() => {
+        setHour(trackedHour());
+      }, TRACKING_INTERVAL_MS);
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [playing, maxHours]);
 
-  const handleSlider = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setHour(Number(e.target.value));
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [maxHours, playing, trackedHour, trackingAnchor]);
+
+  const handleSlider = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setHour(Number(event.target.value));
     setPlaying(false);
+    setTrackingAnchor(false);
   }, []);
 
   const handlePlayPause = useCallback(() => {
+    setTrackingAnchor(false);
     if (hour >= maxHours - 1) {
       setHour(0);
       setPlaying(true);
-    } else {
-      setPlaying((prev) => !prev);
+      return;
     }
+    setPlaying((prev) => !prev);
   }, [hour, maxHours]);
 
-  // Sparkline for aggregate EU price
+  const handleTrackAnchor = useCallback(() => {
+    setPlaying(false);
+    setTrackingAnchor(true);
+    setHour(trackedHour());
+  }, [trackedHour]);
+
   const avgPrices = useMemo(() => {
     const result: number[] = [];
-    for (let h = 0; h < maxHours; h++) {
+    for (let index = 0; index < maxHours; index += 1) {
       let sum = 0;
       let count = 0;
-      for (const c of history.countries) {
-        if (h < c.hourly.length) {
-          sum += c.hourly[h];
-          count++;
+      for (const country of history.countries) {
+        if (index < country.hourly.length) {
+          sum += country.hourly[index];
+          count += 1;
         }
       }
       result.push(count > 0 ? sum / count : 0);
     }
     return result;
   }, [history, maxHours]);
+
+  if (maxHours === 0) return null;
 
   const sparkW = 600;
   const sparkH = 40;
@@ -116,23 +184,57 @@ export default function TimeScrubber({ history, onHourChange, onClose }: TimeScr
   const sparkRange = sparkMax - sparkMin || 1;
 
   const sparkPoints = avgPrices
-    .map((v, i) => {
-      const x = sparkPad + (i / (maxHours - 1 || 1)) * (sparkW - sparkPad * 2);
-      const y = sparkH - sparkPad - ((v - sparkMin) / sparkRange) * (sparkH - sparkPad * 2);
+    .map((value, index) => {
+      const x = sparkPad + (index / (maxHours - 1 || 1)) * (sparkW - sparkPad * 2);
+      const y = sparkH - sparkPad - ((value - sparkMin) / sparkRange) * (sparkH - sparkPad * 2);
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(' ');
 
   const cursorX = sparkPad + (hour / (maxHours - 1 || 1)) * (sparkW - sparkPad * 2);
-
-  if (maxHours === 0) return null;
+  const snapshotValues = Object.values(snapshot);
+  const avgSnapshot = snapshotValues.length > 0
+    ? (snapshotValues.reduce((sum, value) => sum + value, 0) / snapshotValues.length).toFixed(0)
+    : '---';
 
   return (
     <div className="time-scrubber">
-      <div className="flex items-center gap-3 mb-2">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-300/80">
+            Time Replay
+          </p>
+          <p className="mt-1 text-[11px] text-slate-500">
+            Anchored 24 hours behind live and refreshed every minute
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleTrackAnchor}
+            className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
+              trackingAnchor
+                ? 'border border-cyan-300/35 bg-cyan-300/12 text-white'
+                : 'border border-white/[0.08] bg-white/[0.03] text-slate-300 hover:text-white'
+            }`}
+          >
+            NOW -24H
+          </button>
+          <button
+            onClick={() => {
+              setPlaying(false);
+              onClose();
+            }}
+            className="rounded-full border border-white/[0.08] px-3 py-1 text-[11px] text-slate-300 transition-colors hover:text-white"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
         <button
           onClick={handlePlayPause}
-          className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors flex-shrink-0"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20"
         >
           {playing ? (
             <svg width="12" height="12" viewBox="0 0 12 12" fill="white">
@@ -146,18 +248,19 @@ export default function TimeScrubber({ history, onHourChange, onClose }: TimeScr
           )}
         </button>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2 mb-1">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-baseline gap-2">
             <span className="text-sm font-medium text-white">
-              {formatHour(history.startUtc, hour)}
+              {formatHour(timelineTimestamps[hour])}
             </span>
             <span className="text-[10px] text-slate-500">UTC</span>
-            <span className="text-xs text-slate-400 tabular-nums ml-auto">
-              Avg: {snapshot ? (Object.values(snapshot).reduce((a, b) => a + b, 0) / Object.values(snapshot).length).toFixed(0) : '---'} EUR/MWh
+            <span className="ml-auto text-right text-xs text-slate-400 tabular-nums">
+              Avg: {avgSnapshot}
             </span>
           </div>
+          <div className="text-[10px] text-slate-600">{MIXED_PRICE_UNIT_LABEL}</div>
 
-          <div className="relative">
+          <div className="relative mt-2">
             <svg
               width="100%"
               height={sparkH}
@@ -186,26 +289,15 @@ export default function TimeScrubber({ history, onHourChange, onClose }: TimeScr
               max={maxHours - 1}
               value={hour}
               onChange={handleSlider}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             />
           </div>
 
-          <div className="flex justify-between text-[9px] text-slate-600 mt-0.5">
-            <span>{formatHour(history.startUtc, 0)}</span>
-            <span>{formatHour(history.startUtc, maxHours - 1)}</span>
+          <div className="mt-0.5 flex justify-between text-[9px] text-slate-600">
+            <span>{formatHour(timelineTimestamps[0])}</span>
+            <span>{formatHour(timelineTimestamps[maxHours - 1])}</span>
           </div>
         </div>
-
-        <button
-          onClick={() => {
-            setPlaying(false);
-            setHour(maxHours - 1);
-            onClose();
-          }}
-          className="text-[10px] text-slate-500 hover:text-white transition-colors flex-shrink-0 px-2 py-1 rounded bg-white/5 hover:bg-white/10"
-        >
-          LIVE
-        </button>
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ export default function MapLegend() {
             <span className="text-[10px] text-slate-500">100</span>
             <span className="text-[10px] text-slate-500">200+</span>
           </div>
-          <span className="text-[10px] text-slate-600">EUR/MWh</span>
+          <span className="text-[10px] text-slate-600">Local currency/MWh</span>
         </div>
       )}
 

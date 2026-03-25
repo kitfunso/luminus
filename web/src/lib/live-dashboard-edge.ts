@@ -465,25 +465,12 @@ async function fetchZonePrice(zone: string): Promise<{ avg: number; hourly: numb
       return null;
     }
 
-    const xml = await response.text();
-    const matches = [...xml.matchAll(/<Point>[\s\S]*?<position>(\d+)<\/position>[\s\S]*?<price\.amount>([\d.-]+)<\/price\.amount>[\s\S]*?<\/Point>/g)];
-    if (matches.length === 0) {
+    const series = extractEntsoePriceSeries(await response.text());
+    if (!series || series.hourly.length === 0) {
       return null;
     }
 
-    const points = matches
-      .map(([, position, price]) => ({
-        hour: Number(position) - 1,
-        price: Number(price),
-      }))
-      .filter((point) => Number.isFinite(point.hour) && Number.isFinite(point.price))
-      .sort((a, b) => a.hour - b.hour);
-
-    if (points.length === 0) {
-      return null;
-    }
-
-    const hourly = points.map((point) => round1(point.price)).slice(0, 24);
+    const hourly = series.hourly.slice(-24);
     const avg = round1(hourly.reduce((sum, value) => sum + value, 0) / hourly.length);
     return { avg, hourly };
   } catch {
@@ -491,39 +478,47 @@ async function fetchZonePrice(zone: string): Promise<{ avg: number; hourly: numb
   }
 }
 
-function extractEntsoePriceSeries(xml: string) {
-  const matches = [...xml.matchAll(/<Point>[\s\S]*?<position>(\d+)<\/position>[\s\S]*?<price\.amount>([\d.-]+)<\/price\.amount>[\s\S]*?<\/Point>/g)];
-  if (matches.length === 0) {
+export function extractEntsoePriceSeries(xml: string) {
+  const periodBlocks = [...xml.matchAll(/<Period>([\s\S]*?)<\/Period>/g)];
+  if (periodBlocks.length === 0) {
     return null;
   }
 
-  const periodStartMatch = xml.match(/<timeInterval>[\s\S]*?<start>([^<]+)<\/start>/);
-  const resolutionMatch = xml.match(/<resolution>([^<]+)<\/resolution>/);
-  const periodStart = periodStartMatch ? new Date(periodStartMatch[1]) : null;
-  const resolution = resolutionMatch?.[1] === 'PT15M' ? 15 * 60 * 1000 : 60 * 60 * 1000;
+  const parsedPeriods = periodBlocks
+    .map(([, periodBlock]) => {
+      const periodStartMatch = periodBlock.match(/<timeInterval>[\s\S]*?<start>([^<]+)<\/start>/);
+      const resolutionMatch = periodBlock.match(/<resolution>([^<]+)<\/resolution>/);
+      const periodStart = periodStartMatch ? new Date(periodStartMatch[1]) : null;
+      const resolution = resolutionMatch?.[1] === 'PT15M' ? 15 * 60 * 1000 : 60 * 60 * 1000;
 
-  if (!periodStart || Number.isNaN(periodStart.getTime())) {
+      if (!periodStart || Number.isNaN(periodStart.getTime())) {
+        return null;
+      }
+
+      const ordered = [...periodBlock.matchAll(/<Point>[\s\S]*?<position>(\d+)<\/position>[\s\S]*?<price\.amount>([\d.-]+)<\/price\.amount>[\s\S]*?<\/Point>/g)]
+        .map(([, position, price]) => ({
+          timestamp: toHourStartIso(new Date(periodStart.getTime() + (Number(position) - 1) * resolution)),
+          price: round1(Number(price)),
+        }))
+        .filter((point) => Number.isFinite(point.price))
+        .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+
+      if (ordered.length === 0) {
+        return null;
+      }
+
+      return {
+        timestampsUtc: ordered.map((point) => point.timestamp),
+        hourly: ordered.map((point) => point.price),
+      };
+    })
+    .filter((entry): entry is { timestampsUtc: string[]; hourly: number[] } => Boolean(entry));
+
+  if (parsedPeriods.length === 0) {
     return null;
   }
 
-  const ordered = matches
-    .map(([, position, price]) => ({
-      timestamp: toHourStartIso(new Date(periodStart.getTime() + (Number(position) - 1) * resolution)),
-      price: round1(Number(price)),
-    }))
-    .filter((point) => Number.isFinite(point.price))
-    .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
-
-  if (ordered.length === 0) {
-    return null;
-  }
-
-  return aggregateZonePriceSeries([
-    {
-      timestampsUtc: ordered.map((point) => point.timestamp),
-      hourly: ordered.map((point) => point.price),
-    },
-  ]);
+  return aggregateZonePriceSeries(parsedPeriods);
 }
 
 async function fetchZonePriceSeries(

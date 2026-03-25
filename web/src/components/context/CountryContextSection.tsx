@@ -13,6 +13,11 @@ import type {
   CrossBorderFlow,
   PowerPlant,
 } from '@/lib/data-fetcher';
+import {
+  formatPriceValue,
+  getPriceUnitLabel,
+  MIXED_PRICE_UNIT_LABEL,
+} from '@/lib/price-format';
 
 interface CountryContextSectionProps {
   data: CountryPrice;
@@ -74,6 +79,7 @@ export default function CountryContextSection({
           label: `${data.country} price`,
           values: data.hourly,
           color: '#38bdf8',
+          formatValue: (value: number) => formatPriceValue(value, data.iso2),
         },
       ]
     : [];
@@ -112,7 +118,12 @@ export default function CountryContextSection({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-4">
-        <MetricCard label="Day-ahead price" value={`EUR ${data.price.toFixed(1)}`} detail="EUR/MWh" tone="text-sky-300" />
+        <MetricCard
+          label="Day-ahead price"
+          value={formatPriceValue(data.price, data.iso2)}
+          detail={getPriceUnitLabel(data.iso2)}
+          tone="text-sky-300"
+        />
         <MetricCard
           label="Offline"
           value={`${countryOutage?.unavailableMW.toLocaleString() ?? '0'}`}
@@ -137,12 +148,12 @@ export default function CountryContextSection({
         <InteractiveTimeSeriesChart
           title="Day-ahead price"
           subtitle="Live day-ahead profile for the selected market"
-          unitLabel="EUR/MWh"
+          unitLabel={getPriceUnitLabel(data.iso2)}
           timestampsUtc={buildHourlyTimestamps(priceSeries[0].values.length)}
           series={priceSeries}
           onExpand={() => onExpandSeries({
             title: `${data.country} market analysis`,
-            unitLabel: 'EUR/MWh',
+            unitLabel: MIXED_PRICE_UNIT_LABEL,
             timestampsUtc: buildHourlyTimestamps(priceSeries[0].values.length),
             series: priceSeries,
             candidates: forecastCandidates,

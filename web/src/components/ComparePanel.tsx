@@ -6,6 +6,12 @@ import type { ExpandedSeriesConfig } from './charts/ExpandedSeriesPanel';
 import { FUEL_COLORS, FUEL_LABELS, normalizeFuel, getFuelColor } from '@/lib/colors';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import type { PowerPlant, CountryPrice, CrossBorderFlow } from '@/lib/data-fetcher';
+import {
+  formatPriceWithUnit,
+  formatPriceValue,
+  getPriceUnitLabel,
+  MIXED_PRICE_UNIT_LABEL,
+} from '@/lib/price-format';
 
 const CO2_FACTORS_G: Record<string, number> = {
   nuclear: 0, wind: 0, solar: 0, gas: 400, coal: 900,
@@ -156,6 +162,7 @@ function CountryCard({
           label: `${stats.name} price`,
           values: stats.hourly,
           color: '#38bdf8',
+          formatValue: (value: number) => formatPriceValue(value, stats.iso2),
         },
       ]
     : [];
@@ -176,7 +183,7 @@ function CountryCard({
           <h3 className="truncate text-sm font-bold text-white">{stats.name}</h3>
           <p className="text-[11px] text-slate-400">
             {stats.price !== null
-              ? `EUR ${stats.price.toFixed(1)}/MWh`
+              ? formatPriceWithUnit(stats.price, stats.iso2)
               : 'Price N/A'}
           </p>
         </div>
@@ -186,14 +193,14 @@ function CountryCard({
         <InteractiveTimeSeriesChart
           title="24h price"
           subtitle="Hover to track the curve"
-          unitLabel="EUR/MWh"
+          unitLabel={getPriceUnitLabel(stats.iso2)}
           timestampsUtc={buildHourlyTimestamps(stats.hourly.length)}
           series={baseSeries}
           height={88}
           onExpand={onExpandSeries
             ? () => onExpandSeries({
                 title: `${stats.name} comparison`,
-                unitLabel: 'EUR/MWh',
+                unitLabel: MIXED_PRICE_UNIT_LABEL,
                 timestampsUtc: buildHourlyTimestamps(stats.hourly.length),
                 series: baseSeries,
                 candidates,

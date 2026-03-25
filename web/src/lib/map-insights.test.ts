@@ -16,8 +16,8 @@ describe('map-insights', () => {
     ]);
 
     expect(labels).toEqual([
-      { position: [2.3488, 46.6034], text: 'EUR72' },
-      { position: [10.4515, 51.1657], text: '-EUR4' },
+      { position: [2.3488, 46.6034], text: '€72' },
+      { position: [10.4515, 51.1657], text: '-€4' },
     ]);
   });
 

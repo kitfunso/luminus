@@ -9,6 +9,7 @@ export interface InteractiveSeries {
   values: number[];
   color: string;
   dashed?: boolean;
+  formatValue?: (value: number) => string;
 }
 
 interface InteractiveTimeSeriesChartProps {
@@ -112,7 +113,9 @@ export default function InteractiveTimeSeriesChart({
               <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: line.color }} />
               <span className="text-slate-400">{line.label}</span>
               <span className="font-medium tabular-nums text-white">
-                {Number.isFinite(line.value) ? line.value.toFixed(1) : 'N/A'}
+                {Number.isFinite(line.value)
+                  ? (line.formatValue ? line.formatValue(line.value) : line.value.toFixed(1))
+                  : 'N/A'}
               </span>
             </div>
           ))}

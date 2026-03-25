@@ -21,6 +21,8 @@ export interface SidebarProps {
   lastUpdate: string;
   layerVisibility: Record<LayerKey, boolean>;
   onToggleLayer: (layer: LayerKey) => void;
+  marketIntelligenceEnabled: boolean;
+  onToggleMarketIntelligence: () => void;
   isLoading: boolean;
   selectedFuels: Set<string>;
   onToggleFuel: (fuel: string) => void;

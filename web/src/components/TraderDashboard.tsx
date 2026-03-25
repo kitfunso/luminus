@@ -10,6 +10,7 @@ import type {
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import { identifyMarketReads } from '@/lib/pipeline-intel';
 import type { TyndpProject } from '@/lib/tyndp';
+import { formatPriceValue, MIXED_PRICE_UNIT_LABEL } from '@/lib/price-format';
 
 interface TraderDashboardProps {
   prices: CountryPrice[];
@@ -32,11 +33,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 function PriceRow({
+  iso2,
   name,
   price,
   delta,
   onClick,
 }: {
+  iso2: string;
   name: string;
   price: number;
   delta?: number;
@@ -65,7 +68,7 @@ function PriceRow({
           </span>
         )}
         <span className={`text-[12px] font-medium tabular-nums ${priceColor}`}>
-          EUR {price.toFixed(0)}
+          {formatPriceValue(price, iso2, 0)}
         </span>
       </div>
     </button>
@@ -159,7 +162,7 @@ export default function TraderDashboard({
         <div>
           <h3 className="text-sm font-bold text-white">Morning Brief</h3>
           <p className="mt-0.5 text-[10px] text-slate-500">
-            EU avg <span className="font-medium text-slate-400">EUR {avgPrice.toFixed(0)}/MWh</span>
+            EU avg <span className="font-medium text-slate-400">{avgPrice.toFixed(0)} {MIXED_PRICE_UNIT_LABEL}</span>
             {' | '}{prices.length} zones
           </p>
         </div>
@@ -182,6 +185,7 @@ export default function TraderDashboard({
             {topPrices.map((price) => (
               <PriceRow
                 key={price.iso2}
+                iso2={price.iso2}
                 name={price.country}
                 price={price.price}
                 delta={price.price - avgPrice}
@@ -194,6 +198,7 @@ export default function TraderDashboard({
             {bottomPrices.map((price) => (
               <PriceRow
                 key={price.iso2}
+                iso2={price.iso2}
                 name={price.country}
                 price={price.price}
                 delta={price.price - avgPrice}

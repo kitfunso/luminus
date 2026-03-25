@@ -47,6 +47,10 @@ import {
   buildMapMetricLabelData,
 } from '@/lib/map-insights';
 import {
+  getPriceCurrencySymbol,
+  sharesPriceCurrency,
+} from '@/lib/price-format';
+import {
   beginDatasetRefresh,
   createEmptyLiveDatasetMap,
   summarizeLiveStatus,
@@ -148,6 +152,7 @@ export default function EnergyMap() {
     () => summarizeLiveStatus(liveDatasets, REFRESH_INTERVAL),
     [liveDatasets],
   );
+  const marketIntelligenceEnabled = intelligenceView !== 'none';
 
   // ---------------------------------------------------------------------------
   // Effects
@@ -366,12 +371,12 @@ export default function EnergyMap() {
     if (!layerVisibility.flows) return [];
     return flows.map((f) => {
       const fp = priceLookup.get(f.from), tp = priceLookup.get(f.to);
-      if (!fp || !tp) return null;
+      if (!fp || !tp || !sharesPriceCurrency(f.from, f.to)) return null;
       const spread = Math.round((tp.price - fp.price) * 10) / 10;
       const sign = spread >= 0 ? '+' : '';
       return {
         position: [(f.fromLon + f.toLon) / 2, (f.fromLat + f.toLat) / 2] as [number, number],
-        text: `${sign}\u20ac${Math.abs(spread).toFixed(0)}`, spread,
+        text: `${sign}${getPriceCurrencySymbol(f.from)}${Math.abs(spread).toFixed(0)}`, spread,
       };
     }).filter(Boolean) as SpreadLabelDatum[];
   }, [flows, priceLookup, layerVisibility.flows]);
@@ -453,7 +458,7 @@ export default function EnergyMap() {
           setTooltip({ x: info.x, y: info.y, content: {
             Flow: `${info.from} \u2192 ${info.to}`, MW: info.flowMW.toLocaleString(),
             'Capacity %': `${(info.capacityMW > 0 ? (info.flowMW / info.capacityMW * 100).toFixed(0) : '0')}%`,
-            ...(info.spread != null && { Spread: `${info.spread >= 0 ? '+' : ''}\u20ac${info.spread.toFixed(1)}/MWh` }),
+            ...(info.spread != null && { Spread: `${info.spread >= 0 ? '+' : ''}${info.spreadUnit?.replace('/MWh', '')}${Math.abs(info.spread).toFixed(1)}/MWh` }),
             '': 'Click for corridor detail',
           } });
         },
@@ -524,6 +529,28 @@ export default function EnergyMap() {
     }
     setMobileSidebarOpen(false);
   }, [intelligenceView, layerVisibility, setIntelligenceView, toggleLayer]);
+
+  const handleToggleMarketIntelligence = useCallback(() => {
+    const nextEnabled = !marketIntelligenceEnabled;
+    if (nextEnabled) {
+      if (!layerVisibility.outages) {
+        toggleLayer('outages');
+      }
+      if (!layerVisibility.forecast) {
+        toggleLayer('forecast');
+      }
+      setIntelligenceView('brief');
+    } else {
+      setIntelligenceView('none');
+    }
+    setMobileSidebarOpen(false);
+  }, [
+    layerVisibility.forecast,
+    layerVisibility.outages,
+    marketIntelligenceEnabled,
+    setIntelligenceView,
+    toggleLayer,
+  ]);
 
   const handleToggleCountry = useCallback((code: string) => toggleCountry(code, allCountryCodes), [toggleCountry, allCountryCodes]);
 
@@ -786,7 +813,7 @@ export default function EnergyMap() {
       {/* Compare mode toggle */}
       <button
         onClick={handleToggleCompareMode}
-        className={`hidden md:flex absolute bottom-6 right-4 px-3 py-1.5 rounded-full text-xs font-medium transition-all backdrop-blur-xl ${
+        className={`compare-mode-toggle hidden md:flex absolute px-3 py-1.5 rounded-full text-xs font-medium transition-all backdrop-blur-xl ${
           compareMode ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-black/60 text-slate-400 border border-white/[0.06] hover:text-white hover:border-white/10'
         }`}
         style={{ zIndex: 15 }}
@@ -882,7 +909,10 @@ export default function EnergyMap() {
       <Sidebar
         plants={plants} filteredPlants={filteredPlants} prices={prices} flows={flows}
         lastUpdate={liveStatus.timestampLabel || lastUpdate || 'loading...'} layerVisibility={layerVisibility}
-        onToggleLayer={handleToggleLayer} isLoading={isLoading}
+        onToggleLayer={handleToggleLayer}
+        marketIntelligenceEnabled={marketIntelligenceEnabled}
+        onToggleMarketIntelligence={handleToggleMarketIntelligence}
+        isLoading={isLoading}
         selectedFuels={selectedFuels} onToggleFuel={toggleFuel}
         minCapacity={minCapacity} onSetMinCapacity={storeSetMinCapacity}
         selectedCountries={selectedCountries} onToggleCountry={handleToggleCountry}

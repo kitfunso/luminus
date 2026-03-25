@@ -8,6 +8,11 @@ import type {
   CountryPrice,
   CrossBorderFlow,
 } from '@/lib/data-fetcher';
+import {
+  formatPriceValue,
+  getPriceCurrencySymbol,
+  sharesPriceCurrency,
+} from '@/lib/price-format';
 
 interface CorridorContextSectionProps {
   data: CrossBorderFlow;
@@ -26,7 +31,8 @@ export default function CorridorContextSection({
   const headroom = data.capacityMW - data.flowMW;
   const fromPrice = prices.find((entry) => entry.iso2 === data.from) ?? null;
   const toPrice = prices.find((entry) => entry.iso2 === data.to) ?? null;
-  const spread = fromPrice && toPrice ? toPrice.price - fromPrice.price : null;
+  const sameCurrency = sharesPriceCurrency(data.from, data.to);
+  const spread = fromPrice && toPrice && sameCurrency ? toPrice.price - fromPrice.price : null;
   const relevantOutages = outages
     .filter((entry) => entry.iso2 === data.from || entry.iso2 === data.to)
     .reduce((sum, entry) => sum + entry.unavailableMW, 0);
@@ -67,7 +73,12 @@ export default function CorridorContextSection({
         <MetricCard label="Current flow" value={`${data.flowMW.toLocaleString()}`} detail="MW" tone="text-sky-300" />
         <MetricCard label="Utilisation" value={`${utilisation.toFixed(0)}%`} detail={`${data.capacityMW.toLocaleString()} MW capacity`} tone={utilisation > 80 ? 'text-rose-300' : 'text-emerald-300'} />
         <MetricCard label="Headroom" value={`${Math.abs(headroom).toLocaleString()}`} detail={headroom >= 0 ? 'MW available' : 'MW over cap'} tone={headroom >= 0 ? 'text-white' : 'text-rose-300'} />
-        <MetricCard label="Spread" value={spread == null ? 'N/A' : `${spread > 0 ? '+' : ''}${spread.toFixed(1)}`} detail="EUR/MWh" tone="text-amber-200" />
+        <MetricCard
+          label="Spread"
+          value={spread == null ? 'N/A' : `${spread > 0 ? '+' : ''}${getPriceCurrencySymbol(data.from)}${Math.abs(spread).toFixed(1)}`}
+          detail={sameCurrency ? `${getPriceCurrencySymbol(data.from)}/MWh` : 'Cross-currency corridor'}
+          tone="text-amber-200"
+        />
       </div>
 
       {baseSeries.length > 0 && (
@@ -92,9 +103,14 @@ export default function CorridorContextSection({
         <div className="rounded-[24px] border border-white/[0.06] bg-white/[0.03] p-4">
           <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">Price context</p>
           <div className="mt-3 space-y-2">
-            <InfoRow label={`${data.from} price`} value={fromPrice ? `EUR ${fromPrice.price.toFixed(1)}` : 'N/A'} />
-            <InfoRow label={`${data.to} price`} value={toPrice ? `EUR ${toPrice.price.toFixed(1)}` : 'N/A'} />
-            <InfoRow label="Spread" value={spread == null ? 'N/A' : `${spread > 0 ? '+' : ''}${spread.toFixed(1)} EUR/MWh`} />
+            <InfoRow label={`${data.from} price`} value={fromPrice ? formatPriceValue(fromPrice.price, data.from) : 'N/A'} />
+            <InfoRow label={`${data.to} price`} value={toPrice ? formatPriceValue(toPrice.price, data.to) : 'N/A'} />
+            <InfoRow
+              label="Spread"
+              value={spread == null
+                ? (sameCurrency ? 'N/A' : 'Cross-currency')
+                : `${spread > 0 ? '+' : ''}${getPriceCurrencySymbol(data.from)}${Math.abs(spread).toFixed(1)}/MWh`}
+            />
           </div>
         </div>
 

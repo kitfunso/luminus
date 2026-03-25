@@ -6,6 +6,11 @@ import InteractiveTimeSeriesChart from './charts/InteractiveTimeSeriesChart';
 import type { ExpandedSeriesConfig } from './charts/ExpandedSeriesPanel';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import type { CountryPrice, CrossBorderFlow, PriceHistory } from '@/lib/data-fetcher';
+import {
+  formatPriceValue,
+  getPriceUnitLabel,
+  MIXED_PRICE_UNIT_LABEL,
+} from '@/lib/price-format';
 
 export type TimeSeriesAsset =
   | { kind: 'country'; iso2: string }
@@ -77,7 +82,7 @@ export default function AssetTimeSeries({
 
   const subtitle = useMemo(() => {
     if (asset.kind === 'country' && priceEntry) {
-      return `Day-ahead price | avg EUR ${priceEntry.price.toFixed(0)}/MWh`;
+      return `Day-ahead price | avg ${formatPriceValue(priceEntry.price, asset.iso2, 0)}/MWh`;
     }
     if (asset.kind === 'corridor' && flowEntry) {
       const utilisation = flowEntry.capacityMW > 0
@@ -117,7 +122,7 @@ export default function AssetTimeSeries({
           <InteractiveTimeSeriesChart
             title="24h day-ahead price"
             subtitle="Hover to inspect the live price curve"
-            unitLabel="EUR/MWh"
+            unitLabel={getPriceUnitLabel(asset.iso2)}
             timestampsUtc={buildHourlyTimestamps(priceHourly.length)}
             series={[
               {
@@ -125,13 +130,14 @@ export default function AssetTimeSeries({
                 label: `${asset.iso2} price`,
                 values: priceHourly,
                 color: '#38bdf8',
+                formatValue: (value: number) => formatPriceValue(value, asset.iso2),
               },
             ]}
             height={96}
             onExpand={onExpandSeries
               ? () => onExpandSeries({
                   title: `${title} price analysis`,
-                  unitLabel: 'EUR/MWh',
+                  unitLabel: MIXED_PRICE_UNIT_LABEL,
                   timestampsUtc: buildHourlyTimestamps(priceHourly.length),
                   series: [
                     {
@@ -139,6 +145,7 @@ export default function AssetTimeSeries({
                       label: `${asset.iso2} day-ahead`,
                       values: priceHourly,
                       color: '#38bdf8',
+                      formatValue: (value: number) => formatPriceValue(value, asset.iso2),
                     },
                   ],
                   candidates: historyEntry
@@ -148,6 +155,7 @@ export default function AssetTimeSeries({
                           label: `${asset.iso2} replay`,
                           values: historyEntry.hourly,
                           color: '#a78bfa',
+                          formatValue: (value: number) => formatPriceValue(value, asset.iso2),
                         },
                       ]
                     : [],
@@ -160,7 +168,7 @@ export default function AssetTimeSeries({
           <InteractiveTimeSeriesChart
             title={`${history?.days ?? 0}d price history`}
             subtitle="The same replay window used by the time scrubber"
-            unitLabel="EUR/MWh"
+            unitLabel={getPriceUnitLabel(asset.iso2)}
             timestampsUtc={historyTimestamps}
             series={[
               {
@@ -168,13 +176,14 @@ export default function AssetTimeSeries({
                 label: `${asset.iso2} history`,
                 values: historyHourly,
                 color: '#a78bfa',
+                formatValue: (value: number) => formatPriceValue(value, asset.iso2),
               },
             ]}
             height={96}
             onExpand={onExpandSeries
               ? () => onExpandSeries({
                   title: `${title} replay analysis`,
-                  unitLabel: 'EUR/MWh',
+                  unitLabel: MIXED_PRICE_UNIT_LABEL,
                   timestampsUtc: historyTimestamps,
                   series: [
                     {
@@ -182,6 +191,7 @@ export default function AssetTimeSeries({
                       label: `${asset.iso2} replay`,
                       values: historyHourly,
                       color: '#a78bfa',
+                      formatValue: (value: number) => formatPriceValue(value, asset.iso2),
                     },
                   ],
                   candidates: priceHourly
@@ -191,6 +201,7 @@ export default function AssetTimeSeries({
                           label: `${asset.iso2} day-ahead`,
                           values: priceHourly,
                           color: '#38bdf8',
+                          formatValue: (value: number) => formatPriceValue(value, asset.iso2),
                         },
                       ]
                     : [],
@@ -241,6 +252,7 @@ export default function AssetTimeSeries({
                           label: `${asset.from} price`,
                           values: fromPrice.hourly,
                           color: '#f59e0b',
+                          formatValue: (value: number) => formatPriceValue(value, asset.from),
                         }
                       : null,
                     toPrice?.hourly?.length
@@ -249,6 +261,7 @@ export default function AssetTimeSeries({
                           label: `${asset.to} price`,
                           values: toPrice.hourly,
                           color: '#a78bfa',
+                          formatValue: (value: number) => formatPriceValue(value, asset.to),
                         }
                       : null,
                   ].filter((line): line is NonNullable<typeof line> => Boolean(line)),

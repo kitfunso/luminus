@@ -5,18 +5,11 @@ import type {
   CountryPrice,
   CrossBorderFlow,
 } from './data-fetcher';
+import { formatPriceLabel } from './price-format';
 
 export interface MapMetricLabelDatum {
   position: [number, number];
   text: string;
-}
-
-function formatPriceLabel(price: number) {
-  const rounded = Math.round(price);
-  if (rounded < 0) {
-    return `-${'EUR'}${Math.abs(rounded)}`;
-  }
-  return `EUR${rounded}`;
 }
 
 function formatNetPosition(flowMW: number) {
@@ -88,7 +81,7 @@ export function buildMapMetricLabelData(prices: CountryPrice[]): MapMetricLabelD
 
       return {
         position: [centroid.lon, centroid.lat] as [number, number],
-        text: formatPriceLabel(price.price),
+        text: formatPriceLabel(price.price, price.iso2),
       };
     })
     .filter((entry): entry is MapMetricLabelDatum => Boolean(entry));

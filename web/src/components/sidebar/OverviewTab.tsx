@@ -109,10 +109,10 @@ export default function OverviewTab({
                 className="text-xl font-bold tabular-nums"
                 style={{ color: stats.avgPrice > 0 ? priceColor(stats.avgPrice) : '#94a3b8' }}
               >
-                {stats.avgPrice > 0 ? `\u20AC${stats.avgPrice.toFixed(0)}` : '\u2014'}
+                {stats.avgPrice > 0 ? stats.avgPrice.toFixed(0) : '\u2014'}
               </div>
             )}
-            <div className="text-[10px] text-slate-500 mt-0.5">EUR/MWh</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">Local currency/MWh</div>
           </div>
 
           {/* Grid Utilisation */}

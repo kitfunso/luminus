@@ -12,7 +12,8 @@
   --accent: #38bdf8;
   --sidebar-dock-width: 18rem;
   --right-dock-width: 22.5rem;
-  --dock-bottom-lane: 7rem;
+  --dock-bottom-lane: 8rem;
+  --replay-safe-bottom: 6.5rem;
 }
 
 * {
@@ -206,7 +207,7 @@ body {
 /* Time scrubber bar (bottom of screen) */
 .time-scrubber {
   position: absolute;
-  bottom: 16px;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
   left: calc(var(--sidebar-dock-width) + 1rem);
   right: calc(var(--right-dock-width) + 2rem);
   z-index: 15;
@@ -297,32 +298,32 @@ body {
 }
 
 .right-panel {
-  bottom: calc(var(--dock-bottom-lane) + env(safe-area-inset-bottom));
-  max-height: calc(100vh - var(--dock-bottom-lane) - 2rem) !important;
+  bottom: calc(var(--dock-bottom-lane) + 1rem + env(safe-area-inset-bottom));
+  max-height: calc(100vh - var(--dock-bottom-lane) - 3rem) !important;
 }
 
 .top-context-dock {
   top: 1rem;
   left: calc(var(--sidebar-dock-width) + 2rem);
   right: calc(var(--right-dock-width) + 2rem);
-  max-height: calc(100vh - var(--dock-bottom-lane) - 2rem);
+  max-height: calc(100vh - var(--dock-bottom-lane) - 3rem);
   overflow-y: auto;
 }
 
 .expanded-series-panel {
   left: calc(var(--sidebar-dock-width) + 2rem);
   right: calc(var(--right-dock-width) + 2rem);
-  top: auto;
-  bottom: calc(var(--dock-bottom-lane) + env(safe-area-inset-bottom));
+  top: 1rem;
+  bottom: calc(var(--dock-bottom-lane) + var(--replay-safe-bottom) + env(safe-area-inset-bottom));
   width: auto !important;
-  max-height: calc(60vh) !important;
+  max-height: none !important;
 }
 
 /* Map legend (bottom-left floating) */
 .map-legend {
   position: absolute;
-  bottom: env(safe-area-inset-bottom);
-  left: env(safe-area-inset-left);
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  left: calc(1rem + env(safe-area-inset-left));
   z-index: 12;
   background: rgba(10, 14, 23, 0.85);
   backdrop-filter: blur(12px);
@@ -334,6 +335,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.compare-mode-toggle {
+  left: calc(var(--sidebar-dock-width) + 1rem);
+  bottom: calc(var(--dock-bottom-lane) + 1.25rem + env(safe-area-inset-bottom));
 }
 
 /* -----------------------------------------------------------------------
@@ -356,7 +362,7 @@ body {
 .guide-shell,
 .guide-chip {
   right: 1rem;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--dock-bottom-lane) + 1rem + env(safe-area-inset-bottom));
 }
 
 @media (max-width: 767px) {
@@ -420,8 +426,8 @@ body {
   }
 
   .map-legend {
-    left: env(safe-area-inset-left);
-    bottom: env(safe-area-inset-bottom);
+    left: calc(0.75rem + env(safe-area-inset-left));
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
   }
 
   .top-context-dock {
@@ -437,6 +443,7 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
+    top: auto;
     width: 100% !important;
     max-height: 78vh !important;
     border-radius: 1.25rem 1.25rem 0 0;

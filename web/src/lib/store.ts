@@ -125,7 +125,7 @@ export const useMapStore = create<MapState>()((set) => ({
   sidebarOpen: true,
   sidebarCollapsed: false,
   sidebarTab: 'overview',
-  intelligenceView: 'none',
+  intelligenceView: 'brief',
 
   // --- Actions ---
   setData: (partial) => set((s) => ({ ...s, ...partial })),

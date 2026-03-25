@@ -2,6 +2,7 @@ import { ArcLayer } from '@deck.gl/layers';
 import type { PickingInfo } from '@deck.gl/core';
 import { COUNTRY_CENTROIDS } from '../countries';
 import type { CrossBorderFlow, CountryPrice } from '../data-fetcher';
+import { getPriceCurrencySymbol, sharesPriceCurrency } from '../price-format';
 
 /** Neutral steel-blue for all flow arcs (decoupled from price heatmap color channel). */
 const FLOW_COLOR: [number, number, number, number] = [200, 210, 230, 180];
@@ -9,7 +10,16 @@ const FLOW_COLOR: [number, number, number, number] = [200, 210, 230, 180];
 export interface FlowLayerOptions {
   flows: CrossBorderFlow[];
   priceLookup: Map<string, CountryPrice>;
-  onHover: (info: { x: number; y: number; from: string; to: string; flowMW: number; capacityMW: number; spread: number | null } | null) => void;
+  onHover: (info: {
+    x: number;
+    y: number;
+    from: string;
+    to: string;
+    flowMW: number;
+    capacityMW: number;
+    spread: number | null;
+    spreadUnit: string | null;
+  } | null) => void;
   onClick: (flow: CrossBorderFlow) => void;
   opacity?: number;
 }
@@ -60,7 +70,10 @@ export function createFlowLayer({
       const toName = COUNTRY_CENTROIDS[d.to]?.name || d.to;
       const fp = priceLookup.get(d.from);
       const tp = priceLookup.get(d.to);
-      const spread = fp && tp ? Math.round((tp.price - fp.price) * 10) / 10 : null;
+      const sameCurrency = sharesPriceCurrency(d.from, d.to);
+      const spread = fp && tp && sameCurrency
+        ? Math.round((tp.price - fp.price) * 10) / 10
+        : null;
       onHover({
         x: info.x,
         y: info.y,
@@ -69,6 +82,7 @@ export function createFlowLayer({
         flowMW: d.flowMW,
         capacityMW: d.capacityMW,
         spread,
+        spreadUnit: sameCurrency ? `${getPriceCurrencySymbol(d.from)}/MWh` : null,
       });
     },
     onClick: (info: PickingInfo<CrossBorderFlow>) => {

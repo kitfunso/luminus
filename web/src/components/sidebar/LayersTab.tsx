@@ -38,7 +38,7 @@ function PriceGradient() {
         className="h-2 flex-1 rounded-full"
         style={{ background: 'linear-gradient(to right, #22c55e 0%, #eab308 50%, #ef4444 100%)' }}
       />
-      <span className="text-[10px] text-slate-600 tabular-nums">EUR/MWh</span>
+      <span className="text-[10px] text-slate-600 tabular-nums">Local currency/MWh</span>
     </div>
   );
 }
@@ -80,12 +80,15 @@ const LAYER_CONFIG: {
   { key: 'lines', label: 'Transmission Lines' },
   { key: 'genMix', label: 'Day-Ahead Labels' },
   { key: 'tyndp', label: 'TYNDP Pipeline' },
-  { key: 'outages', label: 'Outage Radar' },
-  { key: 'forecast', label: 'Forecast vs Actual' },
   { key: 'history', label: 'Time Replay' },
 ];
 
-export default function LayersTab({ layerVisibility, onToggleLayer }: SidebarProps) {
+export default function LayersTab({
+  layerVisibility,
+  onToggleLayer,
+  marketIntelligenceEnabled,
+  onToggleMarketIntelligence,
+}: SidebarProps) {
   return (
     <div className={`${CARD} p-4`}>
       <h2 className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest mb-3">
@@ -104,6 +107,15 @@ export default function LayersTab({ layerVisibility, onToggleLayer }: SidebarPro
             {hint && <span className="text-[10px] text-slate-600">{hint}</span>}
           </Toggle>
         ))}
+        <Toggle
+          checked={marketIntelligenceEnabled}
+          onChange={onToggleMarketIntelligence}
+          label="Market Intelligence"
+        >
+          <span className="text-[10px] text-slate-600">
+            Outage Radar + Forecast vs Actual
+          </span>
+        </Toggle>
       </div>
     </div>
   );
