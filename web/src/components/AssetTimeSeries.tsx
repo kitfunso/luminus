@@ -11,6 +11,7 @@ import {
   getPriceUnitLabel,
   MIXED_PRICE_UNIT_LABEL,
 } from '@/lib/price-format';
+import { resolveHistoryTimestamps, resolvePriceTimestamps } from '@/lib/series-timestamps';
 
 export type TimeSeriesAsset =
   | { kind: 'country'; iso2: string }
@@ -23,15 +24,6 @@ interface AssetTimeSeriesProps {
   history: PriceHistory | null;
   onClose: () => void;
   onExpandSeries?: (config: ExpandedSeriesConfig) => void;
-}
-
-function buildHourlyTimestamps(length: number) {
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  return Array.from(
-    { length },
-    (_, index) => new Date(start.getTime() + index * 60 * 60 * 1000).toISOString(),
-  );
 }
 
 export default function AssetTimeSeries({
@@ -96,7 +88,10 @@ export default function AssetTimeSeries({
   const priceHourly = asset.kind === 'country' ? priceEntry?.hourly ?? null : null;
   const historyHourly = asset.kind === 'country' ? historyEntry?.hourly ?? null : null;
   const historyTimestamps = asset.kind === 'country'
-    ? historyEntry?.timestampsUtc ?? (historyEntry ? buildHourlyTimestamps(historyEntry.hourly.length) : undefined)
+    ? resolveHistoryTimestamps(historyEntry, history?.startUtc ?? new Date().toISOString())
+    : undefined;
+  const priceTimestamps = asset.kind === 'country' && priceEntry
+    ? resolvePriceTimestamps(priceEntry)
     : undefined;
 
   return (
@@ -121,9 +116,9 @@ export default function AssetTimeSeries({
         {asset.kind === 'country' && priceHourly && (
           <InteractiveTimeSeriesChart
             title="24h day-ahead price"
-            subtitle="Hover to inspect the live price curve"
+            subtitle="Published day-ahead schedule for the next delivery hours"
             unitLabel={getPriceUnitLabel(asset.iso2)}
-            timestampsUtc={buildHourlyTimestamps(priceHourly.length)}
+            timestampsUtc={priceTimestamps}
             series={[
               {
                 id: `${asset.iso2}-price`,
@@ -138,7 +133,7 @@ export default function AssetTimeSeries({
               ? () => onExpandSeries({
                   title: `${title} price analysis`,
                   unitLabel: MIXED_PRICE_UNIT_LABEL,
-                  timestampsUtc: buildHourlyTimestamps(priceHourly.length),
+                  timestampsUtc: priceTimestamps,
                   series: [
                     {
                       id: `${asset.iso2}-price`,

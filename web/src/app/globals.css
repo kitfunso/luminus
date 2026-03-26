@@ -361,8 +361,8 @@ body {
 
 .guide-shell,
 .guide-chip {
-  right: 1rem;
-  bottom: calc(var(--dock-bottom-lane) + 1rem + env(safe-area-inset-bottom));
+  right: calc(1rem + env(safe-area-inset-right));
+  bottom: calc(1rem + env(safe-area-inset-bottom));
 }
 
 @media (max-width: 767px) {

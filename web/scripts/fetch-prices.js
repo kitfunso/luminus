@@ -32,7 +32,7 @@ const ZONES = {
   HR: { code: '10YHR-HEP------M', name: 'Croatia' },
   SK: { code: '10YSK-SEPS-----K', name: 'Slovakia' },
   SI: { code: '10YSI-ELES-----O', name: 'Slovenia' },
-  IE: { code: '10Y1001A1001A59C', name: 'Ireland' },
+  IE: { code: '10YIE-1001A00010', name: 'Ireland' },
   LT: { code: '10YLT-1001A0008Q', name: 'Lithuania' },
   LV: { code: '10YLV-1001A00074', name: 'Latvia' },
   EE: { code: '10Y1001A1001A39I', name: 'Estonia' },

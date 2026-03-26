@@ -8,16 +8,13 @@ const WIND_PSR = ['B18', 'B19']; // Offshore, Onshore
 const SOLAR_PSR = ['B16'];
 
 function extractTimeSeriesQuantities(xml, psrTypes) {
-  // Split into TimeSeries blocks
   const blocks = xml.split(/<TimeSeries>/g).slice(1);
-  let totalMW = 0;
-  const hourlyBuckets = new Map(); // hour -> [values]
+  const pointBuckets = new Map();
 
   for (const block of blocks) {
     const psrMatch = block.match(/<psrType>([^<]+)<\/psrType>/);
     if (!psrMatch || !psrTypes.includes(psrMatch[1])) continue;
 
-    // Get all periods
     const periods = block.split(/<Period>/g).slice(1);
     for (const period of periods) {
       const startMatch = period.match(/<start>([^<]+)<\/start>/);
@@ -28,33 +25,34 @@ function extractTimeSeriesQuantities(xml, psrTypes) {
       const resolution = resMatch ? resMatch[1] : 'PT1H';
       const stepMs = resolution === 'PT15M' ? 15 * 60 * 1000 : 60 * 60 * 1000;
 
-      const points = [...period.matchAll(/<Point>[\s\S]*?<position>(\d+)<\/position>[\s\S]*?<quantity>([\d.]+)<\/quantity>[\s\S]*?<\/Point>/g)];
+      const points = [...period.matchAll(/<Point>[\s\S]*?<position>(\d+)<\/position>[\s\S]*?<quantity>([\d.-]+)<\/quantity>[\s\S]*?<\/Point>/g)];
 
       for (const [, posStr, qtyStr] of points) {
         const pos = Number(posStr);
         const qty = Number(qtyStr);
+        if (!Number.isFinite(pos) || !Number.isFinite(qty)) continue;
         const pointTime = new Date(startTime.getTime() + (pos - 1) * stepMs);
-        const hourKey = pointTime.getUTCHours();
-
-        if (!hourlyBuckets.has(hourKey)) hourlyBuckets.set(hourKey, []);
-        hourlyBuckets.get(hourKey).push(qty);
+        pointBuckets.set(pointTime.toISOString(), (pointBuckets.get(pointTime.toISOString()) ?? 0) + qty);
       }
     }
   }
 
-  // Average within each hour bucket (handles 15-min -> hourly aggregation)
-  const hourly = [];
-  for (let h = 0; h < 24; h++) {
-    const vals = hourlyBuckets.get(h);
-    if (vals && vals.length > 0) {
-      // Sum across fuel types (wind onshore + offshore), average across sub-hourly
-      hourly.push(vals.reduce((a, b) => a + b, 0) / (vals.length / psrTypes.length || 1));
-    }
+  const hourlyBuckets = new Map();
+  for (const [timestamp, totalQty] of pointBuckets) {
+    const hour = new Date(timestamp);
+    hour.setUTCMinutes(0, 0, 0);
+    const hourKey = hour.toISOString();
+    if (!hourlyBuckets.has(hourKey)) hourlyBuckets.set(hourKey, []);
+    hourlyBuckets.get(hourKey).push(totalQty);
   }
 
-  totalMW = hourly.length > 0 ? hourly.reduce((a, b) => a + b, 0) / hourly.length : 0;
+  const ordered = [...hourlyBuckets.entries()]
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
+  const timestampsUtc = ordered.map(([timestamp]) => timestamp);
+  const hourly = ordered.map(([, values]) => values.reduce((a, b) => a + b, 0) / values.length);
+  const totalMW = hourly.length > 0 ? hourly.reduce((a, b) => a + b, 0) / hourly.length : 0;
 
-  return { totalMW, hourly };
+  return { totalMW, hourly, timestampsUtc };
 }
 
 function computeForecastMetrics(forecastHourly, actualHourly) {

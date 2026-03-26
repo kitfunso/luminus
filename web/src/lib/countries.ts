@@ -64,6 +64,7 @@ export const ZONE_TO_ISO: Record<string, string> = {
   '10YSK-SEPS-----K': 'SK',
   '10YSI-ELES-----O': 'SI',
   '10Y1001A1001A59C': 'IE',
+  '10YIE-1001A00010': 'IE',
   '10YLT-1001A0008Q': 'LT',
   '10YLV-1001A00074': 'LV',
   '10Y1001A1001A39I': 'EE',

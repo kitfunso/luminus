@@ -45,7 +45,7 @@ const ISO2_TO_EIC = {
   NO: '10YNO-0--------C', DK: '10Y1001A1001A796', FI: '10YFI-1--------U',
   PT: '10YPT-REN------W', GR: '10YGR-HTSO-----Y', RO: '10YRO-TEL------P',
   HU: '10YHU-MAVIR----U', BG: '10YCA-BULGARIA-R', HR: '10YHR-HEP------M',
-  SK: '10YSK-SEPS-----K', SI: '10YSI-ELES-----O', IE: '10Y1001A1001A59C',
+  SK: '10YSK-SEPS-----K', SI: '10YSI-ELES-----O', IE: '10YIE-1001A00010',
   LT: '10YLT-1001A0008Q', LV: '10YLV-1001A00074', EE: '10Y1001A1001A39I',
   LU: '10Y1001A1001A83F',
 };
@@ -106,7 +106,7 @@ const PRICE_ZONE_STRATEGIES = {
   HR: { zones: ['10YHR-HEP------M'] },
   SK: { zones: ['10YSK-SEPS-----K'] },
   SI: { zones: ['10YSI-ELES-----O'] },
-  IE: { zones: ['10Y1001A1001A59C'] }, // SEM price zone
+  IE: { zones: ['10YIE-1001A00010'] }, // IE bidding zone
   LT: { zones: ['10YLT-1001A0008Q'] },
   LV: { zones: ['10YLV-1001A00074'] },
   EE: { zones: ['10Y1001A1001A39I'] },
@@ -563,7 +563,7 @@ async function fetchAllOutages() {
 
 // --- Forecast vs Actual (wind + solar) ---
 
-const FORECAST_COUNTRIES = ['DE', 'FR', 'ES', 'IT', 'NL', 'BE', 'PL', 'AT', 'SE', 'DK', 'PT', 'GR', 'FI', 'CZ', 'RO', 'HU'];
+const FORECAST_COUNTRIES = Object.keys(COUNTRY_NAMES);
 
 async function fetchForecastXml(iso2, docType, processType) {
   const eic = ISO2_TO_EIC[iso2];
@@ -645,6 +645,9 @@ async function fetchCountryForecast(iso2) {
       actualMW: Math.round(windActual.totalMW),
       forecastHourly: windForecast.hourly.map(v => Math.round(v)),
       actualHourly: windActual.hourly.map(v => Math.round(v)),
+      timestampsUtc: windForecast.timestampsUtc.length >= windActual.timestampsUtc.length
+        ? windForecast.timestampsUtc
+        : windActual.timestampsUtc,
       ...windMetrics,
     },
     solar: {
@@ -652,6 +655,9 @@ async function fetchCountryForecast(iso2) {
       actualMW: Math.round(solarActual.totalMW),
       forecastHourly: solarForecast.hourly.map(v => Math.round(v)),
       actualHourly: solarActual.hourly.map(v => Math.round(v)),
+      timestampsUtc: solarForecast.timestampsUtc.length >= solarActual.timestampsUtc.length
+        ? solarForecast.timestampsUtc
+        : solarActual.timestampsUtc,
       ...solarMetrics,
     },
   };

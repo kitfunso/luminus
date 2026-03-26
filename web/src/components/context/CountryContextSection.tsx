@@ -18,6 +18,7 @@ import {
   getPriceUnitLabel,
   MIXED_PRICE_UNIT_LABEL,
 } from '@/lib/price-format';
+import { resolveForecastTimestamps, resolvePriceTimestamps } from '@/lib/series-timestamps';
 
 interface CountryContextSectionProps {
   data: CountryPrice;
@@ -26,15 +27,6 @@ interface CountryContextSectionProps {
   outages: CountryOutage[];
   forecasts: CountryForecast[];
   onExpandSeries: (config: ExpandedSeriesConfig) => void;
-}
-
-function buildHourlyTimestamps(length: number) {
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  return Array.from(
-    { length },
-    (_, index) => new Date(start.getTime() + index * 60 * 60 * 1000).toISOString(),
-  );
 }
 
 export default function CountryContextSection({
@@ -114,6 +106,8 @@ export default function CountryContextSection({
         },
       ].filter((line) => line.values.length > 1)
     : [];
+  const priceTimestamps = resolvePriceTimestamps(data);
+  const windTimestamps = forecast ? resolveForecastTimestamps(forecast.wind) : [];
 
   return (
     <div className="space-y-4">
@@ -147,14 +141,14 @@ export default function CountryContextSection({
       {priceSeries.length > 0 && (
         <InteractiveTimeSeriesChart
           title="Day-ahead price"
-          subtitle="Live day-ahead profile for the selected market"
+          subtitle="Published day-ahead schedule for the selected market"
           unitLabel={getPriceUnitLabel(data.iso2)}
-          timestampsUtc={buildHourlyTimestamps(priceSeries[0].values.length)}
+          timestampsUtc={priceTimestamps}
           series={priceSeries}
           onExpand={() => onExpandSeries({
             title: `${data.country} market analysis`,
             unitLabel: MIXED_PRICE_UNIT_LABEL,
-            timestampsUtc: buildHourlyTimestamps(priceSeries[0].values.length),
+            timestampsUtc: priceTimestamps,
             series: priceSeries,
             candidates: forecastCandidates,
           })}
@@ -168,7 +162,7 @@ export default function CountryContextSection({
               title="Forecast vs actual"
               subtitle="Wind actual is tracked against the latest forecast"
               unitLabel="MW"
-              timestampsUtc={buildHourlyTimestamps(Math.max(forecast.wind.actualHourly.length, forecast.wind.forecastHourly.length))}
+              timestampsUtc={windTimestamps}
               series={[
                 {
                   id: `${data.iso2}-wind-actual-compact`,
@@ -187,7 +181,7 @@ export default function CountryContextSection({
               onExpand={() => onExpandSeries({
                 title: `${data.country} forecast comparison`,
                 unitLabel: 'MW',
-                timestampsUtc: buildHourlyTimestamps(Math.max(forecast.wind.actualHourly.length, forecast.wind.forecastHourly.length)),
+                timestampsUtc: windTimestamps,
                 series: [
                   {
                     id: `${data.iso2}-wind-actual-compact`,

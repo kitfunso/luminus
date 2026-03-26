@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import type { CountryForecast, ForecastSource } from '@/lib/data-fetcher';
+import { resolveForecastTimestamps } from '@/lib/series-timestamps';
 import InteractiveTimeSeriesChart from './charts/InteractiveTimeSeriesChart';
 import type { ExpandedSeriesConfig } from './charts/ExpandedSeriesPanel';
 
@@ -31,15 +32,6 @@ function SurpriseIndicator({ source }: { source: ForecastSource }) {
     <span className={`text-[10px] font-medium ${isAbove ? 'text-emerald-400' : 'text-red-400'}`}>
       {isAbove ? '\u25B2' : '\u25BC'} {source.surpriseMagnitude.toLocaleString()} MW
     </span>
-  );
-}
-
-function buildHourlyTimestamps(length: number) {
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  return Array.from(
-    { length },
-    (_, index) => new Date(start.getTime() + index * 60 * 60 * 1000).toISOString(),
   );
 }
 
@@ -92,7 +84,7 @@ function SourceRow({
         title={`${label} profile`}
         subtitle="Hover to inspect forecast and actual values"
         unitLabel="MW"
-        timestampsUtc={buildHourlyTimestamps(Math.max(source.forecastHourly.length, source.actualHourly.length))}
+        timestampsUtc={resolveForecastTimestamps(source)}
         series={buildSeries(label, iso2, source)}
         height={88}
         onExpand={onExpand}
@@ -146,12 +138,8 @@ function CountryForecastCard({
   const hasSolarSurprise = forecast.solar.surpriseDirection !== 'none';
   const windSeries = buildSeries('Wind', forecast.iso2, forecast.wind);
   const solarSeries = buildSeries('Solar', forecast.iso2, forecast.solar);
-  const windTimestamps = buildHourlyTimestamps(
-    Math.max(forecast.wind.forecastHourly.length, forecast.wind.actualHourly.length),
-  );
-  const solarTimestamps = buildHourlyTimestamps(
-    Math.max(forecast.solar.forecastHourly.length, forecast.solar.actualHourly.length),
-  );
+  const windTimestamps = resolveForecastTimestamps(forecast.wind);
+  const solarTimestamps = resolveForecastTimestamps(forecast.solar);
 
   return (
     <div>

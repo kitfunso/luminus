@@ -15,7 +15,7 @@ export function sharesPriceCurrency(leftIso2: string | null | undefined, rightIs
 }
 
 export function getPriceCurrencySymbol(iso2: string | null | undefined) {
-  return usesPound(iso2) ? '£' : '€';
+  return usesPound(iso2) ? '\u00A3' : '\u20AC';
 }
 
 export function getPriceUnitLabel(iso2: string | null | undefined) {

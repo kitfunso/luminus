@@ -20,6 +20,7 @@ export interface CountryPrice {
   iso2: string;
   price: number;
   hourly?: number[];
+  hourlyTimestampsUtc?: string[];
   /** 'live' = freshly fetched at build time; 'fallback' = preserved from reference baseline when live fetch failed */
   source?: 'live' | 'fallback';
   /** build-time provenance for debugging mixed country price sources */
@@ -71,6 +72,7 @@ export interface ForecastSource {
   actualMW: number;
   forecastHourly: number[];
   actualHourly: number[];
+  timestampsUtc?: string[];
   mae: number;
   mape: number;
   bias: number;

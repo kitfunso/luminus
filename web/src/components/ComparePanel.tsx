@@ -12,6 +12,7 @@ import {
   getPriceUnitLabel,
   MIXED_PRICE_UNIT_LABEL,
 } from '@/lib/price-format';
+import { resolvePriceTimestamps } from '@/lib/series-timestamps';
 
 const CO2_FACTORS_G: Record<string, number> = {
   nuclear: 0, wind: 0, solar: 0, gas: 400, coal: 900,
@@ -23,15 +24,6 @@ function countryFlag(iso2: string): string {
   return [...iso2.toUpperCase()]
     .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
     .join('');
-}
-
-function buildHourlyTimestamps(length: number) {
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  return Array.from(
-    { length },
-    (_, index) => new Date(start.getTime() + index * 60 * 60 * 1000).toISOString(),
-  );
 }
 
 interface ComparePanelProps {
@@ -50,6 +42,7 @@ interface CountryStats {
   flag: string;
   price: number | null;
   hourly: number[];
+  hourlyTimestampsUtc?: string[];
   fuelMix: { fuel: string; capacity: number; pct: number }[];
   totalCapacity: number;
   carbonIntensity: number;
@@ -69,6 +62,7 @@ function computeStats(
   const priceData = prices.find((entry) => entry.iso2 === iso2);
   const price = priceData?.price ?? null;
   const hourly = priceData?.hourly ?? [];
+  const hourlyTimestampsUtc = priceData ? resolvePriceTimestamps(priceData) : undefined;
 
   const countryPlants = plants.filter((plant) => plant.country === iso2);
 
@@ -113,6 +107,7 @@ function computeStats(
     flag,
     price,
     hourly,
+    hourlyTimestampsUtc,
     fuelMix,
     totalCapacity,
     carbonIntensity,
@@ -192,16 +187,16 @@ function CountryCard({
       {baseSeries.length > 0 ? (
         <InteractiveTimeSeriesChart
           title="24h price"
-          subtitle="Hover to track the curve"
+          subtitle="Published day-ahead schedule for the next delivery hours"
           unitLabel={getPriceUnitLabel(stats.iso2)}
-          timestampsUtc={buildHourlyTimestamps(stats.hourly.length)}
+          timestampsUtc={stats.hourlyTimestampsUtc}
           series={baseSeries}
           height={88}
           onExpand={onExpandSeries
             ? () => onExpandSeries({
                 title: `${stats.name} comparison`,
                 unitLabel: MIXED_PRICE_UNIT_LABEL,
-                timestampsUtc: buildHourlyTimestamps(stats.hourly.length),
+                timestampsUtc: stats.hourlyTimestampsUtc,
                 series: baseSeries,
                 candidates,
               })

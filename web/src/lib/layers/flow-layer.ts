@@ -5,7 +5,7 @@ import type { CrossBorderFlow, CountryPrice } from '../data-fetcher';
 import { getPriceCurrencySymbol, sharesPriceCurrency } from '../price-format';
 
 /** Neutral steel-blue for all flow arcs (decoupled from price heatmap color channel). */
-const FLOW_COLOR: [number, number, number, number] = [200, 210, 230, 180];
+const FLOW_COLOR: [number, number, number, number] = [200, 210, 230, 150];
 
 export interface FlowLayerOptions {
   flows: CrossBorderFlow[];
@@ -26,10 +26,10 @@ export interface FlowLayerOptions {
 
 /** Tiered width by magnitude: <500=2, 500-2000=4, 2000-5000=6, >5000=8 */
 function flowWidth(d: CrossBorderFlow): number {
-  if (d.flowMW > 5000) return 8;
-  if (d.flowMW > 2000) return 6;
-  if (d.flowMW > 500) return 4;
-  return 2;
+  if (d.flowMW > 5000) return 6.5;
+  if (d.flowMW > 2000) return 4.75;
+  if (d.flowMW > 500) return 3.25;
+  return 1.75;
 }
 
 export function createFlowLayer({

@@ -41,6 +41,9 @@ export function createSpreadLabelLayer({ data }: SpreadLabelLayerOptions) {
     getTextAnchor: 'middle',
     getAlignmentBaseline: 'center',
     pickable: false,
+    parameters: {
+      depthTest: false,
+    } as any,
   });
 }
 
@@ -51,12 +54,12 @@ export function createMetricLabelLayer({ data }: MetricLabelLayerOptions) {
     getPosition: (d) => d.position,
     getText: (d) => d.text,
     getSize: 16,
-    getPixelOffset: [0, -3],
+    getPixelOffset: [0, -2],
     getColor: [255, 255, 255, 220],
     fontFamily: 'system-ui, sans-serif',
     fontWeight: 700,
     fontSettings: {
-      buffer: 8,
+      buffer: 16,
     },
     outlineWidth: 3,
     outlineColor: [10, 14, 23, 200],
@@ -64,6 +67,9 @@ export function createMetricLabelLayer({ data }: MetricLabelLayerOptions) {
     characterSet: 'auto',
     getTextAnchor: 'middle',
     getAlignmentBaseline: 'center',
+    parameters: {
+      depthTest: false,
+    } as any,
   });
 }
 

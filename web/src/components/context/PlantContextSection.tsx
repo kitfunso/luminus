@@ -15,6 +15,7 @@ import {
   getPriceUnitLabel,
   MIXED_PRICE_UNIT_LABEL,
 } from '@/lib/price-format';
+import { resolvePriceTimestamps } from '@/lib/series-timestamps';
 
 interface PlantContextSectionProps {
   data: PowerPlant;
@@ -22,15 +23,6 @@ interface PlantContextSectionProps {
   outages: CountryOutage[];
   forecasts: CountryForecast[];
   onExpandSeries: (config: ExpandedSeriesConfig) => void;
-}
-
-function buildHourlyTimestamps(length: number) {
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  return Array.from(
-    { length },
-    (_, index) => new Date(start.getTime() + index * 60 * 60 * 1000).toISOString(),
-  );
 }
 
 function normalizeText(value: string) {
@@ -71,6 +63,7 @@ export default function PlantContextSection({
         },
       ]
     : [];
+  const priceTimestamps = countryPrice ? resolvePriceTimestamps(countryPrice) : [];
 
   return (
     <div className="space-y-4">
@@ -94,14 +87,14 @@ export default function PlantContextSection({
       {priceSeries.length > 0 && (
         <InteractiveTimeSeriesChart
           title="Market context"
-          subtitle="Country day-ahead price around the selected asset"
+          subtitle="Country day-ahead schedule around the selected asset"
           unitLabel={getPriceUnitLabel(data.country)}
-          timestampsUtc={buildHourlyTimestamps(priceSeries[0].values.length)}
+          timestampsUtc={priceTimestamps}
           series={priceSeries}
           onExpand={() => onExpandSeries({
             title: `${data.name} context analysis`,
             unitLabel: MIXED_PRICE_UNIT_LABEL,
-            timestampsUtc: buildHourlyTimestamps(priceSeries[0].values.length),
+            timestampsUtc: priceTimestamps,
             series: priceSeries,
             candidates: countryForecast
               ? [

@@ -72,14 +72,14 @@ const ISO2_TO_EIC: Record<string, string> = {
   HR: '10YHR-HEP------M',
   SK: '10YSK-SEPS-----K',
   SI: '10YSI-ELES-----O',
-  IE: '10Y1001A1001A59C',
+  IE: '10YIE-1001A00010',
   LT: '10YLT-1001A0008Q',
   LV: '10YLV-1001A00074',
   EE: '10Y1001A1001A39I',
   LU: '10Y1001A1001A83F',
 };
 
-const FORECAST_COUNTRIES = ['DE', 'FR', 'ES', 'IT', 'NL', 'BE', 'PL', 'AT', 'SE', 'DK', 'PT', 'GR', 'FI', 'CZ', 'RO', 'HU'];
+const FORECAST_COUNTRIES = Object.keys(COUNTRY_NAMES);
 
 const PRICE_ZONE_STRATEGIES: Record<string, { zones?: string[]; aliasOf?: string }> = {
   DE: { zones: ['10Y1001A1001A82H'] },
@@ -130,7 +130,7 @@ const PRICE_ZONE_STRATEGIES: Record<string, { zones?: string[]; aliasOf?: string
   HR: { zones: ['10YHR-HEP------M'] },
   SK: { zones: ['10YSK-SEPS-----K'] },
   SI: { zones: ['10YSI-ELES-----O'] },
-  IE: { zones: ['10Y1001A1001A59C'] },
+  IE: { zones: ['10YIE-1001A00010'] },
   LT: { zones: ['10YLT-1001A0008Q'] },
   LV: { zones: ['10YLV-1001A00074'] },
   EE: { zones: ['10Y1001A1001A39I'] },
@@ -294,17 +294,6 @@ function intervalFromOutages(outages: CountryOutage[]) {
   };
 }
 
-function meanHourly(hourlySeries: number[][]): number[] {
-  const maxLength = hourlySeries.reduce((max, current) => Math.max(max, current.length), 0);
-  return Array.from({ length: maxLength }, (_, index) => {
-    const values = hourlySeries.map((series) => series[index]).filter((value) => Number.isFinite(value));
-    if (values.length === 0) {
-      return 0;
-    }
-    return round1(values.reduce((sum, value) => sum + value, 0) / values.length);
-  });
-}
-
 function selectMarketIndexRows(
   rows: Array<{ startTime: string; price: number | string; volume?: number | string; dataProvider?: string }> | undefined,
 ) {
@@ -340,24 +329,6 @@ function selectMarketIndexRows(
   );
 }
 
-function aggregateHourlyPrices(rows: ReturnType<typeof selectMarketIndexRows>): number[] {
-  const buckets = new Map<string, number[]>();
-
-  for (const row of rows) {
-    const hour = new Date(row.startTime);
-    hour.setUTCMinutes(0, 0, 0);
-    const key = hour.toISOString();
-    if (!buckets.has(key)) {
-      buckets.set(key, []);
-    }
-    buckets.get(key)!.push(row.price);
-  }
-
-  return [...buckets.entries()]
-    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
-    .map(([, prices]) => round1(prices.reduce((sum, value) => sum + value, 0) / prices.length));
-}
-
 function aggregateHourlyPriceSeries(rows: ReturnType<typeof selectMarketIndexRows>) {
   const buckets = new Map<string, number[]>();
 
@@ -377,26 +348,6 @@ function aggregateHourlyPriceSeries(rows: ReturnType<typeof selectMarketIndexRow
   return {
     timestampsUtc: ordered.map(([timestamp]) => timestamp),
     hourly: ordered.map(([, prices]) => round1(prices.reduce((sum, value) => sum + value, 0) / prices.length)),
-  };
-}
-
-function extractGbMarketIndexPrice(
-  payload: { data?: Array<{ startTime: string; price: number | string; volume?: number | string; dataProvider?: string }> } | null | undefined,
-) {
-  const selected = selectMarketIndexRows(payload?.data);
-  if (selected.length === 0) {
-    return null;
-  }
-
-  const hourly = aggregateHourlyPrices(selected).slice(-24);
-  if (hourly.length === 0) {
-    return null;
-  }
-
-  return {
-    avg: round1(hourly.reduce((sum, value) => sum + value, 0) / hourly.length),
-    hourly,
-    provider: 'elexon' as const,
   };
 }
 
@@ -444,7 +395,9 @@ function mergePricesWithFallback(live: CountryPrice[], baseline: CountryPrice[])
   return result;
 }
 
-async function fetchZonePrice(zone: string): Promise<{ avg: number; hourly: number[] } | null> {
+async function fetchZonePrice(
+  zone: string,
+): Promise<{ avg: number; hourly: number[]; timestampsUtc: string[] } | null> {
   const now = new Date();
   const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const dayEnd = new Date(dayStart);
@@ -471,8 +424,9 @@ async function fetchZonePrice(zone: string): Promise<{ avg: number; hourly: numb
     }
 
     const hourly = series.hourly.slice(-24);
+    const timestampsUtc = series.timestampsUtc.slice(-24);
     const avg = round1(hourly.reduce((sum, value) => sum + value, 0) / hourly.length);
-    return { avg, hourly };
+    return { avg, hourly, timestampsUtc };
   } catch {
     return null;
   }
@@ -546,20 +500,21 @@ async function fetchZonePriceSeries(
   }
 }
 
-function aggregateZonePrices(results: Array<{ avg: number; hourly: number[] } | null>) {
-  const valid = results.filter((entry): entry is { avg: number; hourly: number[] } => Boolean(entry));
-  if (valid.length === 0) {
-    return null;
-  }
-
-  const hourly = meanHourly(valid.map((entry) => entry.hourly)).filter((value) => Number.isFinite(value));
-  if (hourly.length === 0) {
+function aggregateZonePrices(
+  results: Array<{ avg: number; hourly: number[]; timestampsUtc: string[] } | null>,
+) {
+  const valid = results.filter(
+    (entry): entry is { avg: number; hourly: number[]; timestampsUtc: string[] } => Boolean(entry),
+  );
+  const aggregated = aggregateZonePriceSeries(valid);
+  if (!aggregated) {
     return null;
   }
 
   return {
-    avg: round1(hourly.reduce((sum, value) => sum + value, 0) / hourly.length),
-    hourly,
+    avg: round1(aggregated.hourly.reduce((sum, value) => sum + value, 0) / aggregated.hourly.length),
+    hourly: aggregated.hourly,
+    timestampsUtc: aggregated.timestampsUtc,
   };
 }
 
@@ -812,7 +767,7 @@ async function fetchGbMarketIndexPrice(): Promise<CountryPrice | null> {
       return null;
     }
     const payload = await response.json();
-    const priceData = extractGbMarketIndexPrice(payload);
+    const priceData = extractGbMarketIndexSeries(payload);
     if (!priceData) {
       return null;
     }
@@ -821,6 +776,7 @@ async function fetchGbMarketIndexPrice(): Promise<CountryPrice | null> {
       iso2: 'GB',
       price: priceData.avg,
       hourly: priceData.hourly,
+      hourlyTimestampsUtc: priceData.timestampsUtc,
       source: 'live',
       provider: priceData.provider,
     };
@@ -841,6 +797,7 @@ async function fetchCountryPrice(entry: CountryPrice, cache: Map<string, Country
       iso2: entry.iso2,
       price: aliased.price,
       hourly: aliased.hourly,
+      hourlyTimestampsUtc: aliased.hourlyTimestampsUtc,
       source: 'live',
       provider: aliased.provider,
     };
@@ -868,6 +825,7 @@ async function fetchCountryPrice(entry: CountryPrice, cache: Map<string, Country
       ...entry,
       price: priceData.avg,
       hourly: priceData.hourly,
+      hourlyTimestampsUtc: priceData.timestampsUtc,
       source: 'live',
       provider: 'entsoe',
     };
@@ -901,10 +859,15 @@ export async function getLivePricesResponse(requestUrl: string): Promise<LiveDat
 
   const updated = mergePricesWithFallback(live, bootstrap.data);
   const liveCount = updated.filter((entry) => entry.source === 'live').length;
+  const liveInterval = intervalFromTimestamps(updated.flatMap((entry) => entry.hourlyTimestampsUtc ?? []));
   const priceWindow = updated.find((entry) => entry.hourly?.length)?.hourly?.length ?? 24;
   const now = new Date();
-  const intervalStart = toHourStartIso(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
-  const intervalEnd = addHours(new Date(intervalStart), Math.max(priceWindow - 1, 0)).toISOString();
+  const fallbackIntervalStart = toHourStartIso(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())));
+  const intervalStart = liveInterval.intervalStart ?? fallbackIntervalStart;
+  const intervalEnd = liveInterval.intervalEnd ?? addHours(
+    new Date(fallbackIntervalStart),
+    Math.max(priceWindow - 1, 0),
+  ).toISOString();
 
   return datasetEnvelope(
     'prices',
@@ -1006,7 +969,7 @@ export async function getLiveFlowsResponse(requestUrl: string): Promise<LiveData
 
 function extractTimeSeriesQuantities(xml: string, psrTypes: string[]) {
   const blocks = xml.split(/<TimeSeries>/g).slice(1);
-  const hourlyBuckets = new Map<number, number[]>();
+  const pointBuckets = new Map<string, number>();
 
   for (const block of blocks) {
     const psrMatch = block.match(/<psrType>([^<]+)<\/psrType>/);
@@ -1025,34 +988,62 @@ function extractTimeSeriesQuantities(xml: string, psrTypes: string[]) {
       const startTime = new Date(startMatch[1]);
       const resolution = resMatch ? resMatch[1] : 'PT1H';
       const stepMs = resolution === 'PT15M' ? 15 * 60 * 1000 : 60 * 60 * 1000;
-      const points = [...period.matchAll(/<Point>[\s\S]*?<position>(\d+)<\/position>[\s\S]*?<quantity>([\d.]+)<\/quantity>[\s\S]*?<\/Point>/g)];
+      const points = [...period.matchAll(/<Point>[\s\S]*?<position>(\d+)<\/position>[\s\S]*?<quantity>([\d.-]+)<\/quantity>[\s\S]*?<\/Point>/g)];
 
       for (const [, posStr, qtyStr] of points) {
         const pos = Number(posStr);
         const qty = Number(qtyStr);
-        const pointTime = new Date(startTime.getTime() + (pos - 1) * stepMs);
-        const hourKey = pointTime.getUTCHours();
-
-        if (!hourlyBuckets.has(hourKey)) {
-          hourlyBuckets.set(hourKey, []);
+        if (!Number.isFinite(pos) || !Number.isFinite(qty)) {
+          continue;
         }
-        hourlyBuckets.get(hourKey)!.push(qty);
+        const pointTime = new Date(startTime.getTime() + (pos - 1) * stepMs);
+        const key = pointTime.toISOString();
+        pointBuckets.set(key, (pointBuckets.get(key) ?? 0) + qty);
       }
     }
   }
 
-  const hourly: number[] = [];
-  for (let h = 0; h < 24; h++) {
-    const vals = hourlyBuckets.get(h);
-    if (vals && vals.length > 0) {
-      hourly.push(vals.reduce((a, b) => a + b, 0) / (vals.length / psrTypes.length || 1));
+  const hourlyBuckets = new Map<string, number[]>();
+  for (const [timestamp, totalQty] of pointBuckets) {
+    const hourKey = toHourStartIso(new Date(timestamp));
+    if (!hourlyBuckets.has(hourKey)) {
+      hourlyBuckets.set(hourKey, []);
     }
+    hourlyBuckets.get(hourKey)!.push(totalQty);
   }
+
+  const ordered = [...hourlyBuckets.entries()]
+    .sort((left, right) => Date.parse(left[0]) - Date.parse(right[0]));
+
+  const timestampsUtc = ordered.map(([timestamp]) => timestamp);
+  const hourly = ordered.map(([, values]) => round1(values.reduce((sum, value) => sum + value, 0) / values.length));
 
   return {
     totalMW: hourly.length > 0 ? hourly.reduce((a, b) => a + b, 0) / hourly.length : 0,
     hourly,
+    timestampsUtc,
   };
+}
+
+function mergeForecastsWithFallback(
+  live: CountryForecast[],
+  baseline: CountryForecast[],
+) {
+  const liveByIso2 = new Map(live.map((entry) => [entry.iso2, entry]));
+  const merged: CountryForecast[] = [];
+
+  for (const entry of baseline) {
+    merged.push(liveByIso2.get(entry.iso2) ?? entry);
+  }
+
+  const baselineIso2s = new Set(baseline.map((entry) => entry.iso2));
+  for (const liveEntry of live) {
+    if (!baselineIso2s.has(liveEntry.iso2)) {
+      merged.push(liveEntry);
+    }
+  }
+
+  return merged;
 }
 
 function computeForecastMetrics(forecastHourly: number[], actualHourly: number[]) {
@@ -1154,6 +1145,9 @@ async function fetchCountryForecast(iso2: string): Promise<CountryForecast | nul
       actualMW: Math.round(windActual.totalMW),
       forecastHourly: windForecast.hourly.map((value) => Math.round(value)),
       actualHourly: windActual.hourly.map((value) => Math.round(value)),
+      timestampsUtc: windForecast.timestampsUtc.length >= windActual.timestampsUtc.length
+        ? windForecast.timestampsUtc
+        : windActual.timestampsUtc,
       ...computeForecastMetrics(windForecast.hourly, windActual.hourly),
     },
     solar: {
@@ -1161,6 +1155,9 @@ async function fetchCountryForecast(iso2: string): Promise<CountryForecast | nul
       actualMW: Math.round(solarActual.totalMW),
       forecastHourly: solarForecast.hourly.map((value) => Math.round(value)),
       actualHourly: solarActual.hourly.map((value) => Math.round(value)),
+      timestampsUtc: solarForecast.timestampsUtc.length >= solarActual.timestampsUtc.length
+        ? solarForecast.timestampsUtc
+        : solarActual.timestampsUtc,
       ...computeForecastMetrics(solarForecast.hourly, solarActual.hourly),
     },
   };
@@ -1174,18 +1171,24 @@ export async function getLiveForecastsResponse(requestUrl: string): Promise<Live
     .sort((a, b) => (Math.abs(b.wind.bias) + Math.abs(b.solar.bias)) - (Math.abs(a.wind.bias) + Math.abs(a.solar.bias)));
 
   const hasLive = live.length > 0;
-  const forecastWindow = (hasLive ? live : bootstrap.data)[0]?.wind.forecastHourly.length ?? 24;
-  const forecastStart = toHourStartIso(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())));
+  const merged = mergeForecastsWithFallback(live, bootstrap.data);
+  const forecastInterval = intervalFromTimestamps(
+    merged.flatMap((entry) => entry.wind.timestampsUtc ?? entry.solar.timestampsUtc ?? []),
+  );
+  const forecastWindow = merged[0]?.wind.forecastHourly.length ?? bootstrap.data[0]?.wind.forecastHourly.length ?? 24;
+  const forecastStart = forecastInterval.intervalStart
+    ?? toHourStartIso(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())));
   return datasetEnvelope(
     'forecasts',
-    hasLive ? live : bootstrap.data,
+    hasLive ? merged : bootstrap.data,
     hasLive ? 'live' : 'fallback',
     hasLive ? new Date().toISOString() : bootstrap.lastUpdated,
-    !hasLive,
+    !hasLive || live.length !== merged.length,
     {
       provider: hasLive ? 'entsoe' : 'bootstrap',
       intervalStart: forecastStart,
-      intervalEnd: addHours(new Date(forecastStart), Math.max(forecastWindow - 1, 0)).toISOString(),
+      intervalEnd: forecastInterval.intervalEnd
+        ?? addHours(new Date(forecastStart), Math.max(forecastWindow - 1, 0)).toISOString(),
       error: hasLive ? null : 'Live forecast refresh unavailable; serving bootstrap data.',
     },
   );
