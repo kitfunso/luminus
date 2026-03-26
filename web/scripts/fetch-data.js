@@ -172,6 +172,16 @@ async function fetchWithTimeout(url, ms = REQUEST_TIMEOUT_MS) {
   }
 }
 
+async function fetchJsonWithTimeout(url, ms = REQUEST_TIMEOUT_MS) {
+  try {
+    const res = await fetchWithTimeout(url, ms);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 /** Run async tasks with limited concurrency */
 async function mapConcurrent(items, fn, limit = CONCURRENCY) {
   const results = [];
@@ -565,6 +575,136 @@ async function fetchAllOutages() {
 
 const FORECAST_COUNTRIES = Object.keys(COUNTRY_NAMES);
 
+function aggregateTimedGenerationRows(rows = []) {
+  const buckets = new Map();
+
+  for (const row of rows) {
+    if (!row || !row.startTime) continue;
+    const pointTime = new Date(row.startTime);
+    const generation = Number(row.generation);
+    if (Number.isNaN(pointTime.getTime()) || !Number.isFinite(generation)) continue;
+
+    pointTime.setUTCMinutes(0, 0, 0);
+    const key = pointTime.toISOString();
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(generation);
+  }
+
+  const ordered = [...buckets.entries()]
+    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
+
+  return {
+    timestampsUtc: ordered.map(([timestamp]) => timestamp),
+    hourly: ordered.map(([, values]) => values.reduce((sum, value) => sum + value, 0) / values.length),
+  };
+}
+
+function extractGbWindForecastSeries(payload) {
+  const rows = payload?.data ?? [];
+  const latestPublishTime = rows
+    .map((row) => row.publishTime)
+    .filter((value) => !Number.isNaN(Date.parse(value)))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+  if (!latestPublishTime) return null;
+
+  const latestRows = rows.filter((row) => row.publishTime === latestPublishTime);
+  const series = aggregateTimedGenerationRows(latestRows);
+  return series.hourly.length > 0 ? series : null;
+}
+
+function extractGbFuelActualSeries(payload, fuelType) {
+  const rows = (payload?.data ?? []).filter((row) => row.fuelType === fuelType);
+  const series = aggregateTimedGenerationRows(rows);
+  return series.hourly.length > 0 ? series : null;
+}
+
+function alignSeriesByTimestamp(forecastSeries, actualSeries) {
+  if (!forecastSeries && !actualSeries) {
+    return { timestampsUtc: [], forecastHourly: [], actualHourly: [] };
+  }
+
+  if (!forecastSeries) {
+    return {
+      timestampsUtc: actualSeries?.timestampsUtc ?? [],
+      forecastHourly: [],
+      actualHourly: actualSeries?.hourly ?? [],
+    };
+  }
+
+  if (!actualSeries) {
+    return {
+      timestampsUtc: forecastSeries.timestampsUtc,
+      forecastHourly: forecastSeries.hourly,
+      actualHourly: [],
+    };
+  }
+
+  const actualByTimestamp = new Map(
+    actualSeries.timestampsUtc.map((timestamp, index) => [timestamp, actualSeries.hourly[index]])
+  );
+  const sharedTimestamps = forecastSeries.timestampsUtc.filter((timestamp) => actualByTimestamp.has(timestamp));
+
+  if (sharedTimestamps.length === 0) {
+    return {
+      timestampsUtc: forecastSeries.timestampsUtc,
+      forecastHourly: forecastSeries.hourly,
+      actualHourly: [],
+    };
+  }
+
+  return {
+    timestampsUtc: sharedTimestamps,
+    forecastHourly: sharedTimestamps.map(
+      (timestamp) => forecastSeries.hourly[forecastSeries.timestampsUtc.indexOf(timestamp)]
+    ),
+    actualHourly: sharedTimestamps.map((timestamp) => actualByTimestamp.get(timestamp) ?? 0),
+  };
+}
+
+async function fetchGbCountryForecast() {
+  const [windForecastPayload, fuelPayload] = await Promise.all([
+    fetchJsonWithTimeout(`${BMRS_API}/datasets/WINDFOR?format=json`),
+    fetchJsonWithTimeout(`${BMRS_API}/datasets/FUELHH?format=json`),
+  ]);
+
+  const windSeries = alignSeriesByTimestamp(
+    extractGbWindForecastSeries(windForecastPayload),
+    extractGbFuelActualSeries(fuelPayload, 'WIND')
+  );
+  const solarActual = extractGbFuelActualSeries(fuelPayload, 'SOLAR');
+
+  if (windSeries.forecastHourly.length === 0 && windSeries.actualHourly.length === 0 && !solarActual) {
+    return null;
+  }
+
+  return {
+    country: COUNTRY_NAMES.GB,
+    iso2: 'GB',
+    wind: {
+      forecastMW: Math.round(windSeries.forecastHourly.length
+        ? windSeries.forecastHourly.reduce((sum, value) => sum + value, 0) / windSeries.forecastHourly.length
+        : 0),
+      actualMW: Math.round(windSeries.actualHourly.length
+        ? windSeries.actualHourly.reduce((sum, value) => sum + value, 0) / windSeries.actualHourly.length
+        : 0),
+      forecastHourly: windSeries.forecastHourly.map((value) => Math.round(value)),
+      actualHourly: windSeries.actualHourly.map((value) => Math.round(value)),
+      timestampsUtc: windSeries.timestampsUtc,
+      ...computeForecastMetrics(windSeries.forecastHourly, windSeries.actualHourly),
+    },
+    solar: {
+      forecastMW: 0,
+      actualMW: Math.round(solarActual?.hourly.length
+        ? solarActual.hourly.reduce((sum, value) => sum + value, 0) / solarActual.hourly.length
+        : 0),
+      forecastHourly: [],
+      actualHourly: solarActual?.hourly.map((value) => Math.round(value)) ?? [],
+      timestampsUtc: solarActual?.timestampsUtc ?? [],
+      ...computeForecastMetrics([], solarActual?.hourly ?? []),
+    },
+  };
+}
+
 async function fetchForecastXml(iso2, docType, processType) {
   const eic = ISO2_TO_EIC[iso2];
   if (!eic) return null;
@@ -620,6 +760,10 @@ async function fetchActualGenXml(iso2) {
 }
 
 async function fetchCountryForecast(iso2) {
+  if (iso2 === 'GB') {
+    return fetchGbCountryForecast();
+  }
+
   const [forecastXml, actualXml] = await Promise.all([
     fetchForecastXml(iso2, 'A69', 'A01'),
     fetchActualGenXml(iso2),

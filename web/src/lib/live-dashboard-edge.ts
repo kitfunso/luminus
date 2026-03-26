@@ -197,6 +197,18 @@ async function fetchWithTimeout(url: string, ms = REQUEST_TIMEOUT_MS) {
   }
 }
 
+async function fetchJsonWithTimeout<T>(url: string, ms = REQUEST_TIMEOUT_MS): Promise<T | null> {
+  try {
+    const response = await fetchWithTimeout(url, ms);
+    if (!response.ok) {
+      return null;
+    }
+    return await response.json() as T;
+  } catch {
+    return null;
+  }
+}
+
 async function mapConcurrent<T, R>(
   items: T[],
   fn: (item: T) => Promise<R>,
@@ -576,6 +588,159 @@ async function fetchGbMarketIndexSeriesData(
   } catch {
     return null;
   }
+}
+
+function aggregateTimedGenerationRows(
+  rows: Array<{ startTime: string; generation: number | string }> | undefined,
+) {
+  const buckets = new Map<string, number[]>();
+
+  for (const row of rows ?? []) {
+    if (!row?.startTime) {
+      continue;
+    }
+    const timestamp = new Date(row.startTime);
+    const generation = Number(row.generation);
+    if (Number.isNaN(timestamp.getTime()) || !Number.isFinite(generation)) {
+      continue;
+    }
+    const hourKey = toHourStartIso(timestamp);
+    if (!buckets.has(hourKey)) {
+      buckets.set(hourKey, []);
+    }
+    buckets.get(hourKey)!.push(generation);
+  }
+
+  const ordered = [...buckets.entries()]
+    .sort((left, right) => Date.parse(left[0]) - Date.parse(right[0]));
+
+  return {
+    timestampsUtc: ordered.map(([timestamp]) => timestamp),
+    hourly: ordered.map(([, values]) => round1(values.reduce((sum, value) => sum + value, 0) / values.length)),
+  };
+}
+
+function extractGbWindForecastSeries(
+  payload: { data?: Array<{ publishTime: string; startTime: string; generation: number | string }> } | null,
+) {
+  const rows = payload?.data ?? [];
+  const publishTimes = rows
+    .map((row) => row.publishTime)
+    .filter((value) => !Number.isNaN(Date.parse(value)));
+  const latestPublishTime = publishTimes.sort((left, right) => Date.parse(right) - Date.parse(left))[0];
+  if (!latestPublishTime) {
+    return null;
+  }
+  const latestRows = rows.filter((row) => row.publishTime === latestPublishTime);
+  const series = aggregateTimedGenerationRows(latestRows);
+  return series.hourly.length > 0 ? series : null;
+}
+
+function extractGbFuelActualSeries(
+  payload: { data?: Array<{ fuelType: string; startTime: string; generation: number | string }> } | null,
+  fuelType: string,
+) {
+  const rows = (payload?.data ?? []).filter((row) => row.fuelType === fuelType);
+  const series = aggregateTimedGenerationRows(rows);
+  return series.hourly.length > 0 ? series : null;
+}
+
+function alignSeriesByTimestamp(
+  forecastSeries: { timestampsUtc: string[]; hourly: number[] } | null,
+  actualSeries: { timestampsUtc: string[]; hourly: number[] } | null,
+) {
+  if (!forecastSeries && !actualSeries) {
+    return {
+      timestampsUtc: [] as string[],
+      forecastHourly: [] as number[],
+      actualHourly: [] as number[],
+    };
+  }
+
+  if (!forecastSeries) {
+    return {
+      timestampsUtc: actualSeries?.timestampsUtc ?? [],
+      forecastHourly: [],
+      actualHourly: actualSeries?.hourly ?? [],
+    };
+  }
+
+  if (!actualSeries) {
+    return {
+      timestampsUtc: forecastSeries.timestampsUtc,
+      forecastHourly: forecastSeries.hourly,
+      actualHourly: [],
+    };
+  }
+
+  const actualByTimestamp = new Map(
+    actualSeries.timestampsUtc.map((timestamp, index) => [timestamp, actualSeries.hourly[index]]),
+  );
+  const sharedTimestamps = forecastSeries.timestampsUtc.filter((timestamp) => actualByTimestamp.has(timestamp));
+
+  if (sharedTimestamps.length === 0) {
+    return {
+      timestampsUtc: forecastSeries.timestampsUtc,
+      forecastHourly: forecastSeries.hourly,
+      actualHourly: [],
+    };
+  }
+
+  return {
+    timestampsUtc: sharedTimestamps,
+    forecastHourly: sharedTimestamps.map(
+      (timestamp) => forecastSeries.hourly[forecastSeries.timestampsUtc.indexOf(timestamp)],
+    ),
+    actualHourly: sharedTimestamps.map((timestamp) => actualByTimestamp.get(timestamp) ?? 0),
+  };
+}
+
+async function fetchGbCountryForecast(): Promise<CountryForecast | null> {
+  const [windForecastPayload, fuelPayload] = await Promise.all([
+    fetchJsonWithTimeout<{ data?: Array<{ publishTime: string; startTime: string; generation: number | string }> }>(
+      `${BMRS_API}/datasets/WINDFOR?format=json`,
+    ),
+    fetchJsonWithTimeout<{ data?: Array<{ fuelType: string; startTime: string; generation: number | string }> }>(
+      `${BMRS_API}/datasets/FUELHH?format=json`,
+    ),
+  ]);
+
+  const windSeries = alignSeriesByTimestamp(
+    extractGbWindForecastSeries(windForecastPayload),
+    extractGbFuelActualSeries(fuelPayload, 'WIND'),
+  );
+  const solarActual = extractGbFuelActualSeries(fuelPayload, 'SOLAR');
+
+  if (windSeries.forecastHourly.length === 0 && windSeries.actualHourly.length === 0 && !solarActual) {
+    return null;
+  }
+
+  return {
+    country: COUNTRY_NAMES.GB,
+    iso2: 'GB',
+    wind: {
+      forecastMW: Math.round(windSeries.forecastHourly.length
+        ? windSeries.forecastHourly.reduce((sum, value) => sum + value, 0) / windSeries.forecastHourly.length
+        : 0),
+      actualMW: Math.round(windSeries.actualHourly.length
+        ? windSeries.actualHourly.reduce((sum, value) => sum + value, 0) / windSeries.actualHourly.length
+        : 0),
+      forecastHourly: windSeries.forecastHourly.map((value) => Math.round(value)),
+      actualHourly: windSeries.actualHourly.map((value) => Math.round(value)),
+      timestampsUtc: windSeries.timestampsUtc,
+      ...computeForecastMetrics(windSeries.forecastHourly, windSeries.actualHourly),
+    },
+    solar: {
+      forecastMW: 0,
+      actualMW: Math.round(solarActual?.hourly.length
+        ? solarActual.hourly.reduce((sum, value) => sum + value, 0) / solarActual.hourly.length
+        : 0),
+      forecastHourly: [],
+      actualHourly: solarActual?.hourly.map((value) => Math.round(value)) ?? [],
+      timestampsUtc: solarActual?.timestampsUtc ?? [],
+      ...computeForecastMetrics([], solarActual?.hourly ?? []),
+    },
+  };
 }
 
 type HistorySeriesResult = {
@@ -1119,6 +1284,10 @@ async function fetchEntsoeXml(iso2: string, documentType: string, processType: s
 }
 
 async function fetchCountryForecast(iso2: string): Promise<CountryForecast | null> {
+  if (iso2 === 'GB') {
+    return fetchGbCountryForecast();
+  }
+
   const [forecastXml, actualXml] = await Promise.all([
     fetchEntsoeXml(iso2, 'A69', 'A01'),
     fetchEntsoeXml(iso2, 'A75', 'A16'),
