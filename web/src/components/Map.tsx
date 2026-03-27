@@ -19,6 +19,7 @@ import MapLegend from './MapLegend';
 import Onboarding from './Onboarding';
 import MobileActionBar from './MobileActionBar';
 import MarketIntelligenceRail from './MarketIntelligenceRail';
+import TimeframeSelector from './TimeframeSelector';
 
 import { useMapStore } from '@/lib/store';
 import type { LayerKey, ViewState } from '@/lib/store';
@@ -126,6 +127,8 @@ export default function EnergyMap() {
   const setSidebarCollapsed = useMapStore((s) => s.setSidebarCollapsed);
   const setSidebarTab = useMapStore((s) => s.setSidebarTab);
   const setIntelligenceView = useMapStore((s) => s.setIntelligenceView);
+  const timeframe = useMapStore((s) => s.timeframe);
+  const setTimeframe = useMapStore((s) => s.setTimeframe);
 
   // --- Local state ---
   const [geoJson, setGeoJson] = useState<unknown>(null);
@@ -206,7 +209,7 @@ export default function EnergyMap() {
   }, []);
 
   // Data loading
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceFresh = false) => {
     const currentLive = liveDatasetsRef.current;
     const hasExistingData = currentLive.prices.data.length > 0 || currentLive.flows.data.length > 0;
     setLoading(!hasExistingData);
@@ -220,12 +223,12 @@ export default function EnergyMap() {
     const [plantsData, pricesData, flowsData, linesData, outagesData, forecastsData, historyData] =
       await Promise.all([
         fetchPowerPlants(),
-        fetchDayAheadPricesDataset(currentLive.prices),
-        fetchCrossBorderFlowsDataset(currentLive.flows),
+        fetchDayAheadPricesDataset(currentLive.prices, forceFresh),
+        fetchCrossBorderFlowsDataset(currentLive.flows, forceFresh),
         fetchTransmissionLines(),
-        fetchOutagesDataset(currentLive.outages),
-        fetchForecastsDataset(currentLive.forecasts),
-        fetchHistoryDataset(currentLive.history),
+        fetchOutagesDataset(currentLive.outages, forceFresh),
+        fetchForecastsDataset(currentLive.forecasts, forceFresh),
+        fetchHistoryDataset(currentLive.history, forceFresh),
       ]);
     const nextLive = {
       prices: pricesData,
@@ -674,7 +677,7 @@ export default function EnergyMap() {
   }, [allCountryCodes]);
 
   const handleRefreshNow = useCallback(() => {
-    void loadData();
+    void loadData(true);
   }, [loadData]);
 
   const handleExpandSeries = useCallback((config: ExpandedSeriesConfig) => {
@@ -808,6 +811,11 @@ export default function EnergyMap() {
 
       <Tooltip data={tooltip} />
 
+      {/* Timeframe selector – top center */}
+      <div className="pointer-events-none absolute left-1/2 top-4 z-[15] -translate-x-1/2">
+        <TimeframeSelector value={timeframe} onChange={setTimeframe} />
+      </div>
+
       {isLoading && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[#0a0e17]/70 backdrop-blur-sm">
           <div className="text-center">
@@ -817,22 +825,24 @@ export default function EnergyMap() {
         </div>
       )}
 
-      {/* Compare mode toggle */}
-      <button
-        onClick={handleToggleCompareMode}
-        data-tour-id="compare-button"
-        className={`compare-mode-toggle hidden md:flex absolute px-3 py-1.5 rounded-full text-xs font-medium transition-all backdrop-blur-xl ${
-          compareMode ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-black/60 text-slate-400 border border-white/[0.06] hover:text-white hover:border-white/10'
-        }`}
-        style={{ zIndex: 15 }}
-      >
-        <span className="flex items-center gap-1.5">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="18" rx="1" /><rect x="14" y="3" width="7" height="18" rx="1" />
-          </svg>
-          {compareMode ? 'Exit Compare' : 'Compare'}
-        </span>
-      </button>
+      {/* Bottom-left stack: compare button above legend */}
+      <div className="bottom-left-stack hidden md:flex absolute flex-col-reverse items-start gap-2" style={{ zIndex: 15, bottom: 'calc(1rem + env(safe-area-inset-bottom))', left: 'calc(1rem + env(safe-area-inset-left))' }}>
+        <MapLegend embedded />
+        <button
+          onClick={handleToggleCompareMode}
+          data-tour-id="compare-button"
+          className={`flex px-3 py-1.5 rounded-full text-xs font-medium transition-all backdrop-blur-xl ${
+            compareMode ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-black/60 text-slate-400 border border-white/[0.06] hover:text-white hover:border-white/10'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="18" rx="1" /><rect x="14" y="3" width="7" height="18" rx="1" />
+            </svg>
+            {compareMode ? 'Exit Compare' : 'Compare'}
+          </span>
+        </button>
+      </div>
 
       {compareCountries.length > 0 ? (
         <ComparePanel
@@ -938,7 +948,10 @@ export default function EnergyMap() {
         onPresetSaved={() => setPresetsVersion((v) => v + 1)} presetsVersion={presetsVersion}
       />
 
-      <MapLegend />
+      {/* MapLegend for mobile (desktop version is in bottom-left-stack above) */}
+      <div className="md:hidden">
+        <MapLegend />
+      </div>
       <Onboarding onStepFocus={focusTutorialStep} />
     </div>
   );

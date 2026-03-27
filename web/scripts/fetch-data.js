@@ -25,6 +25,56 @@ const MIN_CAPACITY_MW = 50;
 const REQUEST_TIMEOUT_MS = 20_000;
 const CONCURRENCY = 4;
 
+// --- Geometry simplification (Douglas-Peucker) ---
+
+function perpendicularDistance(point, lineStart, lineEnd) {
+  const dx = lineEnd[0] - lineStart[0];
+  const dy = lineEnd[1] - lineStart[1];
+  const mag = Math.sqrt(dx * dx + dy * dy);
+  if (mag === 0) return Math.sqrt((point[0] - lineStart[0]) ** 2 + (point[1] - lineStart[1]) ** 2);
+  const u = ((point[0] - lineStart[0]) * dx + (point[1] - lineStart[1]) * dy) / (mag * mag);
+  const closestX = lineStart[0] + u * dx;
+  const closestY = lineStart[1] + u * dy;
+  return Math.sqrt((point[0] - closestX) ** 2 + (point[1] - closestY) ** 2);
+}
+
+function douglasPeucker(coords, tolerance) {
+  if (coords.length <= 2) return coords;
+  let maxDist = 0;
+  let maxIdx = 0;
+  for (let i = 1; i < coords.length - 1; i++) {
+    const d = perpendicularDistance(coords[i], coords[0], coords[coords.length - 1]);
+    if (d > maxDist) { maxDist = d; maxIdx = i; }
+  }
+  if (maxDist > tolerance) {
+    const left = douglasPeucker(coords.slice(0, maxIdx + 1), tolerance);
+    const right = douglasPeucker(coords.slice(maxIdx), tolerance);
+    return [...left.slice(0, -1), ...right];
+  }
+  return [coords[0], coords[coords.length - 1]];
+}
+
+function simplifyRing(ring, tolerance) {
+  const simplified = douglasPeucker(ring, tolerance);
+  return simplified.length >= 4 ? simplified : ring;
+}
+
+function simplifyGeometry(geometry, tolerance) {
+  if (!geometry) return geometry;
+  if (geometry.type === 'Polygon') {
+    return { ...geometry, coordinates: geometry.coordinates.map((ring) => simplifyRing(ring, tolerance)) };
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return {
+      ...geometry,
+      coordinates: geometry.coordinates.map((polygon) =>
+        polygon.map((ring) => simplifyRing(ring, tolerance))
+      ),
+    };
+  }
+  return geometry;
+}
+
 // --- Country mappings ---
 
 const ISO3_TO_ISO2 = {
@@ -159,6 +209,16 @@ function formatEntsoeDate(d) {
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');
   const day = String(d.getUTCDate()).padStart(2, '0');
   return `${y}${m}${day}0000`;
+}
+
+function toHourStartIso(date) {
+  const next = new Date(date);
+  next.setUTCMinutes(0, 0, 0);
+  return next.toISOString();
+}
+
+function addHours(date, hours) {
+  return new Date(date.getTime() + hours * 60 * 60 * 1000);
 }
 
 async function fetchWithTimeout(url, ms = REQUEST_TIMEOUT_MS) {
@@ -661,47 +721,44 @@ function alignSeriesByTimestamp(forecastSeries, actualSeries) {
   };
 }
 
+function averageRounded(values) {
+  if (!values || values.length === 0) return 0;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function buildForecastSource(forecastSeries, actualSeries) {
+  const aligned = alignSeriesByTimestamp(forecastSeries, actualSeries);
+  return {
+    forecastMW: averageRounded(forecastSeries?.hourly ?? []),
+    actualMW: aligned.actualHourly.length > 0 || !forecastSeries
+      ? averageRounded(actualSeries?.hourly ?? [])
+      : 0,
+    forecastHourly: aligned.forecastHourly.map((value) => Math.round(value)),
+    actualHourly: aligned.actualHourly.map((value) => Math.round(value)),
+    timestampsUtc: aligned.timestampsUtc,
+    ...computeForecastMetrics(aligned.forecastHourly, aligned.actualHourly),
+  };
+}
+
 async function fetchGbCountryForecast() {
   const [windForecastPayload, fuelPayload] = await Promise.all([
     fetchJsonWithTimeout(`${BMRS_API}/datasets/WINDFOR?format=json`),
     fetchJsonWithTimeout(`${BMRS_API}/datasets/FUELHH?format=json`),
   ]);
 
-  const windSeries = alignSeriesByTimestamp(
-    extractGbWindForecastSeries(windForecastPayload),
-    extractGbFuelActualSeries(fuelPayload, 'WIND')
-  );
+  const windForecast = extractGbWindForecastSeries(windForecastPayload);
+  const windActual = extractGbFuelActualSeries(fuelPayload, 'WIND');
   const solarActual = extractGbFuelActualSeries(fuelPayload, 'SOLAR');
 
-  if (windSeries.forecastHourly.length === 0 && windSeries.actualHourly.length === 0 && !solarActual) {
+  if (!windForecast && !windActual && !solarActual) {
     return null;
   }
 
   return {
     country: COUNTRY_NAMES.GB,
     iso2: 'GB',
-    wind: {
-      forecastMW: Math.round(windSeries.forecastHourly.length
-        ? windSeries.forecastHourly.reduce((sum, value) => sum + value, 0) / windSeries.forecastHourly.length
-        : 0),
-      actualMW: Math.round(windSeries.actualHourly.length
-        ? windSeries.actualHourly.reduce((sum, value) => sum + value, 0) / windSeries.actualHourly.length
-        : 0),
-      forecastHourly: windSeries.forecastHourly.map((value) => Math.round(value)),
-      actualHourly: windSeries.actualHourly.map((value) => Math.round(value)),
-      timestampsUtc: windSeries.timestampsUtc,
-      ...computeForecastMetrics(windSeries.forecastHourly, windSeries.actualHourly),
-    },
-    solar: {
-      forecastMW: 0,
-      actualMW: Math.round(solarActual?.hourly.length
-        ? solarActual.hourly.reduce((sum, value) => sum + value, 0) / solarActual.hourly.length
-        : 0),
-      forecastHourly: [],
-      actualHourly: solarActual?.hourly.map((value) => Math.round(value)) ?? [],
-      timestampsUtc: solarActual?.timestampsUtc ?? [],
-      ...computeForecastMetrics([], solarActual?.hourly ?? []),
-    },
+    wind: buildForecastSource(windForecast, windActual),
+    solar: buildForecastSource(null, solarActual),
   };
 }
 
@@ -733,21 +790,25 @@ async function fetchForecastXml(iso2, docType, processType) {
 }
 
 async function fetchActualGenXml(iso2) {
-  const eic = ISO2_TO_EIC[iso2];
+  // A75 (actual generation per type) requires outBiddingZone_Domain, not in_Domain.
+  // Use bidding zone EIC from PRICE_ZONE_STRATEGIES when available (handles multi-zone
+  // countries like DE-LU, IT, SE, NO, DK correctly).
+  const strategy = PRICE_ZONE_STRATEGIES[iso2];
+  const resolvedIso = strategy?.aliasOf ? strategy.aliasOf : iso2;
+  const resolvedStrategy = PRICE_ZONE_STRATEGIES[resolvedIso];
+  const eic = resolvedStrategy?.zones?.[0] || ISO2_TO_EIC[iso2];
   if (!eic) return null;
 
-  const now = new Date();
-  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const dayEnd = new Date(dayStart);
-  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+  const periodEnd = addHours(new Date(toHourStartIso(new Date())), 1);
+  const periodStart = addHours(periodEnd, -48);
 
   const params = new URLSearchParams({
     securityToken: ENTSOE_KEY,
     documentType: 'A75',
     processType: 'A16',
-    in_Domain: eic,
-    periodStart: formatEntsoeDate(dayStart),
-    periodEnd: formatEntsoeDate(dayEnd),
+    outBiddingZone_Domain: eic,
+    periodStart: formatEntsoeDate(periodStart),
+    periodEnd: formatEntsoeDate(periodEnd),
   });
 
   try {
@@ -769,49 +830,63 @@ async function fetchCountryForecast(iso2) {
     fetchActualGenXml(iso2),
   ]);
 
-  if (!forecastXml || !actualXml) return null;
+  if (!forecastXml) return null;
 
   const windForecast = extractTimeSeriesQuantities(forecastXml, WIND_PSR);
   const solarForecast = extractTimeSeriesQuantities(forecastXml, SOLAR_PSR);
-  const windActual = extractTimeSeriesQuantities(actualXml, WIND_PSR);
-  const solarActual = extractTimeSeriesQuantities(actualXml, SOLAR_PSR);
-
-  const windMetrics = computeForecastMetrics(windForecast.hourly, windActual.hourly);
-  const solarMetrics = computeForecastMetrics(solarForecast.hourly, solarActual.hourly);
+  const windActual = actualXml ? extractTimeSeriesQuantities(actualXml, WIND_PSR) : null;
+  const solarActual = actualXml ? extractTimeSeriesQuantities(actualXml, SOLAR_PSR) : null;
 
   if (windForecast.hourly.length === 0 && solarForecast.hourly.length === 0) return null;
 
   return {
     country: COUNTRY_NAMES[iso2],
     iso2,
-    wind: {
-      forecastMW: Math.round(windForecast.totalMW),
-      actualMW: Math.round(windActual.totalMW),
-      forecastHourly: windForecast.hourly.map(v => Math.round(v)),
-      actualHourly: windActual.hourly.map(v => Math.round(v)),
-      timestampsUtc: windForecast.timestampsUtc.length >= windActual.timestampsUtc.length
-        ? windForecast.timestampsUtc
-        : windActual.timestampsUtc,
-      ...windMetrics,
-    },
-    solar: {
-      forecastMW: Math.round(solarForecast.totalMW),
-      actualMW: Math.round(solarActual.totalMW),
-      forecastHourly: solarForecast.hourly.map(v => Math.round(v)),
-      actualHourly: solarActual.hourly.map(v => Math.round(v)),
-      timestampsUtc: solarForecast.timestampsUtc.length >= solarActual.timestampsUtc.length
-        ? solarForecast.timestampsUtc
-        : solarActual.timestampsUtc,
-      ...solarMetrics,
-    },
+    wind: buildForecastSource(windForecast, windActual),
+    solar: buildForecastSource(solarForecast, solarActual),
   };
+}
+
+function buildEmptyForecastBaseline() {
+  return FORECAST_COUNTRIES.map((iso2) => ({
+    country: COUNTRY_NAMES[iso2],
+    iso2,
+    wind: buildForecastSource(null, null),
+    solar: buildForecastSource(null, null),
+  }));
+}
+
+function readForecastBaseline() {
+  const emptyBaseline = buildEmptyForecastBaseline();
+  const filePath = path.join(OUT_DIR, 'forecast-errors.json');
+  if (fs.existsSync(filePath)) {
+    try {
+      const previous = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      if (Array.isArray(previous) && previous.length > 0) {
+        return mergeForecastsWithFallback(previous, emptyBaseline);
+      }
+    } catch {
+      // Ignore unreadable prior bootstrap and fall back to the empty baseline.
+    }
+  }
+  return emptyBaseline;
+}
+
+function mergeForecastsWithFallback(live, baseline) {
+  const liveByIso2 = new Map(live.map((entry) => [entry.iso2, entry]));
+  return baseline.map((entry) => liveByIso2.get(entry.iso2) ?? entry);
 }
 
 async function fetchAllForecasts() {
   console.log('  Fetching ENTSO-E wind/solar forecast vs actual...');
+  const baseline = readForecastBaseline();
   const results = await mapConcurrent(FORECAST_COUNTRIES, fetchCountryForecast, 3);
-  const forecasts = results.filter(Boolean);
-  console.log(`  -> ${forecasts.length} countries with forecast data fetched`);
+  const live = results.filter(Boolean);
+  const forecasts = mergeForecastsWithFallback(live, baseline);
+  const fallbackCount = forecasts.filter((entry) =>
+    !live.some((liveEntry) => liveEntry.iso2 === entry.iso2)
+  ).length;
+  console.log(`  -> ${live.length} countries with forecast data fetched (${fallbackCount} fallback, total ${forecasts.length})`);
   return forecasts.length > 0 ? forecasts : null;
 }
 
@@ -909,7 +984,7 @@ async function fetchGeoJSON() {
             f.properties?.name ||
             '',
         },
-        geometry: f.geometry,
+        geometry: simplifyGeometry(f.geometry, 0.02),
       }));
 
     console.log(`  -> ${features.length} EU country boundaries`);

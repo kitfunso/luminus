@@ -7,6 +7,8 @@ import type { TyndpProject } from './tyndp';
 
 // --- Types ---
 
+export type Timeframe = 'live' | 'day-ahead' | 'trend';
+
 export type LayerKey =
   | 'plants' | 'prices' | 'flows' | 'lines' | 'tyndp'
   | 'genMix' | 'outages' | 'forecast' | 'history';
@@ -28,7 +30,7 @@ export interface ViewState {
 
 export type FocusMode = 'none' | 'prices' | 'flows' | 'plants';
 export type SidebarTab = 'overview' | 'layers' | 'filters';
-export type IntelligenceView = 'none' | 'brief' | 'outages' | 'forecast';
+export type IntelligenceView = 'none' | 'brief' | 'outages' | 'forecast' | 'spreads';
 
 interface DataSlice {
   plants: PowerPlant[];
@@ -56,6 +58,7 @@ interface MapState extends DataSlice {
   sidebarCollapsed: boolean;
   sidebarTab: SidebarTab;
   intelligenceView: IntelligenceView;
+  timeframe: Timeframe;
 
   // Actions
   setData: (partial: Partial<DataSlice>) => void;
@@ -78,6 +81,7 @@ interface MapState extends DataSlice {
   setSidebarCollapsed: (v: boolean) => void;
   setSidebarTab: (tab: SidebarTab) => void;
   setIntelligenceView: (view: IntelligenceView) => void;
+  setTimeframe: (tf: Timeframe) => void;
 }
 
 // --- Defaults ---
@@ -126,6 +130,7 @@ export const useMapStore = create<MapState>()((set) => ({
   sidebarCollapsed: false,
   sidebarTab: 'overview',
   intelligenceView: 'brief',
+  timeframe: 'day-ahead',
 
   // --- Actions ---
   setData: (partial) => set((s) => ({ ...s, ...partial })),
@@ -169,7 +174,7 @@ export const useMapStore = create<MapState>()((set) => ({
     set((s) => {
       const idx = s.compareCountries.indexOf(code);
       if (idx >= 0) return { compareCountries: s.compareCountries.filter((c) => c !== code) };
-      if (s.compareCountries.length >= 4) return s;
+      if (s.compareCountries.length >= 3) return s;
       return { compareCountries: [...s.compareCountries, code] };
     }),
   clearCompare: () => set({ compareCountries: [] }),
@@ -178,4 +183,5 @@ export const useMapStore = create<MapState>()((set) => ({
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
   setSidebarTab: (sidebarTab) => set({ sidebarTab }),
   setIntelligenceView: (intelligenceView) => set({ intelligenceView }),
+  setTimeframe: (timeframe) => set({ timeframe }),
 }));

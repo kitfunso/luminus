@@ -11,7 +11,9 @@ export type AlertCondition =
   | 'outage_start'
   | 'outage_end'
   | 'congestion_above' // utilisation %
-  | 'forecast_miss';   // MAPE %
+  | 'forecast_miss'    // MAPE %
+  | 'spread_above'     // EUR/MWh spread between two zones (target: "FROM-TO")
+  | 'spread_below';    // EUR/MWh spread between two zones (target: "FROM-TO")
 
 export type AlertAssetType = 'country' | 'plant' | 'corridor';
 
@@ -148,6 +150,20 @@ export function evaluateAlerts(
       triggered = observed > (rule.threshold ?? 80);
     }
 
+    if (rule.condition === 'spread_above' || rule.condition === 'spread_below') {
+      // target format: "corridor:FROM-TO" or just "FROM-TO"
+      const raw = rule.assetId.replace('corridor:', '');
+      const [fromIso, toIso] = raw.split('-').map((s) => s.toUpperCase());
+      const fromPrice = fromIso ? priceByIso[fromIso] : undefined;
+      const toPrice = toIso ? priceByIso[toIso] : undefined;
+      if (fromPrice === undefined || toPrice === undefined) continue;
+      observed = toPrice - fromPrice;
+      triggered =
+        rule.condition === 'spread_above'
+          ? observed > (rule.threshold ?? 0)
+          : observed < (rule.threshold ?? 0);
+    }
+
     if (rule.condition === 'outage_start') {
       triggered = outageSet.has(rule.assetId);
       observed = triggered ? 1 : 0;
@@ -180,4 +196,6 @@ export const CONDITION_LABELS: Record<AlertCondition, string> = {
   outage_end: 'Outage ends',
   congestion_above: 'Congestion above',
   forecast_miss: 'Forecast miss',
+  spread_above: 'Spread above',
+  spread_below: 'Spread below',
 };

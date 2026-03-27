@@ -151,8 +151,9 @@ async function fetchRuntimeDataset<T>(
   demoFallback: T,
   transform?: (value: T) => T,
   staleAfterMs = 8 * 60 * 1000,
+  forceFresh = false,
 ): Promise<LiveDataset<T>> {
-  const live = await loadLive<T>(livePath);
+  const live = await loadLive<T>(livePath, forceFresh);
   if (live) {
     return markDatasetStale(
       createLiveDataset(transform ? transform(live.data) : live.data, {
@@ -205,6 +206,7 @@ async function fetchRuntimeDataset<T>(
 
 export async function fetchDayAheadPricesDataset(
   current: LiveDataset<CountryPrice[]> | null = null,
+  forceFresh = false,
 ): Promise<LiveDataset<CountryPrice[]>> {
   return fetchRuntimeDataset(
     'prices',
@@ -213,11 +215,14 @@ export async function fetchDayAheadPricesDataset(
     current,
     getDemoPrices(),
     withSyntheticHourly,
+    undefined,
+    forceFresh,
   );
 }
 
 export async function fetchCrossBorderFlowsDataset(
   current: LiveDataset<CrossBorderFlow[]> | null = null,
+  forceFresh = false,
 ): Promise<LiveDataset<CrossBorderFlow[]>> {
   return fetchRuntimeDataset(
     'flows',
@@ -225,11 +230,15 @@ export async function fetchCrossBorderFlowsDataset(
     '/data/flows.json',
     current,
     getDemoFlows(),
+    undefined,
+    undefined,
+    forceFresh,
   );
 }
 
 export async function fetchOutagesDataset(
   current: LiveDataset<CountryOutage[]> | null = null,
+  forceFresh = false,
 ): Promise<LiveDataset<CountryOutage[]>> {
   return fetchRuntimeDataset(
     'outages',
@@ -237,11 +246,15 @@ export async function fetchOutagesDataset(
     '/data/outages.json',
     current,
     [],
+    undefined,
+    undefined,
+    forceFresh,
   );
 }
 
 export async function fetchForecastsDataset(
   current: LiveDataset<CountryForecast[]> | null = null,
+  forceFresh = false,
 ): Promise<LiveDataset<CountryForecast[]>> {
   return fetchRuntimeDataset(
     'forecasts',
@@ -249,11 +262,15 @@ export async function fetchForecastsDataset(
     '/data/forecast-errors.json',
     current,
     [],
+    undefined,
+    undefined,
+    forceFresh,
   );
 }
 
 export async function fetchHistoryDataset(
   current: LiveDataset<PriceHistory | null> | null = null,
+  forceFresh = false,
 ): Promise<LiveDataset<PriceHistory | null>> {
   return fetchRuntimeDataset(
     'history',
@@ -261,14 +278,27 @@ export async function fetchHistoryDataset(
     '/data/history.json',
     current,
     null,
+    undefined,
+    undefined,
+    forceFresh,
   );
 }
 
-async function loadLive<T>(path: string): Promise<LiveDatasetResponse<T> | null> {
+function withRefreshQuery(path: string, forceFresh: boolean) {
+  if (!forceFresh) {
+    return path;
+  }
+
+  const url = new URL(path, 'https://luminus.local');
+  url.searchParams.set('refresh', '1');
+  return `${url.pathname}${url.search}`;
+}
+
+async function loadLive<T>(path: string, forceFresh = false): Promise<LiveDatasetResponse<T> | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch(path, { cache: 'no-store', signal: controller.signal });
+    const res = await fetch(withRefreshQuery(path, forceFresh), { cache: 'no-store', signal: controller.signal });
     if (!res.ok) return null;
     const data = (await res.json()) as LiveDatasetResponse<T>;
     if (!data || typeof data !== 'object' || !('data' in data)) return null;

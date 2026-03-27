@@ -27,13 +27,13 @@ export function createPriceLayer({
     getFillColor: (f: any) => {
       const iso = f.properties?.ISO_A2 || '';
       const priceData = priceLookup.get(iso);
-      if (!priceData) return [60, 60, 80, Math.round(opacity * 0.35)];
+      if (!priceData) return [60, 60, 80, Math.round(opacity * 0.2)];
       const [r, g, b, a] = priceToColor(priceData.price);
-      return [r, g, b, Math.round(Math.min(a, opacity) * 0.72)];
+      return [r, g, b, Math.round(Math.min(a, opacity) * 0.55)];
     },
-    getLineColor: [132, 151, 176, 36],
-    getLineWidth: 0.7,
-    lineWidthMinPixels: 0.35,
+    getLineColor: [132, 151, 176, 18],
+    getLineWidth: 0.4,
+    lineWidthMinPixels: 0,
     pickable: true,
     autoHighlight: true,
     highlightColor: [56, 189, 248, 60],

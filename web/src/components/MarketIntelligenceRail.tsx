@@ -5,6 +5,7 @@ import LiveStatusStrip from './LiveStatusStrip';
 import ForecastPanel from './ForecastPanel';
 import OutageRadar from './OutageRadar';
 import TraderDashboard from './TraderDashboard';
+import SpreadMatrix from './SpreadMatrix';
 import type { ExpandedSeriesConfig } from './charts/ExpandedSeriesPanel';
 import type {
   CountryForecast,
@@ -40,6 +41,7 @@ const TAB_LABELS: Record<Exclude<IntelligenceView, 'none'>, string> = {
   brief: 'Morning Brief',
   outages: 'Outage Radar',
   forecast: 'Forecast vs Actual',
+  spreads: 'Spread Desk',
 };
 
 export default function MarketIntelligenceRail({
@@ -90,27 +92,29 @@ export default function MarketIntelligenceRail({
 
       <LiveStatusStrip summary={liveStatus} onRefresh={onRefresh} />
 
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-4 gap-2">
         {(Object.keys(TAB_LABELS) as Exclude<IntelligenceView, 'none'>[]).map((view) => (
           <button
             key={view}
             type="button"
             data-tour-id={`rail-${view}`}
             onClick={() => onViewChange(view)}
-            className={`rounded-2xl border px-3 py-2 text-left transition-colors ${
+            className={`rounded-2xl border px-2.5 py-2 text-left transition-colors ${
               activeView === view
                 ? 'border-cyan-300/35 bg-cyan-300/12 text-white'
                 : 'border-white/[0.06] bg-white/[0.03] text-slate-400 hover:border-white/[0.12] hover:text-white'
             }`}
             aria-pressed={activeView === view}
           >
-            <span className="block text-[11px] font-medium">{TAB_LABELS[view]}</span>
-            <span className="mt-1 block text-[10px] text-slate-500">
+            <span className="block text-[10px] font-medium">{TAB_LABELS[view]}</span>
+            <span className="mt-1 block text-[9px] text-slate-500">
               {view === 'brief'
                 ? `${prices.length} markets`
                 : view === 'outages'
-                  ? `${outages.length} country windows`
-                  : `${forecasts.length} forecast sets`}
+                  ? `${outages.length} windows`
+                  : view === 'forecast'
+                    ? `${forecasts.length} sets`
+                    : `${flows.length} corridors`}
             </span>
           </button>
         ))}
@@ -148,6 +152,15 @@ export default function MarketIntelligenceRail({
             forecasts={forecasts}
             onClose={onClose}
             onExpandSeries={onExpandSeries}
+          />
+        )}
+
+        {activeView === 'spreads' && (
+          <SpreadMatrix
+            embedded
+            prices={prices}
+            flows={flows}
+            onSelectCorridor={onSelectCorridor}
           />
         )}
       </div>

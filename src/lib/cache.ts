@@ -41,4 +41,5 @@ export const TTL = {
   AUCTION: 60 * 60 * 1000, // 1 hour
   OUTAGES: 15 * 60 * 1000, // 15 min
   FREQUENCY: 30 * 1000, // 30 sec
+  INTRADAY: 15 * 60 * 1000, // 15 min
 } as const;

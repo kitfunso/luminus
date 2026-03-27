@@ -3,6 +3,7 @@ import type {
   CountryOutage,
   CountryPrice,
   CrossBorderFlow,
+  ForecastSource,
   PowerPlant,
   PriceHistory,
 } from './data-fetcher';
@@ -140,6 +141,27 @@ type BootstrapResponse<T> = {
   data: T;
   lastUpdated: string | null;
 };
+
+type TimedGenerationSeries = {
+  hourly: number[];
+  timestampsUtc: string[];
+};
+
+type ForecastActualCacheEntry = {
+  updatedAt: string;
+  wind: TimedGenerationSeries | null;
+  solar: TimedGenerationSeries | null;
+};
+
+type ForecastResponseCacheEntry = {
+  cachedAt: number;
+  response: LiveDatasetResponse<CountryForecast[]>;
+};
+
+const FORECAST_ACTUAL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const FORECAST_RESPONSE_CACHE_TTL_MS = 2 * 60 * 1000;
+const forecastActualCache = new Map<string, ForecastActualCacheEntry>();
+let forecastResponseCache: ForecastResponseCacheEntry | null = null;
 
 function getEntsoeApiKey(): string {
   if (typeof process !== 'undefined' && process.env?.ENTSOE_API_KEY) {
@@ -695,6 +717,78 @@ function alignSeriesByTimestamp(
   };
 }
 
+function averageRounded(values: number[]) {
+  if (values.length === 0) {
+    return 0;
+  }
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function cloneTimedGenerationSeries(series: TimedGenerationSeries | null): TimedGenerationSeries | null {
+  if (!series) {
+    return null;
+  }
+  return {
+    hourly: [...series.hourly],
+    timestampsUtc: [...series.timestampsUtc],
+  };
+}
+
+function readCachedActualSeries(iso2: string) {
+  const entry = forecastActualCache.get(iso2);
+  if (!entry) {
+    return null;
+  }
+
+  if (Date.now() - Date.parse(entry.updatedAt) > FORECAST_ACTUAL_CACHE_TTL_MS) {
+    forecastActualCache.delete(iso2);
+    return null;
+  }
+
+  return {
+    wind: cloneTimedGenerationSeries(entry.wind),
+    solar: cloneTimedGenerationSeries(entry.solar),
+  };
+}
+
+function writeCachedActualSeries(
+  iso2: string,
+  windActual: TimedGenerationSeries | null,
+  solarActual: TimedGenerationSeries | null,
+) {
+  if (!windActual && !solarActual) {
+    return;
+  }
+
+  const previous = readCachedActualSeries(iso2);
+  forecastActualCache.set(iso2, {
+    updatedAt: new Date().toISOString(),
+    wind: cloneTimedGenerationSeries(windActual) ?? previous?.wind ?? null,
+    solar: cloneTimedGenerationSeries(solarActual) ?? previous?.solar ?? null,
+  });
+}
+
+function buildForecastSource(
+  forecastSeries: TimedGenerationSeries | null,
+  actualSeries: TimedGenerationSeries | null,
+): ForecastSource {
+  const aligned = alignSeriesByTimestamp(
+    forecastSeries ? { timestampsUtc: forecastSeries.timestampsUtc, hourly: forecastSeries.hourly } : null,
+    actualSeries ? { timestampsUtc: actualSeries.timestampsUtc, hourly: actualSeries.hourly } : null,
+  );
+
+  return {
+    forecastMW: averageRounded(forecastSeries?.hourly ?? []),
+    actualMW: aligned.actualHourly.length > 0 || !forecastSeries
+      ? averageRounded(actualSeries?.hourly ?? [])
+      : 0,
+    forecastHourly: aligned.forecastHourly.map((value) => Math.round(value)),
+    actualHourly: aligned.actualHourly.map((value) => Math.round(value)),
+    timestampsUtc: aligned.timestampsUtc,
+    ...computeForecastMetrics(aligned.forecastHourly, aligned.actualHourly),
+  };
+}
+
 async function fetchGbCountryForecast(): Promise<CountryForecast | null> {
   const [windForecastPayload, fuelPayload] = await Promise.all([
     fetchJsonWithTimeout<{ data?: Array<{ publishTime: string; startTime: string; generation: number | string }> }>(
@@ -705,41 +799,24 @@ async function fetchGbCountryForecast(): Promise<CountryForecast | null> {
     ),
   ]);
 
-  const windSeries = alignSeriesByTimestamp(
-    extractGbWindForecastSeries(windForecastPayload),
-    extractGbFuelActualSeries(fuelPayload, 'WIND'),
-  );
-  const solarActual = extractGbFuelActualSeries(fuelPayload, 'SOLAR');
+  const windForecast = extractGbWindForecastSeries(windForecastPayload);
+  const liveWindActual = extractGbFuelActualSeries(fuelPayload, 'WIND');
+  const liveSolarActual = extractGbFuelActualSeries(fuelPayload, 'SOLAR');
+  const cachedActual = readCachedActualSeries('GB');
+  const windActual = liveWindActual ?? cachedActual?.wind ?? null;
+  const solarActual = liveSolarActual ?? cachedActual?.solar ?? null;
 
-  if (windSeries.forecastHourly.length === 0 && windSeries.actualHourly.length === 0 && !solarActual) {
+  writeCachedActualSeries('GB', liveWindActual, liveSolarActual);
+
+  if (!windForecast && !windActual && !solarActual) {
     return null;
   }
 
   return {
     country: COUNTRY_NAMES.GB,
     iso2: 'GB',
-    wind: {
-      forecastMW: Math.round(windSeries.forecastHourly.length
-        ? windSeries.forecastHourly.reduce((sum, value) => sum + value, 0) / windSeries.forecastHourly.length
-        : 0),
-      actualMW: Math.round(windSeries.actualHourly.length
-        ? windSeries.actualHourly.reduce((sum, value) => sum + value, 0) / windSeries.actualHourly.length
-        : 0),
-      forecastHourly: windSeries.forecastHourly.map((value) => Math.round(value)),
-      actualHourly: windSeries.actualHourly.map((value) => Math.round(value)),
-      timestampsUtc: windSeries.timestampsUtc,
-      ...computeForecastMetrics(windSeries.forecastHourly, windSeries.actualHourly),
-    },
-    solar: {
-      forecastMW: 0,
-      actualMW: Math.round(solarActual?.hourly.length
-        ? solarActual.hourly.reduce((sum, value) => sum + value, 0) / solarActual.hourly.length
-        : 0),
-      forecastHourly: [],
-      actualHourly: solarActual?.hourly.map((value) => Math.round(value)) ?? [],
-      timestampsUtc: solarActual?.timestampsUtc ?? [],
-      ...computeForecastMetrics([], solarActual?.hourly ?? []),
-    },
+    wind: buildForecastSource(windForecast, windActual),
+    solar: buildForecastSource(null, solarActual),
   };
 }
 
@@ -1283,24 +1360,76 @@ async function fetchEntsoeXml(iso2: string, documentType: string, processType: s
   }
 }
 
+function getEntsoeActualWindow(now = new Date()) {
+  const periodEnd = addHours(new Date(toHourStartIso(now)), 1);
+  const periodStart = addHours(periodEnd, -48);
+  return { periodStart, periodEnd };
+}
+
+async function fetchEntsoeXmlForWindow(
+  iso2: string,
+  documentType: string,
+  processType: string,
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<string | null> {
+  const eic = ISO2_TO_EIC[iso2];
+  if (!eic) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    securityToken: getEntsoeApiKey(),
+    documentType,
+    processType,
+    in_Domain: eic,
+    periodStart: formatEntsoeDate(periodStart),
+    periodEnd: formatEntsoeDate(periodEnd),
+  });
+
+  try {
+    const response = await fetchWithTimeout(`${ENTSOE_API}?${params.toString()}`);
+    if (!response.ok) {
+      return null;
+    }
+    return await response.text();
+  } catch {
+    return null;
+  }
+}
+
 async function fetchCountryForecast(iso2: string): Promise<CountryForecast | null> {
   if (iso2 === 'GB') {
     return fetchGbCountryForecast();
   }
 
+  const { periodStart, periodEnd } = getEntsoeActualWindow();
   const [forecastXml, actualXml] = await Promise.all([
     fetchEntsoeXml(iso2, 'A69', 'A01'),
-    fetchEntsoeXml(iso2, 'A75', 'A16'),
+    fetchEntsoeXmlForWindow(iso2, 'A75', 'A16', periodStart, periodEnd),
   ]);
 
-  if (!forecastXml || !actualXml) {
+  if (!forecastXml) {
     return null;
   }
 
   const windForecast = extractTimeSeriesQuantities(forecastXml, WIND_PSR);
   const solarForecast = extractTimeSeriesQuantities(forecastXml, SOLAR_PSR);
-  const windActual = extractTimeSeriesQuantities(actualXml, WIND_PSR);
-  const solarActual = extractTimeSeriesQuantities(actualXml, SOLAR_PSR);
+  const liveWindActual = actualXml ? extractTimeSeriesQuantities(actualXml, WIND_PSR) : null;
+  const liveSolarActual = actualXml ? extractTimeSeriesQuantities(actualXml, SOLAR_PSR) : null;
+  const cachedActual = readCachedActualSeries(iso2);
+  const windActual = liveWindActual?.hourly.length
+    ? liveWindActual
+    : cachedActual?.wind ?? null;
+  const solarActual = liveSolarActual?.hourly.length
+    ? liveSolarActual
+    : cachedActual?.solar ?? null;
+
+  writeCachedActualSeries(
+    iso2,
+    liveWindActual?.hourly.length ? liveWindActual : null,
+    liveSolarActual?.hourly.length ? liveSolarActual : null,
+  );
 
   if (windForecast.hourly.length === 0 && solarForecast.hourly.length === 0) {
     return null;
@@ -1309,30 +1438,29 @@ async function fetchCountryForecast(iso2: string): Promise<CountryForecast | nul
   return {
     country: COUNTRY_NAMES[iso2] ?? iso2,
     iso2,
-    wind: {
-      forecastMW: Math.round(windForecast.totalMW),
-      actualMW: Math.round(windActual.totalMW),
-      forecastHourly: windForecast.hourly.map((value) => Math.round(value)),
-      actualHourly: windActual.hourly.map((value) => Math.round(value)),
-      timestampsUtc: windForecast.timestampsUtc.length >= windActual.timestampsUtc.length
-        ? windForecast.timestampsUtc
-        : windActual.timestampsUtc,
-      ...computeForecastMetrics(windForecast.hourly, windActual.hourly),
-    },
-    solar: {
-      forecastMW: Math.round(solarForecast.totalMW),
-      actualMW: Math.round(solarActual.totalMW),
-      forecastHourly: solarForecast.hourly.map((value) => Math.round(value)),
-      actualHourly: solarActual.hourly.map((value) => Math.round(value)),
-      timestampsUtc: solarForecast.timestampsUtc.length >= solarActual.timestampsUtc.length
-        ? solarForecast.timestampsUtc
-        : solarActual.timestampsUtc,
-      ...computeForecastMetrics(solarForecast.hourly, solarActual.hourly),
-    },
+    wind: buildForecastSource(windForecast, windActual),
+    solar: buildForecastSource(solarForecast, solarActual),
   };
 }
 
+export function __resetForecastActualCacheForTests() {
+  forecastActualCache.clear();
+}
+
+export function __resetForecastResponseCacheForTests() {
+  forecastResponseCache = null;
+}
+
 export async function getLiveForecastsResponse(requestUrl: string): Promise<LiveDatasetResponse<CountryForecast[]>> {
+  const forceRefresh = new URL(requestUrl).searchParams.get('refresh') === '1';
+  if (
+    !forceRefresh
+    && forecastResponseCache
+    && Date.now() - forecastResponseCache.cachedAt <= FORECAST_RESPONSE_CACHE_TTL_MS
+  ) {
+    return forecastResponseCache.response;
+  }
+
   const bootstrap = await fetchBootstrapJson<CountryForecast[]>(requestUrl, 'forecast-errors.json');
   const results = await mapConcurrent(FORECAST_COUNTRIES, fetchCountryForecast, 3);
   const live = results
@@ -1347,7 +1475,7 @@ export async function getLiveForecastsResponse(requestUrl: string): Promise<Live
   const forecastWindow = merged[0]?.wind.forecastHourly.length ?? bootstrap.data[0]?.wind.forecastHourly.length ?? 24;
   const forecastStart = forecastInterval.intervalStart
     ?? toHourStartIso(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())));
-  return datasetEnvelope(
+  const response = datasetEnvelope(
     'forecasts',
     hasLive ? merged : bootstrap.data,
     hasLive ? 'live' : 'fallback',
@@ -1361,6 +1489,13 @@ export async function getLiveForecastsResponse(requestUrl: string): Promise<Live
       error: hasLive ? null : 'Live forecast refresh unavailable; serving bootstrap data.',
     },
   );
+  if (response.source === 'live') {
+    forecastResponseCache = {
+      cachedAt: Date.now(),
+      response,
+    };
+  }
+  return response;
 }
 
 export async function getLiveOutagesResponse(requestUrl: string): Promise<LiveDatasetResponse<CountryOutage[]>> {

@@ -14,7 +14,6 @@
   --right-dock-width: 22.5rem;
   --dock-bottom-lane: 8rem;
   --replay-safe-bottom: 6.5rem;
-  --top-context-dock-max-width: 42rem;
   --expanded-analysis-max-width: 34rem;
 }
 
@@ -237,7 +236,8 @@ body {
   position: absolute;
   right: 16px;
   top: 16px;
-  max-width: 680px;
+  width: min(72rem, calc(100vw - var(--sidebar-dock-width) - 2rem));
+  max-width: calc(100vw - var(--sidebar-dock-width) - 2rem);
   z-index: 15;
   background: rgba(10, 14, 23, 0.92);
   backdrop-filter: blur(20px);
@@ -250,9 +250,9 @@ body {
 
 .compare-card {
   position: relative;
+  flex: 1 1 280px;
   min-width: 280px;
-  max-width: 300px;
-  flex-shrink: 0;
+  max-width: 340px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
@@ -308,10 +308,8 @@ body {
   top: 1rem;
   left: calc(var(--sidebar-dock-width) + 2rem);
   right: calc(var(--right-dock-width) + 2rem);
-  width: min(var(--top-context-dock-max-width), calc(100vw - var(--sidebar-dock-width) - var(--right-dock-width) - 4rem));
-  margin-inline: auto;
-  max-height: min(30rem, calc(100vh - var(--dock-bottom-lane) - 3rem));
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .expanded-series-panel {
@@ -321,8 +319,8 @@ body {
   margin-inline: auto;
   top: 1rem;
   bottom: auto;
-  max-height: min(26rem, calc(100vh - var(--dock-bottom-lane) - var(--replay-safe-bottom) - 2rem - env(safe-area-inset-bottom))) !important;
-  overflow-y: auto;
+  max-height: none !important;
+  overflow-y: visible;
 }
 
 /* Map legend (bottom-left floating) */
@@ -343,9 +341,19 @@ body {
   gap: 10px;
 }
 
-.compare-mode-toggle {
-  left: calc(1rem + env(safe-area-inset-left));
-  bottom: calc(7.5rem + env(safe-area-inset-bottom));
+/* Embedded legend (positioned by parent flex container on desktop) */
+.map-legend-embedded {
+  z-index: 12;
+  background: rgba(10, 14, 23, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 10px 12px;
+  min-width: 140px;
+  max-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 /* -----------------------------------------------------------------------
@@ -441,7 +449,8 @@ body {
     right: 0.75rem;
     top: 0.75rem;
     width: auto;
-    max-height: 42vh;
+    max-height: 50vh;
+    overflow-y: auto;
     border-radius: 1.5rem;
     padding: 1rem;
   }
@@ -452,7 +461,8 @@ body {
     bottom: 0;
     top: auto;
     width: 100% !important;
-    max-height: 68vh !important;
+    max-height: none !important;
+    overflow-y: visible;
     border-radius: 1.25rem 1.25rem 0 0;
   }
 

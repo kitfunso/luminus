@@ -11,6 +11,9 @@ import { COUNTRY_CENTROIDS } from '@/lib/countries';
 import { identifyMarketReads } from '@/lib/pipeline-intel';
 import type { TyndpProject } from '@/lib/tyndp';
 import { formatPriceValue, MIXED_PRICE_UNIT_LABEL } from '@/lib/price-format';
+import { computeImpliedHeatRates, type ImpliedHeatRate } from '@/lib/heat-rate';
+import { detectFlowReversals, type FlowReversal } from '@/lib/flow-reversals';
+import { assessCurtailmentRisk, type CurtailmentRisk } from '@/lib/curtailment-risk';
 
 interface TraderDashboardProps {
   prices: CountryPrice[];
@@ -147,6 +150,24 @@ export default function TraderDashboard({
   const marketReads = useMemo(
     () => identifyMarketReads(projects, prices, flows).slice(0, 3),
     [projects, prices, flows],
+  );
+
+  // --- Trading Signals ---
+  const topSparkSpreads = useMemo(() => {
+    const rates = computeImpliedHeatRates(prices);
+    return [...rates].sort((a, b) => b.sparkSpread - a.sparkSpread).slice(0, 3);
+  }, [prices]);
+
+  const flowReversals = useMemo(
+    () => detectFlowReversals(flows).slice(0, 3),
+    [flows],
+  );
+
+  const curtailmentRisks = useMemo(
+    () => assessCurtailmentRisk(forecasts, prices, flows).filter(
+      (r) => r.riskLevel === 'high' || r.riskLevel === 'medium',
+    ).slice(0, 3),
+    [forecasts, prices, flows],
   );
 
   const wrapperClass = embedded
@@ -307,6 +328,89 @@ export default function TraderDashboard({
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Trading Signals */}
+        {(topSparkSpreads.length > 0 || flowReversals.length > 0 || curtailmentRisks.length > 0) && (
+          <div className="border-t border-white/[0.04] pt-4">
+            <SectionTitle>Trading Signals</SectionTitle>
+
+            {topSparkSpreads.length > 0 && (
+              <div className="mb-2.5">
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-slate-700">
+                  Spark Spread
+                </p>
+                {topSparkSpreads.map((hr) => {
+                  const signalColor =
+                    hr.signal === 'profitable'
+                      ? 'text-emerald-400'
+                      : hr.signal === 'marginal'
+                        ? 'text-yellow-400'
+                        : 'text-red-400';
+                  return (
+                    <button
+                      key={hr.iso2}
+                      type="button"
+                      onClick={() => onSelectCountry(hr.iso2)}
+                      className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-left transition-colors hover:bg-white/[0.03]"
+                    >
+                      <span className="truncate text-[11px] text-slate-400">{hr.name}</span>
+                      <span className={`ml-2 flex-shrink-0 text-[11px] font-medium tabular-nums ${signalColor}`}>
+                        {hr.sparkSpread >= 0 ? '+' : ''}{hr.sparkSpread.toFixed(1)} EUR
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {flowReversals.length > 0 && (
+              <div className="mb-2.5">
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-slate-700">
+                  Flow Reversals
+                </p>
+                {flowReversals.map((rev) => (
+                  <button
+                    key={`${rev.from}-${rev.to}`}
+                    type="button"
+                    onClick={() => onSelectCorridor(rev.from, rev.to)}
+                    className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-left transition-colors hover:bg-white/[0.03]"
+                  >
+                    <span className="truncate text-[11px] text-slate-400">
+                      {rev.actualDirection}
+                    </span>
+                    <span className="ml-2 flex-shrink-0 text-[11px] font-medium tabular-nums text-orange-400">
+                      {rev.reversalMagnitude.toLocaleString()} MW
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {curtailmentRisks.length > 0 && (
+              <div className="mb-2.5">
+                <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-slate-700">
+                  Curtailment Risk
+                </p>
+                {curtailmentRisks.map((cr) => {
+                  const riskColor = cr.riskLevel === 'high' ? 'text-red-400' : 'text-yellow-400';
+                  return (
+                    <button
+                      key={cr.iso2}
+                      type="button"
+                      onClick={() => onSelectCountry(cr.iso2)}
+                      className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-left transition-colors hover:bg-white/[0.03]"
+                    >
+                      <span className="truncate text-[11px] text-slate-400">{cr.name}</span>
+                      <span className={`ml-2 flex-shrink-0 text-[11px] font-medium tabular-nums ${riskColor}`}>
+                        {cr.riskLevel}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

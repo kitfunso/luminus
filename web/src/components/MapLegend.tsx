@@ -17,7 +17,7 @@ const FLOW_TIERS: readonly { height: number; label: string }[] = [
   { height: 6, label: '>2000 MW' },
 ] as const;
 
-export default function MapLegend() {
+export default function MapLegend({ embedded }: { embedded?: boolean } = {}) {
   const layerVisibility = useMapStore((s) => s.layerVisibility);
   const zoom = useMapStore((s) => s.viewState.zoom);
 
@@ -30,7 +30,7 @@ export default function MapLegend() {
   if (!showPrices && !showFlows && !showPlants) return null;
 
   return (
-    <div className="map-legend" data-tour-id="price-card" style={{ pointerEvents: 'auto' }}>
+    <div className={embedded ? 'map-legend-embedded' : 'map-legend'} data-tour-id="price-card" style={{ pointerEvents: 'auto' }}>
       {/* Price heatmap */}
       {showPrices && (
         <div className="flex flex-col gap-1">

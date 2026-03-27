@@ -324,7 +324,7 @@ export default function ComparePanel({
         <h2 className="text-sm font-bold text-white">
           Compare Countries
           <span className="ml-2 font-normal text-slate-500">
-            {selectedCountries.length}/4
+            {selectedCountries.length}/3
           </span>
         </h2>
         <div className="flex items-center gap-3">
@@ -343,7 +343,7 @@ export default function ComparePanel({
         </div>
       </div>
 
-      <div className="sidebar-scroll flex gap-3 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-3 pb-1">
         {countryStats.map((stats) => (
           <CountryCard
             key={stats.iso2}

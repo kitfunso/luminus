@@ -326,6 +326,10 @@ export default function ForecastPanel({
     () => sorted.filter((forecast) => getCountryCoverageScore(forecast) === 0).length,
     [sorted],
   );
+  const liveActualCount = useMemo(
+    () => sorted.filter((forecast) => getCountryCoverageScore(forecast) > 0).length,
+    [sorted],
+  );
 
   const containerClass = embedded ? 'flex h-full flex-col' : 'forecast-panel';
 
@@ -359,7 +363,7 @@ export default function ForecastPanel({
 
       {pendingActualCount > 0 && (
         <p className="mb-4 text-[11px] leading-relaxed text-slate-500">
-          Some markets still do not publish live actual generation into ENTSO-E for the active window. Those rows stay visible but are marked pending instead of being scored as misses.
+          {`${liveActualCount}/${sorted.length} markets currently have comparable live actual generation points. Markets without a fresh provider update stay visible, and we reuse the last confirmed actual series when one is available.`}
         </p>
       )}
 

@@ -25,6 +25,11 @@ import { transferCapacitySchema, getTransferCapacity } from "./tools/transfer-ca
 import { frequencySchema, getEuFrequency } from "./tools/frequency.js";
 import { hydroSchema, getHydroReservoir } from "./tools/hydro.js";
 import { transmissionSchema, getTransmissionLines } from "./tools/transmission.js";
+import { intradayPricesSchema, getIntradayPrices } from "./tools/intraday-prices.js";
+import { imbalancePricesSchema, getImbalancePrices } from "./tools/imbalance-prices.js";
+import { intradaySpreadSchema, getIntradayDaSpread } from "./tools/intraday-spread.js";
+import { realtimeGenerationSchema, getRealtimeGeneration } from "./tools/realtime-generation.js";
+import { balancingActionsSchema, getBalancingActions } from "./tools/balancing-actions.js";
 
 dotenv.config();
 
@@ -441,6 +446,103 @@ server.tool(
   async (params) => {
     try {
       const result = await getTransmissionLines(transmissionSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_intraday_prices",
+  "Get intraday/continuous electricity prices for a European bidding zone. " +
+    "Returns hourly prices from the intraday market with stats. " +
+    "Compare with day-ahead prices to spot market moves and trading opportunities.",
+  intradayPricesSchema.shape,
+  async (params) => {
+    try {
+      const result = await getIntradayPrices(intradayPricesSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_imbalance_prices",
+  "Get real-time imbalance/settlement prices for a European zone. " +
+    "Returns per-period imbalance prices (EUR/MWh) — the price paid for deviations from scheduled position. " +
+    "Key signal for balancing market traders and BRP risk management.",
+  imbalancePricesSchema.shape,
+  async (params) => {
+    try {
+      const result = await getImbalancePrices(imbalancePricesSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_intraday_da_spread",
+  "Get the spread between intraday and day-ahead prices for a European zone. " +
+    "Returns per-hour spread (intraday minus day-ahead) with a directional signal. " +
+    "Intraday premium = something changed since auction (outage, forecast miss, demand spike). " +
+    "Core signal for directional and spread traders.",
+  intradaySpreadSchema.shape,
+  async (params) => {
+    try {
+      const result = await getIntradayDaSpread(intradaySpreadSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_realtime_generation",
+  "Get actual real-time generation by fuel type (MW) for a European zone. " +
+    "Returns generation per source (wind, solar, gas, nuclear, etc.) with total. " +
+    "Uses ENTSO-E for EU zones, Elexon BMRS for GB. 5-15 min resolution.",
+  realtimeGenerationSchema.shape,
+  async (params) => {
+    try {
+      const result = await getRealtimeGeneration(realtimeGenerationSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_balancing_actions",
+  "Get activated balancing energy actions (MW) for a European zone. " +
+    "Returns upward and downward regulation volumes per period. " +
+    "Uses ENTSO-E for EU zones, Elexon BMRS BOD for GB. " +
+    "Indicates real-time grid stress and TSO intervention.",
+  balancingActionsSchema.shape,
+  async (params) => {
+    try {
+      const result = await getBalancingActions(balancingActionsSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {
