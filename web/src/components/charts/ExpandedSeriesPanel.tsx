@@ -36,13 +36,13 @@ export default function ExpandedSeriesPanel({
   const visibleSeries = allSeries.filter((line) => activeIds.includes(line.id));
 
   return (
-    <aside className="right-panel expanded-series-panel absolute right-4 top-4 z-[18] flex w-[min(38rem,calc(100vw-2rem))] flex-col rounded-[28px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(14,20,33,0.98),rgba(8,12,20,0.96))] p-4 shadow-2xl backdrop-blur-2xl">
+    <aside className="right-panel expanded-series-panel absolute right-4 top-4 z-[18] flex w-[min(32rem,calc(100vw-2rem))] flex-col rounded-[24px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(14,20,33,0.98),rgba(8,12,20,0.96))] p-3 shadow-2xl backdrop-blur-2xl">
       <div className="mb-3 flex items-start justify-between gap-3 border-b border-white/[0.06] pb-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-300/80">
             Expanded Analysis
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-white">{title}</h2>
+          <h2 className="mt-1 text-base font-semibold text-white">{title}</h2>
         </div>
         <button
           type="button"
@@ -59,11 +59,11 @@ export default function ExpandedSeriesPanel({
         unitLabel={unitLabel}
         timestampsUtc={timestampsUtc}
         series={visibleSeries}
-        height={220}
+        height={180}
       />
 
       {allSeries.length > 1 && (
-        <div className="mt-4 rounded-[24px] border border-white/[0.06] bg-white/[0.025] p-4">
+        <div className="mt-3 rounded-[20px] border border-white/[0.06] bg-white/[0.025] p-3">
           <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
             Series
           </p>

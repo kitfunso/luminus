@@ -104,7 +104,7 @@ export default function CountryContextSection({
           values: forecast.solar.actualHourly,
           color: '#f59e0b',
         },
-      ].filter((line) => line.values.length > 1)
+      ].filter((line) => line.values.length > 0)
     : [];
   const priceTimestamps = resolvePriceTimestamps(data);
   const windTimestamps = forecast ? resolveForecastTimestamps(forecast.wind) : [];

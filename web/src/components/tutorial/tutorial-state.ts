@@ -2,6 +2,7 @@ export type TutorialMode = 'hidden' | 'welcome' | 'tour' | 'checklist';
 export type TutorialStatus = 'idle' | 'active' | 'paused' | 'completed' | 'skipped';
 export type TutorialStepId =
   | 'live-status'
+  | 'compare-mode'
   | 'country-detail'
   | 'flows-layer'
   | 'outage-radar'
@@ -35,6 +36,12 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Live pulse',
     description: 'This strip shows freshness, auto-refresh cadence, and gives you a manual refresh when you need a hard pull.',
     targetId: 'live-status',
+  },
+  {
+    id: 'compare-mode',
+    title: 'Compare mode',
+    description: 'Use Compare above the day-ahead card to build side-by-side market views without leaving the map.',
+    targetId: 'compare-button',
   },
   {
     id: 'country-detail',

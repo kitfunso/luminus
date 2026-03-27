@@ -14,6 +14,8 @@
   --right-dock-width: 22.5rem;
   --dock-bottom-lane: 8rem;
   --replay-safe-bottom: 6.5rem;
+  --top-context-dock-max-width: 42rem;
+  --expanded-analysis-max-width: 34rem;
 }
 
 * {
@@ -306,17 +308,21 @@ body {
   top: 1rem;
   left: calc(var(--sidebar-dock-width) + 2rem);
   right: calc(var(--right-dock-width) + 2rem);
-  max-height: calc(100vh - var(--dock-bottom-lane) - 3rem);
+  width: min(var(--top-context-dock-max-width), calc(100vw - var(--sidebar-dock-width) - var(--right-dock-width) - 4rem));
+  margin-inline: auto;
+  max-height: min(30rem, calc(100vh - var(--dock-bottom-lane) - 3rem));
   overflow-y: auto;
 }
 
 .expanded-series-panel {
   left: calc(var(--sidebar-dock-width) + 2rem);
   right: calc(var(--right-dock-width) + 2rem);
+  width: min(var(--expanded-analysis-max-width), calc(100vw - var(--sidebar-dock-width) - var(--right-dock-width) - 4rem)) !important;
+  margin-inline: auto;
   top: 1rem;
-  bottom: calc(var(--dock-bottom-lane) + var(--replay-safe-bottom) + env(safe-area-inset-bottom));
-  width: auto !important;
-  max-height: none !important;
+  bottom: auto;
+  max-height: min(26rem, calc(100vh - var(--dock-bottom-lane) - var(--replay-safe-bottom) - 2rem - env(safe-area-inset-bottom))) !important;
+  overflow-y: auto;
 }
 
 /* Map legend (bottom-left floating) */
@@ -338,8 +344,8 @@ body {
 }
 
 .compare-mode-toggle {
-  left: calc(var(--sidebar-dock-width) + 1rem);
-  bottom: calc(var(--dock-bottom-lane) + 1.25rem + env(safe-area-inset-bottom));
+  left: calc(1rem + env(safe-area-inset-left));
+  bottom: calc(7.5rem + env(safe-area-inset-bottom));
 }
 
 /* -----------------------------------------------------------------------
@@ -434,7 +440,8 @@ body {
     left: 0.75rem;
     right: 0.75rem;
     top: 0.75rem;
-    max-height: 50vh;
+    width: auto;
+    max-height: 42vh;
     border-radius: 1.5rem;
     padding: 1rem;
   }
@@ -445,7 +452,7 @@ body {
     bottom: 0;
     top: auto;
     width: 100% !important;
-    max-height: 78vh !important;
+    max-height: 68vh !important;
     border-radius: 1.25rem 1.25rem 0 0;
   }
 

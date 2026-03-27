@@ -11,6 +11,7 @@ import {
   resumeTutorial,
   skipTutorial,
   startTutorial,
+  TUTORIAL_STEPS,
   toPersistedTutorialState,
   tutorialNextStep,
   tutorialPreviousStep,
@@ -123,9 +124,9 @@ export default function TourController({ onStepFocus }: TourControllerProps) {
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-        className="guide-chip absolute z-40 rounded-full border border-white/[0.08] bg-[rgba(10,14,23,0.94)] px-4 py-2 text-[11px] font-medium text-slate-200 shadow-xl backdrop-blur-xl transition-colors hover:text-white"
+          className="guide-chip absolute z-40 rounded-full border border-white/[0.08] bg-[rgba(10,14,23,0.94)] px-4 py-2 text-[11px] font-medium text-slate-200 shadow-xl backdrop-blur-xl transition-colors hover:text-white"
         >
-          Guide {state.completedStepIds.length}/7
+          Guide {state.completedStepIds.length}/{TUTORIAL_STEPS.length}
         </button>
       );
   }

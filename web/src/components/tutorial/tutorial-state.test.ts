@@ -18,7 +18,7 @@ describe('tutorial state', () => {
     expect(paused.mode).toBe('checklist');
     expect(paused.status).toBe('paused');
     expect(paused.currentStepIndex).toBe(1);
-    expect(getCurrentTutorialStep(paused)?.id).toBe('country-detail');
+    expect(getCurrentTutorialStep(paused)?.id).toBe('compare-mode');
   });
 
   it('replays from the first step after a skip', () => {

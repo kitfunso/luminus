@@ -70,15 +70,15 @@ export default function TopContextDock({
   return (
     <section
       data-tour-id="top-context-dock"
-      className="top-context-dock absolute z-[16] rounded-[32px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(14,20,33,0.98),rgba(8,12,20,0.96))] p-5 shadow-2xl backdrop-blur-2xl"
+      className="top-context-dock absolute z-[16] rounded-[28px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(14,20,33,0.98),rgba(8,12,20,0.96))] p-4 shadow-2xl backdrop-blur-2xl"
     >
-      <div className="mb-4 flex items-start justify-between gap-4 border-b border-white/[0.06] pb-4">
+      <div className="mb-3 flex items-start justify-between gap-4 border-b border-white/[0.06] pb-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-cyan-300/80">
             Context Dock
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">{titleForDetail(detail)}</h2>
-          <p className="mt-1 text-sm text-slate-400">{subtitleForDetail(detail)}</p>
+          <h2 className="mt-2 text-xl font-semibold text-white">{titleForDetail(detail)}</h2>
+          <p className="mt-1 text-xs text-slate-400">{subtitleForDetail(detail)}</p>
         </div>
         <button
           type="button"

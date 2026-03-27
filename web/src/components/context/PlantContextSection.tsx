@@ -111,13 +111,13 @@ export default function PlantContextSection({
                     color: '#94a3b8',
                     dashed: true,
                   },
-                  {
-                    id: `${data.country}-solar-actual`,
-                    label: 'Solar actual',
-                    values: countryForecast.solar.actualHourly,
-                    color: '#f59e0b',
-                  },
-                ].filter((line) => line.values.length > 1)
+                {
+                  id: `${data.country}-solar-actual`,
+                  label: 'Solar actual',
+                  values: countryForecast.solar.actualHourly,
+                  color: '#f59e0b',
+                },
+                ].filter((line) => line.values.length > 0)
               : [],
           })}
         />

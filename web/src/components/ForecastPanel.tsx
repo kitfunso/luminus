@@ -23,7 +23,7 @@ function countryFlag(iso2: string): string {
 }
 
 function SurpriseIndicator({ source }: { source: ForecastSource }) {
-  if (source.surpriseDirection === 'none') {
+  if (!getActualCoverage(source).hasComparableActual || source.surpriseDirection === 'none') {
     return null;
   }
 
@@ -51,7 +51,46 @@ function buildSeries(label: 'Wind' | 'Solar', iso2: string, source: ForecastSour
       values: source.actualHourly,
       color: actualColor,
     },
-  ].filter((line) => line.values.length > 1);
+  ].filter((line) => line.values.length > 0);
+}
+
+function getActualCoverage(source: ForecastSource) {
+  const forecastPoints = Math.max(source.forecastHourly.length, source.timestampsUtc?.length ?? 0);
+  const actualPoints = source.actualHourly.length;
+  const minimumComparablePoints = forecastPoints <= 4
+    ? 1
+    : Math.min(4, Math.max(2, Math.floor(forecastPoints / 6)));
+
+  return {
+    forecastPoints,
+    actualPoints,
+    hasLiveActual: actualPoints > 0,
+    hasComparableActual: actualPoints >= minimumComparablePoints,
+  };
+}
+
+function formatActualCoverage(source: ForecastSource) {
+  const coverage = getActualCoverage(source);
+  if (!coverage.hasLiveActual) {
+    return 'Pending';
+  }
+  if (coverage.hasComparableActual) {
+    return `${coverage.actualPoints}/${coverage.forecastPoints || coverage.actualPoints} live`;
+  }
+  return `${coverage.actualPoints} live pt${coverage.actualPoints === 1 ? '' : 's'}`;
+}
+
+function getCountryCoverageScore(forecast: CountryForecast) {
+  return [forecast.wind, forecast.solar].reduce((score, source) => {
+    const coverage = getActualCoverage(source);
+    if (coverage.hasComparableActual) {
+      return score + 2;
+    }
+    if (coverage.hasLiveActual) {
+      return score + 1;
+    }
+    return score;
+  }, 0);
 }
 
 function SourceRow({
@@ -67,10 +106,12 @@ function SourceRow({
   onExpand?: () => void;
   iso2: string;
 }) {
-  const errorPct = source.forecastMW > 0
+  const coverage = getActualCoverage(source);
+  const errorPct = coverage.hasComparableActual && source.forecastMW > 0
     ? ((source.actualMW - source.forecastMW) / source.forecastMW * 100).toFixed(1)
-    : '0.0';
-  const isPositive = source.actualMW >= source.forecastMW;
+    : null;
+  const isPositive = errorPct != null ? source.actualMW >= source.forecastMW : false;
+  const actualStatus = formatActualCoverage(source);
 
   return (
     <div className="space-y-2">
@@ -97,22 +138,36 @@ function SourceRow({
         </div>
         <div>
           <div className="text-slate-500">Actual</div>
-          <div className="tabular-nums text-slate-300">{source.actualMW.toLocaleString()} MW</div>
+          <div className="tabular-nums text-slate-300">
+            {coverage.hasLiveActual ? `${source.actualMW.toLocaleString()} MW` : 'Pending'}
+          </div>
         </div>
         <div>
-          <div className="text-slate-500">Error</div>
-          <div className={`font-medium tabular-nums ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-            {isPositive ? '+' : ''}
-            {errorPct}%
-          </div>
+          <div className="text-slate-500">{errorPct == null ? 'Actual status' : 'Error'}</div>
+          {errorPct == null ? (
+            <div className="font-medium text-amber-300">{actualStatus}</div>
+          ) : (
+            <div className={`font-medium tabular-nums ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+              {isPositive ? '+' : ''}
+              {errorPct}%
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex gap-3 text-[10px] text-slate-600">
-        <span>MAE: {source.mae.toLocaleString()} MW</span>
-        <span>MAPE: {source.mape}%</span>
-        <span>Bias: {source.bias > 0 ? '+' : ''}{source.bias.toLocaleString()} MW</span>
-      </div>
+      {coverage.hasComparableActual ? (
+        <div className="flex gap-3 text-[10px] text-slate-600">
+          <span>MAE: {source.mae.toLocaleString()} MW</span>
+          <span>MAPE: {source.mape}%</span>
+          <span>Bias: {source.bias > 0 ? '+' : ''}{source.bias.toLocaleString()} MW</span>
+        </div>
+      ) : (
+        <div className="text-[10px] text-slate-600">
+          {coverage.hasLiveActual
+            ? `Live actual is still sparse for this market: ${actualStatus}.`
+            : 'Live actual is still pending from the provider for this market.'}
+        </div>
+      )}
     </div>
   );
 }
@@ -131,11 +186,17 @@ function CountryForecastCard({
   const countryName = COUNTRY_CENTROIDS[forecast.iso2]?.name || forecast.country;
   const totalForecast = forecast.wind.forecastMW + forecast.solar.forecastMW;
   const totalActual = forecast.wind.actualMW + forecast.solar.actualMW;
-  const totalError = totalForecast > 0
+  const hasComparableActual = getActualCoverage(forecast.wind).hasComparableActual
+    || getActualCoverage(forecast.solar).hasComparableActual;
+  const hasLiveActual = getActualCoverage(forecast.wind).hasLiveActual
+    || getActualCoverage(forecast.solar).hasLiveActual;
+  const totalError = hasComparableActual && totalForecast > 0
     ? Math.abs(((totalActual - totalForecast) / totalForecast) * 100)
-    : 0;
-  const hasWindSurprise = forecast.wind.surpriseDirection !== 'none';
-  const hasSolarSurprise = forecast.solar.surpriseDirection !== 'none';
+    : null;
+  const hasWindSurprise = getActualCoverage(forecast.wind).hasComparableActual
+    && forecast.wind.surpriseDirection !== 'none';
+  const hasSolarSurprise = getActualCoverage(forecast.solar).hasComparableActual
+    && forecast.solar.surpriseDirection !== 'none';
   const windSeries = buildSeries('Wind', forecast.iso2, forecast.wind);
   const solarSeries = buildSeries('Solar', forecast.iso2, forecast.solar);
   const windTimestamps = resolveForecastTimestamps(forecast.wind);
@@ -158,7 +219,11 @@ function CountryForecastCard({
             <span className="text-[9px] font-medium text-amber-400">SURPRISE</span>
           )}
           <span className="text-xs tabular-nums text-slate-400">
-            {totalError.toFixed(1)}% err
+            {totalError != null
+              ? `${totalError.toFixed(1)}% err`
+              : hasLiveActual
+                ? 'Actual thin'
+                : 'Actual pending'}
           </span>
           <span className="text-[10px] text-slate-600">
             {isExpanded ? '\u25B4' : '\u25BE'}
@@ -240,12 +305,25 @@ export default function ForecastPanel({
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
 
   const sorted = useMemo(
-    () => [...forecasts].sort((a, b) => (Math.abs(b.wind.bias) + Math.abs(b.solar.bias)) - (Math.abs(a.wind.bias) + Math.abs(a.solar.bias))),
+    () => [...forecasts].sort((a, b) => {
+      const coverageDelta = getCountryCoverageScore(b) - getCountryCoverageScore(a);
+      if (coverageDelta !== 0) {
+        return coverageDelta;
+      }
+      return (Math.abs(b.wind.bias) + Math.abs(b.solar.bias)) - (Math.abs(a.wind.bias) + Math.abs(a.solar.bias));
+    }),
     [forecasts],
   );
 
   const surpriseCount = useMemo(
-    () => sorted.filter((forecast) => forecast.wind.surpriseDirection !== 'none' || forecast.solar.surpriseDirection !== 'none').length,
+    () => sorted.filter((forecast) =>
+      (getActualCoverage(forecast.wind).hasComparableActual && forecast.wind.surpriseDirection !== 'none')
+      || (getActualCoverage(forecast.solar).hasComparableActual && forecast.solar.surpriseDirection !== 'none')
+    ).length,
+    [sorted],
+  );
+  const pendingActualCount = useMemo(
+    () => sorted.filter((forecast) => getCountryCoverageScore(forecast) === 0).length,
     [sorted],
   );
 
@@ -277,6 +355,12 @@ export default function ForecastPanel({
             {surpriseCount === 1 ? 'country' : 'countries'} with surprises
           </span>
         </div>
+      )}
+
+      {pendingActualCount > 0 && (
+        <p className="mb-4 text-[11px] leading-relaxed text-slate-500">
+          Some markets still do not publish live actual generation into ENTSO-E for the active window. Those rows stay visible but are marked pending instead of being scored as misses.
+        </p>
       )}
 
       <div className={`space-y-1 overflow-y-auto sidebar-scroll ${embedded ? 'flex-1 pr-1' : 'max-h-[60vh]'}`}>

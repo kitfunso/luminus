@@ -49,4 +49,44 @@ describe('ForecastPanel', () => {
 
     expect(onExpandSeries).toHaveBeenCalledTimes(1);
   });
+
+  it('marks missing actual coverage as pending instead of showing a false error rate', () => {
+    render(
+      <ForecastPanel
+        embedded
+        onClose={vi.fn()}
+        forecasts={[
+          {
+            country: 'Germany',
+            iso2: 'DE',
+            wind: {
+              forecastMW: 12000,
+              actualMW: 0,
+              forecastHourly: [11800, 12000, 12200, 12100, 11900, 11750],
+              actualHourly: [],
+              mae: 0,
+              mape: 0,
+              bias: 0,
+              surpriseDirection: 'none',
+              surpriseMagnitude: 0,
+            },
+            solar: {
+              forecastMW: 3400,
+              actualMW: 0,
+              forecastHourly: [0, 1200, 3400, 2800, 900, 0],
+              actualHourly: [],
+              mae: 0,
+              mape: 0,
+              bias: 0,
+              surpriseDirection: 'none',
+              surpriseMagnitude: 0,
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/actual pending/i)).toBeInTheDocument();
+    expect(screen.queryByText(/100.0% err/i)).not.toBeInTheDocument();
+  });
 });

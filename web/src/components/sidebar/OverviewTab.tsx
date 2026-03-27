@@ -95,6 +95,9 @@ export default function OverviewTab({
     if (mobileOpen) onToggleMobile();
   };
 
+  const primaryFuelBar = fuelBar.slice(0, 3);
+  const secondaryFuelBar = fuelBar.slice(3);
+
   return (
     <>
       {/* Metrics grid */}
@@ -164,8 +167,8 @@ export default function OverviewTab({
                 );
               })}
             </div>
-            <div className="flex gap-2 mt-1.5">
-              {fuelBar.map(({ fuel, pct }) => {
+            <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1">
+              {primaryFuelBar.map(({ fuel, pct }) => {
                 const c = FUEL_COLORS[fuel] || FUEL_COLORS.other;
                 return (
                   <span key={fuel} className="flex items-center gap-1 text-[10px] text-slate-500">
@@ -183,9 +186,24 @@ export default function OverviewTab({
         )}
 
         {/* Updated footer */}
-        <div className="text-[10px] text-slate-600 mt-3 flex items-center gap-1.5">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/70" />
-          Updated {lastUpdate}
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-600">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500/70" />
+            Updated {lastUpdate}
+          </span>
+          {secondaryFuelBar.map(({ fuel, pct }) => {
+            const c = FUEL_COLORS[fuel] || FUEL_COLORS.other;
+            return (
+              <span key={fuel} className="flex items-center gap-1 text-slate-500">
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: `rgb(${c[0]},${c[1]},${c[2]})` }}
+                />
+                {FILTER_FUEL_LABELS[fuel] || fuel}
+                <span className="tabular-nums">{pct.toFixed(0)}%</span>
+              </span>
+            );
+          })}
         </div>
       </div>
 

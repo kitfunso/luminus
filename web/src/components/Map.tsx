@@ -726,6 +726,13 @@ export default function EnergyMap() {
         setTimeSeriesAsset(null);
         setIntelligenceView('brief');
         break;
+      case 'compare-mode':
+        setSidebarTab('overview');
+        setShowAlerts(false);
+        setShowPipeline(false);
+        setTimeSeriesAsset(null);
+        setIntelligenceView('brief');
+        break;
       case 'country-detail':
         setSidebarTab('overview');
         setShowAlerts(false);
@@ -813,6 +820,7 @@ export default function EnergyMap() {
       {/* Compare mode toggle */}
       <button
         onClick={handleToggleCompareMode}
+        data-tour-id="compare-button"
         className={`compare-mode-toggle hidden md:flex absolute px-3 py-1.5 rounded-full text-xs font-medium transition-all backdrop-blur-xl ${
           compareMode ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30' : 'bg-black/60 text-slate-400 border border-white/[0.06] hover:text-white hover:border-white/10'
         }`}
