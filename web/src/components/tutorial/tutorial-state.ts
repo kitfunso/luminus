@@ -8,6 +8,8 @@ export type TutorialStepId =
   | 'outage-radar'
   | 'forecast-actual'
   | 'morning-brief'
+  | 'spread-desk'
+  | 'timeframe-selector'
   | 'filters-replay';
 
 export interface TutorialStep {
@@ -72,6 +74,18 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Morning brief',
     description: 'Use the brief view for the highest-signal read on prices, congestion, outages, and pipeline context.',
     targetId: 'rail-brief',
+  },
+  {
+    id: 'spread-desk',
+    title: 'Spread desk',
+    description: 'Cross-border price spreads, momentum signals, and congestion rent. Click any corridor to drill into the flow detail.',
+    targetId: 'rail-spreads',
+  },
+  {
+    id: 'timeframe-selector',
+    title: 'Timeframe toggle',
+    description: 'Switch between Live, Day-Ahead, and 3-Day trend views to match your trading horizon.',
+    targetId: 'timeframe-selector',
   },
   {
     id: 'filters-replay',

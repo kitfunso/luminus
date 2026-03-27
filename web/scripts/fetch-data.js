@@ -790,13 +790,7 @@ async function fetchForecastXml(iso2, docType, processType) {
 }
 
 async function fetchActualGenXml(iso2) {
-  // A75 (actual generation per type) requires outBiddingZone_Domain, not in_Domain.
-  // Use bidding zone EIC from PRICE_ZONE_STRATEGIES when available (handles multi-zone
-  // countries like DE-LU, IT, SE, NO, DK correctly).
-  const strategy = PRICE_ZONE_STRATEGIES[iso2];
-  const resolvedIso = strategy?.aliasOf ? strategy.aliasOf : iso2;
-  const resolvedStrategy = PRICE_ZONE_STRATEGIES[resolvedIso];
-  const eic = resolvedStrategy?.zones?.[0] || ISO2_TO_EIC[iso2];
+  const eic = ISO2_TO_EIC[iso2];
   if (!eic) return null;
 
   const periodEnd = addHours(new Date(toHourStartIso(new Date())), 1);
@@ -806,7 +800,7 @@ async function fetchActualGenXml(iso2) {
     securityToken: ENTSOE_KEY,
     documentType: 'A75',
     processType: 'A16',
-    outBiddingZone_Domain: eic,
+    in_Domain: eic,
     periodStart: formatEntsoeDate(periodStart),
     periodEnd: formatEntsoeDate(periodEnd),
   });

@@ -16,6 +16,7 @@ interface TimeframeSelectorProps {
 export default function TimeframeSelector({ value, onChange }: TimeframeSelectorProps) {
   return (
     <div
+      data-tour-id="timeframe-selector"
       className="pointer-events-auto flex items-center gap-0.5 rounded-full border border-white/[0.06] bg-[#0a0e17]/92 px-1 py-1 shadow-2xl backdrop-blur-xl"
     >
       {OPTIONS.map((opt) => {

@@ -776,6 +776,19 @@ export default function EnergyMap() {
         setTimeSeriesAsset(null);
         setIntelligenceView('brief');
         break;
+      case 'spread-desk':
+        setSidebarTab('overview');
+        setShowAlerts(false);
+        setShowPipeline(false);
+        setTimeSeriesAsset(null);
+        setIntelligenceView('spreads');
+        break;
+      case 'timeframe-selector':
+        setSidebarTab('overview');
+        setShowAlerts(false);
+        setShowPipeline(false);
+        setTimeSeriesAsset(null);
+        break;
       case 'filters-replay':
         setSidebarTab('filters');
         break;
