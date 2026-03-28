@@ -15,4 +15,5 @@ export {
 } from './label-layer';
 export { createTyndpLayer, type TyndpLayerOptions } from './tyndp-layer';
 export { createAnimatedFlowLayer, type AnimatedFlowLayerOptions } from './animated-flow-layer';
+export { createSignalLayer, type SignalLabelDatum, type SignalLayerOptions } from './signal-layer';
 export { layerOpacity } from './focus';

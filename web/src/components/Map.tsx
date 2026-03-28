@@ -40,8 +40,8 @@ import { parseHashState, buildHash } from '@/lib/url-hash';
 import {
   createPriceLayer, createFlowLayer, createAnimatedFlowLayer,
   createPlantLayer, createLineLayer, createSpreadLabelLayer,
-  createMetricLabelLayer, createTyndpLayer, layerOpacity,
-  type FlowStressEntry, type SpreadLabelDatum, type MetricLabelDatum,
+  createMetricLabelLayer, createTyndpLayer, createSignalLayer, layerOpacity,
+  type FlowStressEntry, type SpreadLabelDatum, type MetricLabelDatum, type SignalLabelDatum,
 } from '@/lib/layers';
 import {
   buildCountryMarketPulse,
@@ -344,13 +344,97 @@ export default function EnergyMap() {
 
   const priceLookup = useMemo(() => {
     const map = new Map<string, CountryPrice>();
-    for (const p of prices) {
-      map.set(p.iso2, historyPriceOverride?.[p.iso2] !== undefined
-        ? { ...p, price: historyPriceOverride[p.iso2] }
-        : p);
+    // History price override (from time scrubber) takes priority
+    if (historyPriceOverride) {
+      for (const p of prices) {
+        map.set(p.iso2, historyPriceOverride[p.iso2] !== undefined
+          ? { ...p, price: historyPriceOverride[p.iso2] }
+          : p);
+      }
+      return map;
+    }
+
+    if (timeframe === 'live') {
+      // Live: use the most recent hourly value (current hour's actual price)
+      for (const p of prices) {
+        const hourly = p.hourly ?? [];
+        const now = new Date();
+        const currentHour = now.getUTCHours();
+        // Use the price at the current hour index, or the latest available
+        const livePrice = hourly.length > 0
+          ? hourly[Math.min(currentHour, hourly.length - 1)]
+          : p.price;
+        map.set(p.iso2, { ...p, price: livePrice });
+      }
+    } else if (timeframe === 'trend' && history) {
+      // 3-Day: use 3-day average from history data
+      const histAvg = new Map<string, number>();
+      for (const hc of history.countries) {
+        if (hc.hourly.length > 0) {
+          histAvg.set(hc.iso2, hc.hourly.reduce((s, v) => s + v, 0) / hc.hourly.length);
+        }
+      }
+      for (const p of prices) {
+        const avg = histAvg.get(p.iso2);
+        map.set(p.iso2, avg !== undefined ? { ...p, price: Math.round(avg * 10) / 10 } : p);
+      }
+    } else {
+      // Day-Ahead: default behavior
+      for (const p of prices) {
+        map.set(p.iso2, p);
+      }
     }
     return map;
-  }, [prices, historyPriceOverride]);
+  }, [prices, historyPriceOverride, timeframe, history]);
+
+  // Compute intraday delta: current hour price vs day-ahead mean
+  const intradayDelta = useMemo(() => {
+    const deltas = new Map<string, number>();
+    for (const p of prices) {
+      const hourly = p.hourly ?? [];
+      if (hourly.length < 4) continue;
+      const now = new Date();
+      const currentHour = Math.min(now.getUTCHours(), hourly.length - 1);
+      const currentPrice = hourly[currentHour];
+      const mean = hourly.reduce((s, v) => s + v, 0) / hourly.length;
+      deltas.set(p.iso2, Math.round((currentPrice - mean) * 10) / 10);
+    }
+    return deltas;
+  }, [prices]);
+
+  // Trading signal labels (momentum arrows below price labels)
+  const signalLabelData: SignalLabelDatum[] = useMemo(() => {
+    if (timeframe !== 'live') return [];
+    const signals: SignalLabelDatum[] = [];
+    for (const p of prices) {
+      const hourly = p.hourly ?? [];
+      if (hourly.length < 6) continue;
+      const centroid = COUNTRY_CENTROIDS[p.iso2];
+      if (!centroid) continue;
+
+      const now = new Date();
+      const h = Math.min(now.getUTCHours(), hourly.length - 1);
+      const recentStart = Math.max(0, h - 3);
+      const slope = (hourly[h] - hourly[recentStart]) / Math.max(1, h - recentStart);
+      const absSlope = Math.abs(slope);
+
+      if (absSlope < 3) continue; // Only show material moves
+
+      const delta = intradayDelta.get(p.iso2) ?? 0;
+      const arrow = slope > 0 ? '\u25B2' : '\u25BC';
+      const sign = delta > 0 ? '+' : '';
+      const color: [number, number, number, number] = slope > 0
+        ? [248, 113, 113, 200]  // red = rising price (bearish for buyers)
+        : [74, 222, 128, 200];  // green = falling price
+
+      signals.push({
+        position: [centroid.lon, centroid.lat],
+        text: `${arrow} ${sign}${delta}`,
+        color,
+      });
+    }
+    return signals;
+  }, [prices, timeframe, intradayDelta]);
 
   const metricLabelData: MetricLabelDatum[] = useMemo(
     () => buildMapMetricLabelData([...priceLookup.values()]),
@@ -416,12 +500,18 @@ export default function EnergyMap() {
         onHover: (info) => {
           if (!info) { setTooltip(null); return; }
           const pulse = buildCountryMarketPulse(info.iso2, prices, flows, outages, forecasts);
+          const delta = intradayDelta.get(info.iso2);
+          const content: Record<string, string> = { ...pulse.content };
+          if (delta !== undefined && delta !== 0) {
+            const sign = delta > 0 ? '+' : '';
+            content['Intraday vs DA mean'] = `${sign}${delta} (${delta > 0 ? 'above' : 'below'} average)`;
+          }
           setTooltip({
             x: info.x,
             y: info.y,
             title: pulse.title,
-            eyebrow: pulse.eyebrow,
-            content: pulse.content,
+            eyebrow: timeframe === 'live' ? 'Live Price' : timeframe === 'trend' ? '3-Day Average' : 'Market Pulse',
+            content,
           });
         },
         onClick: (iso2) => {
@@ -502,11 +592,15 @@ export default function EnergyMap() {
       result.push(createMetricLabelLayer({ data: metricLabelData }));
     }
 
+    if (signalLabelData.length > 0 && zoomLevel >= 4) {
+      result.push(createSignalLayer({ data: signalLabelData }));
+    }
+
     return result;
   }, [
     effectiveVis, geoJson, priceLookup, focusMode, compareMode,
     transmissionLines, flowStressByCorridor, selectedFlowForLines, flows,
-    animTimestamp, spreadLabelData, filteredPlants, zoomLevel, metricLabelData,
+    animTimestamp, spreadLabelData, filteredPlants, zoomLevel, metricLabelData, signalLabelData,
     selectDetail, toggleCompareCountry, prices, outages, forecasts,
   ]);
 

@@ -20,6 +20,7 @@ const FLOW_TIERS: readonly { height: number; label: string }[] = [
 export default function MapLegend({ embedded }: { embedded?: boolean } = {}) {
   const layerVisibility = useMapStore((s) => s.layerVisibility);
   const zoom = useMapStore((s) => s.viewState.zoom);
+  const timeframe = useMapStore((s) => s.timeframe);
 
   if (zoom < 3) return null;
 
@@ -35,7 +36,7 @@ export default function MapLegend({ embedded }: { embedded?: boolean } = {}) {
       {showPrices && (
         <div className="flex flex-col gap-1">
           <span className="text-[10px] text-slate-400 uppercase tracking-widest">
-            Day-Ahead Price
+            {timeframe === 'live' ? 'Live Price' : timeframe === 'trend' ? '3-Day Avg Price' : 'Day-Ahead Price'}
           </span>
           <div
             className="h-2 w-full rounded-sm"
