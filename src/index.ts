@@ -34,6 +34,7 @@ import { ancillaryPricesSchema, getAncillaryPrices } from "./tools/ancillary-pri
 import { remitMessagesSchema, getRemitMessages } from "./tools/remit-messages.js";
 import { priceSpreadAnalysisSchema, getPriceSpreadAnalysis } from "./tools/price-spread-analysis.js";
 import { euGasPriceSchema, getEuGasPrice } from "./tools/eu-gas-price.js";
+import { energyChartsSchema, getEnergyCharts } from "./tools/energy-charts.js";
 
 dotenv.config();
 
@@ -623,6 +624,26 @@ server.tool(
   async (params) => {
     try {
       const result = await getEuGasPrice(euGasPriceSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_energy_charts",
+  "Query energy-charts.info (Fraunhofer ISE) for European electricity data. " +
+    "No API key needed. Returns prices (15-min resolution), real-time generation by fuel type, " +
+    "or cross-border flows. Covers all EU countries except GB. " +
+    "Faster and more reliable than ENTSO-E.",
+  energyChartsSchema.shape,
+  async (params) => {
+    try {
+      const result = await getEnergyCharts(energyChartsSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {
