@@ -94,8 +94,8 @@ export async function getPriceSpreadAnalysis(
   const dischargeAvg = sorted.slice(-dischargeCount).reduce((s, p) => s + p.price_eur_mwh, 0) / dischargeCount;
 
   const grossSpread = Math.round((dischargeAvg - chargeAvg) * 100) / 100;
-  const netSpread = Math.round(grossSpread * efficiency * 100) / 100;
-  // Revenue = net_spread * hours_per_cycle (1h charge + 1h discharge = 1 MWh per cycle)
+  // Net spread: discharge_price * efficiency - charge_price (efficiency loss on discharge side)
+  const netSpread = Math.round((dischargeAvg * efficiency - chargeAvg) * 100) / 100;
   const revenuePerMwDay = Math.round(netSpread * cycles * 100) / 100;
 
   let signal: ArbSignal;

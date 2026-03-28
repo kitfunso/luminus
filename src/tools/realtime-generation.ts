@@ -130,7 +130,7 @@ async function getEntsoeGeneration(
     {
       documentType: "A75",
       processType: "A16",
-      outBiddingZone_Domain: eic,
+      in_Domain: eic,
       periodStart,
       periodEnd,
     },
