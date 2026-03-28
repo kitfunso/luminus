@@ -30,6 +30,9 @@ import { imbalancePricesSchema, getImbalancePrices } from "./tools/imbalance-pri
 import { intradaySpreadSchema, getIntradayDaSpread } from "./tools/intraday-spread.js";
 import { realtimeGenerationSchema, getRealtimeGeneration } from "./tools/realtime-generation.js";
 import { balancingActionsSchema, getBalancingActions } from "./tools/balancing-actions.js";
+import { ancillaryPricesSchema, getAncillaryPrices } from "./tools/ancillary-prices.js";
+import { remitMessagesSchema, getRemitMessages } from "./tools/remit-messages.js";
+import { priceSpreadAnalysisSchema, getPriceSpreadAnalysis } from "./tools/price-spread-analysis.js";
 
 dotenv.config();
 
@@ -543,6 +546,63 @@ server.tool(
   async (params) => {
     try {
       const result = await getBalancingActions(balancingActionsSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_ancillary_prices",
+  "Get FCR/aFRR/mFRR reserve procurement prices for a European zone. " +
+    "Returns per-period prices in EUR/MW. " +
+    "BESS operators use reserve markets for 30-50% of revenue — often 3-5x more profitable than energy arbitrage.",
+  ancillaryPricesSchema.shape,
+  async (params) => {
+    try {
+      const result = await getAncillaryPrices(ancillaryPricesSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_remit_messages",
+  "Get REMIT urgent market messages for a European zone. " +
+    "Returns forced outages, capacity reductions, and market-moving events. " +
+    "Early detection of large outages signals imminent price spikes.",
+  remitMessagesSchema.shape,
+  async (params) => {
+    try {
+      const result = await getRemitMessages(remitMessagesSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_price_spread_analysis",
+  "Analyze daily price spread for BESS arbitrage. " +
+    "Returns optimal charge/discharge schedule, expected revenue per MW, and a signal strength. " +
+    "Built for battery storage operators evaluating arbitrage opportunities.",
+  priceSpreadAnalysisSchema.shape,
+  async (params) => {
+    try {
+      const result = await getPriceSpreadAnalysis(priceSpreadAnalysisSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {

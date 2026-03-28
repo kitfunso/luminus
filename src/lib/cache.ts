@@ -39,6 +39,7 @@ export const TTL = {
   BALANCING: 5 * 60 * 1000, // 5 min
   STATIC_DATA: 24 * 60 * 60 * 1000, // 24 hours
   AUCTION: 60 * 60 * 1000, // 1 hour
+  ANCILLARY: 60 * 60 * 1000, // 1 hour
   OUTAGES: 15 * 60 * 1000, // 15 min
   FREQUENCY: 30 * 1000, // 30 sec
   INTRADAY: 15 * 60 * 1000, // 15 min
