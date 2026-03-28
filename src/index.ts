@@ -35,6 +35,10 @@ import { remitMessagesSchema, getRemitMessages } from "./tools/remit-messages.js
 import { priceSpreadAnalysisSchema, getPriceSpreadAnalysis } from "./tools/price-spread-analysis.js";
 import { euGasPriceSchema, getEuGasPrice } from "./tools/eu-gas-price.js";
 import { energyChartsSchema, getEnergyCharts } from "./tools/energy-charts.js";
+import { commodityPricesSchema, getCommodityPrices } from "./tools/commodity-prices.js";
+import { nordpoolSchema, getNordpoolPrices } from "./tools/nordpool-prices.js";
+import { smardSchema, getSmardData } from "./tools/smard-data.js";
+import { emberSchema, getEmberData } from "./tools/ember-data.js";
 
 dotenv.config();
 
@@ -644,6 +648,78 @@ server.tool(
   async (params) => {
     try {
       const result = await getEnergyCharts(energyChartsSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_commodity_prices",
+  "Get European energy commodity prices: EUA carbon (CO2.L), Brent crude (BZ=F), TTF gas (TTF=F). " +
+    "No API key needed. Returns latest price, 5-day history, and stats.",
+  commodityPricesSchema.shape,
+  async (params) => {
+    try {
+      const result = await getCommodityPrices(commodityPricesSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_nordpool_prices",
+  "Get Nordic and Baltic day-ahead prices from Nordpool at 15-min resolution. " +
+    "Covers SE1-SE4, NO1-NO5, DK1-DK2, FI. No API key needed.",
+  nordpoolSchema.shape,
+  async (params) => {
+    try {
+      const result = await getNordpoolPrices(nordpoolSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_smard_data",
+  "Get high-resolution German electricity data from SMARD (Bundesnetzagentur). " +
+    "Hourly generation, consumption, and market data. No API key needed.",
+  smardSchema.shape,
+  async (params) => {
+    try {
+      const result = await getSmardData(smardSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_ember_data",
+  "Get power sector data from EMBER Climate. " +
+    "Yearly electricity generation, capacity, emissions, and demand by country. Free, no API key.",
+  emberSchema.shape,
+  async (params) => {
+    try {
+      const result = await getEmberData(emberSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {
