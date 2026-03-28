@@ -33,6 +33,7 @@ import { balancingActionsSchema, getBalancingActions } from "./tools/balancing-a
 import { ancillaryPricesSchema, getAncillaryPrices } from "./tools/ancillary-prices.js";
 import { remitMessagesSchema, getRemitMessages } from "./tools/remit-messages.js";
 import { priceSpreadAnalysisSchema, getPriceSpreadAnalysis } from "./tools/price-spread-analysis.js";
+import { euGasPriceSchema, getEuGasPrice } from "./tools/eu-gas-price.js";
 
 dotenv.config();
 
@@ -603,6 +604,25 @@ server.tool(
   async (params) => {
     try {
       const result = await getPriceSpreadAnalysis(priceSpreadAnalysisSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_eu_gas_price",
+  "Get European natural gas prices (TTF or NBP). " +
+    "Returns latest price in EUR/MWh with daily history. No API key needed. " +
+    "Use for spark spread calculations, BESS revenue comparisons, and gas-power switching signals.",
+  euGasPriceSchema.shape,
+  async (params) => {
+    try {
+      const result = await getEuGasPrice(euGasPriceSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {

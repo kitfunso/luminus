@@ -3,7 +3,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Real-time European & UK electricity grid data via MCP. 27 tools, all free.
+Real-time European & UK electricity grid data via MCP. 31 tools, all free.
 
 ## Tools
 
@@ -41,6 +41,15 @@ Real-time European & UK electricity grid data via MCP. 27 tools, all free.
 | `get_gas_storage` | GIE AGSI+ | European gas storage levels, fill %, injection/withdrawal |
 | `get_lng_terminals` | GIE ALSI | LNG terminal inventory, send-out rates, capacity |
 | `get_us_gas_data` | EIA | US gas storage (Bcf) and Henry Hub prices (USD/MMBtu) |
+| `get_eu_gas_price` | Yahoo Finance | TTF/NBP gas prices in EUR/MWh for spark spread calculations |
+
+### BESS & Ancillary
+
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_ancillary_prices` | ENTSO-E | FCR/aFRR/mFRR reserve procurement prices (EUR/MW) |
+| `get_remit_messages` | ENTSO-E | REMIT urgent market messages (forced outages, capacity reductions) |
+| `get_price_spread_analysis` | Computed | BESS arbitrage schedule with optimal charge/discharge windows |
 
 ### Grid Infrastructure
 
