@@ -3,7 +3,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Real-time European & UK electricity grid data via MCP. 22 tools, all free.
+Real-time European & UK electricity grid data via MCP. 27 tools, all free.
 
 ## Tools
 
@@ -16,6 +16,16 @@ Real-time European & UK electricity grid data via MCP. 22 tools, all free.
 | `get_balancing_prices` | ENTSO-E | Imbalance/settlement prices per period |
 | `get_carbon_intensity` | ENTSO-E | CO2 intensity (gCO2/kWh) from generation mix |
 | `get_hydro_reservoir` | ENTSO-E | Reservoir filling levels (MWh) for hydro countries |
+
+### Intraday & Balancing
+
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_intraday_prices` | ENTSO-E | Continuous intraday market prices per bidding zone |
+| `get_imbalance_prices` | ENTSO-E | Real-time settlement/imbalance prices |
+| `get_intraday_da_spread` | Computed | Intraday minus day-ahead spread with directional signal |
+| `get_realtime_generation` | ENTSO-E / BMRS | Actual generation by fuel type (MW), 5-15 min resolution |
+| `get_balancing_actions` | ENTSO-E / BMRS | Activated balancing energy (up/down regulation volumes) |
 
 ### Forecasts
 
