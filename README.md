@@ -108,7 +108,7 @@ Real-time European & UK electricity grid data via MCP. 48 tools, all free.
 | `get_weather_forecast` | Open-Meteo | Temperature, wind speed, solar radiation by location |
 | `get_solar_irradiance` | PVGIS | Monthly irradiance, optimal angle, annual PV yield |
 | `get_era5_weather` | ERA5 (Copernicus/ECMWF) | Historical reanalysis: wind at hub height, solar radiation, temperature |
-| `get_stormglass` | Storm Glass | Offshore marine weather: wind, waves, swell, sea temperature |
+| `get_stormglass` | Storm Glass | Offshore marine weather: wind, waves, swell, sea temperature (10 req/day) |
 
 ## Quick Start
 

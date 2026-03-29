@@ -955,7 +955,8 @@ server.tool(
   "get_stormglass",
   "Get marine/offshore weather from Storm Glass. Wind speed at hub height, " +
     "wave height/period, swell, sea surface temperature, visibility. " +
-    "48-hour forecast. Key for offshore wind assessment. Requires free STORMGLASS_API_KEY.",
+    "48-hour forecast. Key for offshore wind assessment. Requires STORMGLASS_API_KEY. " +
+    "RATE LIMIT: 10 requests/day on free tier — use sparingly.",
   stormglassSchema.shape,
   async (params) => {
     try {
