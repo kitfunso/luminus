@@ -243,13 +243,43 @@ If you hit a rate limit, the error message will include the HTTP status code. Wa
 # Rebuild from source
 npm run build
 
-# Check for dependency vulnerabilities
-npm audit
+# Run the small regression suite
+npm test
+
+# Check runtime dependency vulnerabilities
+npm audit --omit=dev
 ```
+
+### Error handling and debug mode
+
+Luminus now normalises tool failures into five buckets:
+- **Invalid parameters**: bad zone, corridor, date, or missing required input
+- **Configuration error**: missing API key or env var
+- **No data returned**: request was valid, but the upstream source had no matching data
+- **Upstream source error**: timeout, 4xx/5xx, or provider-side failure
+- **Unexpected server error**: anything else
+
+By default, tool responses stay short and actionable. If you need raw internals while debugging locally, set:
+
+```bash
+LUMINUS_DEBUG=1
+```
+
+That adds the raw upstream error text to MCP responses and prints the underlying error to stderr.
+
+### Dependency hygiene
+
+Runtime deps are intentionally small: MCP SDK, dotenv, fast-xml-parser, and zod. Transitive deps still matter, so before releases you should run:
+
+```bash
+npm audit --omit=dev
+```
+
+The package pins `path-to-regexp` via `overrides` to avoid the known vulnerable 8.0.0-8.3.0 range pulled in through the MCP SDK's Express stack.
 
 ### Scope and limitations
 
-Luminus aggregates publicly available European energy data. It does not provide:
+Luminus aggregates publicly available European energy data. It is a data-access layer, not an energy trading model. It does not provide:
 - Trading recommendations or financial advice
 - Sub-second or tick-level market data
 - Historical data beyond what each upstream API offers (typically days to weeks; EMBER and ERA5 are exceptions with multi-year archives)
