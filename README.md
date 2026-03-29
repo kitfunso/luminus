@@ -3,7 +3,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Real-time European & UK electricity grid data via MCP. 31 tools, all free.
+Real-time European & UK electricity grid data via MCP. 36 tools, all free.
 
 ## Tools
 
@@ -70,6 +70,22 @@ Real-time European & UK electricity grid data via MCP. 31 tools, all free.
 |------|--------|-------------|
 | `get_uk_carbon_intensity` | National Grid ESO | UK carbon intensity, index, and fuel mix |
 | `get_uk_grid_demand` | National Grid ESO | UK demand (MW) and grid frequency (Hz) |
+
+### Commodities
+
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_commodity_prices` | Yahoo Finance | EUA carbon, Brent crude, TTF gas prices with 5-day history |
+| `get_eu_gas_price` | Yahoo Finance | TTF/NBP gas prices (EUR/MWh) for spark spread calculations |
+
+### Regional Specialists
+
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_energy_charts` | energy-charts.info | European electricity prices, generation, and flows (no API key) |
+| `get_nordpool_prices` | Nordpool | Nordic and Baltic day-ahead prices at 15-min resolution |
+| `get_smard_data` | SMARD (Bundesnetzagentur) | High-resolution German generation, consumption, and market data |
+| `get_ember_data` | EMBER Climate | Yearly power sector generation, capacity, emissions, and demand |
 
 ### Weather & Climate
 
@@ -140,11 +156,17 @@ Ask your AI agent:
 | National Grid ESO | [carbonintensity.org.uk](https://carbonintensity.org.uk/) | UK |
 | GIE AGSI+ / ALSI | [agsi.gie.eu](https://agsi.gie.eu/) | European gas & LNG |
 | EIA | [eia.gov](https://www.eia.gov/) | US natural gas |
+| energy-charts.info | [energy-charts.info](https://energy-charts.info/) | EU electricity (Fraunhofer ISE) |
+| Nordpool | [nordpoolgroup.com](https://www.nordpoolgroup.com/) | Nordic & Baltic markets |
+| SMARD | [smard.de](https://www.smard.de/) | German electricity |
+| EMBER Climate | [ember-climate.org](https://ember-climate.org/) | Global power sector data |
+| Yahoo Finance | [finance.yahoo.com](https://finance.yahoo.com/) | Energy commodities |
 | Open-Meteo | [open-meteo.com](https://open-meteo.com/) | Global weather |
 | PVGIS | [re.jrc.ec.europa.eu](https://re.jrc.ec.europa.eu/pvg_tools/) | Global solar irradiance |
 | Open Power System Data | [open-power-system-data.org](https://open-power-system-data.org/) | European power plants |
 | JAO | [jao.eu](https://www.jao.eu/) | Cross-border auctions |
 | OpenStreetMap | [openstreetmap.org](https://www.openstreetmap.org/) | Transmission lines |
+| mainsfrequency.com | [mainsfrequency.com](https://www.mainsfrequency.com/) | European grid frequency |
 
 ## Licence
 
