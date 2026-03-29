@@ -214,6 +214,49 @@ Ask your AI agent:
 | OpenStreetMap | [openstreetmap.org](https://www.openstreetmap.org/) | Transmission lines |
 | mainsfrequency.com | [mainsfrequency.com](https://www.mainsfrequency.com/) | European grid frequency |
 
+## Troubleshooting
+
+### "Error: ENTSOE_API_KEY not set"
+
+Most ENTSO-E tools require an API key. Set it in `.env` or pass via your MCP config's `env` block. Tools that don't need a key (energy-charts, Nordpool, SMARD, Elexon, etc.) will still work.
+
+### "Error: No data returned" or empty results
+
+- **Wrong zone code**: Use two-letter country codes (`DE`, `FR`, `GB`) or ENTSO-E bidding zone codes (`10YDE-VE-------2`). See tool descriptions for valid zones.
+- **Date range**: Some APIs only serve recent data (24-48h). Don't request dates more than a few days in the past unless the tool description says otherwise.
+- **Weekend/holiday**: Day-ahead auction results may not exist for the current day if the auction hasn't cleared yet.
+
+### Rate limits
+
+| Source | Limit | What happens |
+|--------|-------|--------------|
+| ENTSO-E | ~400 req/min | HTTP 429 — wait and retry |
+| Storm Glass | 10 req/day (free) | HTTP 403 after limit hit |
+| OpenStreetMap (Overpass) | ~10k/day | Slow responses, then timeout |
+| GIE (AGSI+/ALSI) | ~60 req/min | HTTP 429 |
+
+If you hit a rate limit, the error message will include the HTTP status code. Wait a minute and retry.
+
+### Build/install issues
+
+```bash
+# Rebuild from source
+npm run build
+
+# Check for dependency vulnerabilities
+npm audit
+```
+
+### Scope and limitations
+
+Luminus aggregates publicly available European energy data. It does not provide:
+- Trading recommendations or financial advice
+- Sub-second or tick-level market data
+- Historical data beyond what each upstream API offers (typically days to weeks; EMBER and ERA5 are exceptions with multi-year archives)
+- Guaranteed uptime — upstream APIs go down independently
+
+Data freshness depends on each source. Most update every 15-60 minutes. Check the `timestamp` or `updated_at` field in tool responses.
+
 ## Licence
 
 MIT. See [LICENSE](LICENSE).

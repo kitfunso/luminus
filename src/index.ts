@@ -2,6 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
+import { toolHandler } from "./lib/tool-handler.js";
 
 import { generationSchema, getGenerationMix } from "./tools/generation.js";
 import { pricesSchema, getDayAheadPrices } from "./tools/prices.js";
@@ -59,23 +60,15 @@ const server = new McpServer({
   version: "0.1.0",
 });
 
+// --- Generation & Prices ---
+
 server.tool(
   "get_generation_mix",
   "Get the current electricity generation mix for a European country/zone. " +
     "Returns MW output per fuel type (wind, solar, gas, nuclear, hydro, coal, etc). " +
     "Useful for understanding what powers the grid right now.",
   generationSchema.shape,
-  async (params) => {
-    try {
-      const result = await getGenerationMix(generationSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(generationSchema, getGenerationMix)
 );
 
 server.tool(
@@ -84,17 +77,7 @@ server.tool(
     "Returns hourly prices with min/max/mean stats. " +
     "Useful for energy cost analysis and trading signals.",
   pricesSchema.shape,
-  async (params) => {
-    try {
-      const result = await getDayAheadPrices(pricesSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(pricesSchema, getDayAheadPrices)
 );
 
 server.tool(
@@ -103,17 +86,7 @@ server.tool(
     "Returns hourly flow data with statistics. " +
     "Useful for understanding interconnection utilization and energy trade.",
   flowsSchema.shape,
-  async (params) => {
-    try {
-      const result = await getCrossBorderFlows(flowsSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(flowsSchema, getCrossBorderFlows)
 );
 
 server.tool(
@@ -122,17 +95,7 @@ server.tool(
     "Returns intensity, fuel breakdown with emission factors, and renewable/fossil percentages. " +
     "Useful for carbon footprint analysis and green energy comparison.",
   carbonSchema.shape,
-  async (params) => {
-    try {
-      const result = await getCarbonIntensity(carbonSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(carbonSchema, getCarbonIntensity)
 );
 
 server.tool(
@@ -141,17 +104,7 @@ server.tool(
     "Returns gas in storage (TWh), fill level (%), injection/withdrawal rates, and year-on-year trend. " +
     "Useful for energy supply security analysis and gas market fundamentals.",
   gasStorageSchema.shape,
-  async (params) => {
-    try {
-      const result = await getGasStorage(gasStorageSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(gasStorageSchema, getGasStorage)
 );
 
 server.tool(
@@ -160,17 +113,7 @@ server.tool(
     "Returns hourly temperature, wind speed (for wind generation), and solar radiation (for solar generation). " +
     "Accepts country code (uses capital city) or custom lat/lon coordinates.",
   weatherSchema.shape,
-  async (params) => {
-    try {
-      const result = await getWeatherForecast(weatherSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(weatherSchema, getWeatherForecast)
 );
 
 server.tool(
@@ -179,18 +122,10 @@ server.tool(
     "Supports weekly storage levels (Bcf) and Henry Hub futures prices (USD/MMBtu). " +
     "Useful for transatlantic gas market analysis and LNG flow context.",
   usGasSchema.shape,
-  async (params) => {
-    try {
-      const result = await getUsGasData(usGasSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(usGasSchema, getUsGasData)
 );
+
+// --- UK Specific ---
 
 server.tool(
   "get_uk_carbon_intensity",
@@ -198,17 +133,7 @@ server.tool(
     "Returns gCO2/kWh intensity, index (very low to very high), and fuel-type percentages. " +
     "Supports current national, regional breakdown, and historical by date.",
   ukCarbonSchema.shape,
-  async (params) => {
-    try {
-      const result = await getUkCarbonIntensity(ukCarbonSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(ukCarbonSchema, getUkCarbonIntensity)
 );
 
 server.tool(
@@ -217,18 +142,10 @@ server.tool(
     "Demand returns actual MW + forecast for recent settlement periods. " +
     "Frequency returns real-time Hz (~50 Hz nominal; deviations = grid stress).",
   ukGridSchema.shape,
-  async (params) => {
-    try {
-      const result = await getUkGridDemand(ukGridSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(ukGridSchema, getUkGridDemand)
 );
+
+// --- Balancing & Forecasts ---
 
 server.tool(
   "get_balancing_prices",
@@ -236,17 +153,7 @@ server.tool(
     "Returns settlement period prices with min/max/mean stats. " +
     "Useful for understanding real-time balancing market costs.",
   balancingSchema.shape,
-  async (params) => {
-    try {
-      const result = await getBalancingPrices(balancingSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(balancingSchema, getBalancingPrices)
 );
 
 server.tool(
@@ -255,17 +162,7 @@ server.tool(
     "Returns hourly forecasts per source (Wind Onshore, Wind Offshore, Solar) with peak MW. " +
     "Useful for renewable energy planning and residual load analysis.",
   renewableForecastSchema.shape,
-  async (params) => {
-    try {
-      const result = await getRenewableForecast(renewableForecastSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(renewableForecastSchema, getRenewableForecast)
 );
 
 server.tool(
@@ -274,18 +171,10 @@ server.tool(
     "Returns hourly demand with min/max/mean stats and total energy. " +
     "Useful for supply-demand balance analysis and peak planning.",
   demandForecastSchema.shape,
-  async (params) => {
-    try {
-      const result = await getDemandForecast(demandForecastSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(demandForecastSchema, getDemandForecast)
 );
+
+// --- Grid Infrastructure ---
 
 server.tool(
   "get_power_plants",
@@ -293,17 +182,7 @@ server.tool(
     "Returns plant name, capacity (MW), fuel type, location, and commissioning year. " +
     "Covers conventional and renewable plants. Filter by country, fuel type, or minimum capacity.",
   powerPlantsSchema.shape,
-  async (params) => {
-    try {
-      const result = await getPowerPlants(powerPlantsSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(powerPlantsSchema, getPowerPlants)
 );
 
 server.tool(
@@ -312,17 +191,7 @@ server.tool(
     "Returns allocated capacity (MW), auction price (EUR/MW), and offered capacity for a border corridor. " +
     "Useful for interconnection value and congestion rent analysis.",
   auctionSchema.shape,
-  async (params) => {
-    try {
-      const result = await getAuctionResults(auctionSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(auctionSchema, getAuctionResults)
 );
 
 server.tool(
@@ -331,17 +200,7 @@ server.tool(
     "Returns unit name, fuel type, available/unavailable MW, start/end dates, and reason. " +
     "Useful for supply risk analysis and maintenance planning.",
   outagesSchema.shape,
-  async (params) => {
-    try {
-      const result = await getOutages(outagesSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(outagesSchema, getOutages)
 );
 
 server.tool(
@@ -350,17 +209,7 @@ server.tool(
     "Returns LNG inventory (mcm), send-out rate, capacity, and days to reach storage per terminal. " +
     "Useful for gas supply security and LNG market analysis.",
   lngTerminalsSchema.shape,
-  async (params) => {
-    try {
-      const result = await getLngTerminals(lngTerminalsSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(lngTerminalsSchema, getLngTerminals)
 );
 
 server.tool(
@@ -369,17 +218,7 @@ server.tool(
     "Returns monthly irradiance (kWh/m2), optimal panel angle, and annual yield estimate. " +
     "No API key needed. Useful for solar project assessment.",
   solarSchema.shape,
-  async (params) => {
-    try {
-      const result = await getSolarIrradiance(solarSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(solarSchema, getSolarIrradiance)
 );
 
 server.tool(
@@ -388,17 +227,7 @@ server.tool(
     "Returns total net position (positive = net importer) and per-border breakdown. " +
     "Useful for understanding a country's energy trade balance.",
   netPositionsSchema.shape,
-  async (params) => {
-    try {
-      const result = await getNetPositions(netPositionsSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(netPositionsSchema, getNetPositions)
 );
 
 server.tool(
@@ -407,17 +236,7 @@ server.tool(
     "Returns hourly NTC values (max allowed commercial flow) with min/max/mean stats. " +
     "Useful for interconnection utilization and congestion analysis.",
   transferCapacitySchema.shape,
-  async (params) => {
-    try {
-      const result = await getTransferCapacity(transferCapacitySchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(transferCapacitySchema, getTransferCapacity)
 );
 
 server.tool(
@@ -426,17 +245,7 @@ server.tool(
     "Returns frequency in Hz, deviation in mHz, and status (normal/deviation). " +
     "Deviations indicate grid stress from supply-demand imbalance.",
   frequencySchema.shape,
-  async (params) => {
-    try {
-      const result = await getEuFrequency(frequencySchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(frequencySchema, getEuFrequency)
 );
 
 server.tool(
@@ -445,17 +254,7 @@ server.tool(
     "Returns weekly reservoir data. Best coverage: NO, SE, AT, CH, ES, PT. " +
     "Useful for hydropower supply analysis and price forecasting.",
   hydroSchema.shape,
-  async (params) => {
-    try {
-      const result = await getHydroReservoir(hydroSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(hydroSchema, getHydroReservoir)
 );
 
 server.tool(
@@ -464,18 +263,10 @@ server.tool(
     "Returns line voltage (kV), operator, cable count, and lat/lon coordinates. " +
     "Filter by country or bounding box. Defaults to 220kV+ lines. Rate-limited.",
   transmissionSchema.shape,
-  async (params) => {
-    try {
-      const result = await getTransmissionLines(transmissionSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(transmissionSchema, getTransmissionLines)
 );
+
+// --- Intraday & Balancing ---
 
 server.tool(
   "get_intraday_prices",
@@ -483,17 +274,7 @@ server.tool(
     "Returns hourly prices from the intraday market with stats. " +
     "Compare with day-ahead prices to spot market moves and trading opportunities.",
   intradayPricesSchema.shape,
-  async (params) => {
-    try {
-      const result = await getIntradayPrices(intradayPricesSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(intradayPricesSchema, getIntradayPrices)
 );
 
 server.tool(
@@ -502,17 +283,7 @@ server.tool(
     "Returns per-period imbalance prices (EUR/MWh) — the price paid for deviations from scheduled position. " +
     "Key signal for balancing market traders and BRP risk management.",
   imbalancePricesSchema.shape,
-  async (params) => {
-    try {
-      const result = await getImbalancePrices(imbalancePricesSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(imbalancePricesSchema, getImbalancePrices)
 );
 
 server.tool(
@@ -522,17 +293,7 @@ server.tool(
     "Intraday premium = something changed since auction (outage, forecast miss, demand spike). " +
     "Core signal for directional and spread traders.",
   intradaySpreadSchema.shape,
-  async (params) => {
-    try {
-      const result = await getIntradayDaSpread(intradaySpreadSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(intradaySpreadSchema, getIntradayDaSpread)
 );
 
 server.tool(
@@ -541,17 +302,7 @@ server.tool(
     "Returns generation per source (wind, solar, gas, nuclear, etc.) with total. " +
     "Uses ENTSO-E for EU zones, Elexon BMRS for GB. 5-15 min resolution.",
   realtimeGenerationSchema.shape,
-  async (params) => {
-    try {
-      const result = await getRealtimeGeneration(realtimeGenerationSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(realtimeGenerationSchema, getRealtimeGeneration)
 );
 
 server.tool(
@@ -561,18 +312,10 @@ server.tool(
     "Uses ENTSO-E for EU zones, Elexon BMRS BOD for GB. " +
     "Indicates real-time grid stress and TSO intervention.",
   balancingActionsSchema.shape,
-  async (params) => {
-    try {
-      const result = await getBalancingActions(balancingActionsSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(balancingActionsSchema, getBalancingActions)
 );
+
+// --- BESS & Ancillary ---
 
 server.tool(
   "get_ancillary_prices",
@@ -580,17 +323,7 @@ server.tool(
     "Returns per-period prices in EUR/MW. " +
     "BESS operators use reserve markets for 30-50% of revenue — often 3-5x more profitable than energy arbitrage.",
   ancillaryPricesSchema.shape,
-  async (params) => {
-    try {
-      const result = await getAncillaryPrices(ancillaryPricesSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(ancillaryPricesSchema, getAncillaryPrices)
 );
 
 server.tool(
@@ -599,17 +332,7 @@ server.tool(
     "Returns forced outages, capacity reductions, and market-moving events. " +
     "Early detection of large outages signals imminent price spikes.",
   remitMessagesSchema.shape,
-  async (params) => {
-    try {
-      const result = await getRemitMessages(remitMessagesSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(remitMessagesSchema, getRemitMessages)
 );
 
 server.tool(
@@ -618,18 +341,10 @@ server.tool(
     "Returns optimal charge/discharge schedule, expected revenue per MW, and a signal strength. " +
     "Built for battery storage operators evaluating arbitrage opportunities.",
   priceSpreadAnalysisSchema.shape,
-  async (params) => {
-    try {
-      const result = await getPriceSpreadAnalysis(priceSpreadAnalysisSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(priceSpreadAnalysisSchema, getPriceSpreadAnalysis)
 );
+
+// --- Gas & LNG ---
 
 server.tool(
   "get_eu_gas_price",
@@ -637,18 +352,10 @@ server.tool(
     "Returns latest price in EUR/MWh with daily history. No API key needed. " +
     "Use for spark spread calculations, BESS revenue comparisons, and gas-power switching signals.",
   euGasPriceSchema.shape,
-  async (params) => {
-    try {
-      const result = await getEuGasPrice(euGasPriceSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(euGasPriceSchema, getEuGasPrice)
 );
+
+// --- Regional Specialists ---
 
 server.tool(
   "get_energy_charts",
@@ -657,17 +364,7 @@ server.tool(
     "or cross-border flows. Covers all EU countries except GB. " +
     "Faster and more reliable than ENTSO-E.",
   energyChartsSchema.shape,
-  async (params) => {
-    try {
-      const result = await getEnergyCharts(energyChartsSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(energyChartsSchema, getEnergyCharts)
 );
 
 server.tool(
@@ -675,17 +372,7 @@ server.tool(
   "Get European energy commodity prices: EUA carbon (CO2.L), Brent crude (BZ=F), TTF gas (TTF=F). " +
     "No API key needed. Returns latest price, 5-day history, and stats.",
   commodityPricesSchema.shape,
-  async (params) => {
-    try {
-      const result = await getCommodityPrices(commodityPricesSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(commodityPricesSchema, getCommodityPrices)
 );
 
 server.tool(
@@ -693,17 +380,7 @@ server.tool(
   "Get Nordic and Baltic day-ahead prices from Nordpool at 15-min resolution. " +
     "Covers SE1-SE4, NO1-NO5, DK1-DK2, FI. No API key needed.",
   nordpoolSchema.shape,
-  async (params) => {
-    try {
-      const result = await getNordpoolPrices(nordpoolSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(nordpoolSchema, getNordpoolPrices)
 );
 
 server.tool(
@@ -711,17 +388,7 @@ server.tool(
   "Get high-resolution German electricity data from SMARD (Bundesnetzagentur). " +
     "Hourly generation, consumption, and market data. No API key needed.",
   smardSchema.shape,
-  async (params) => {
-    try {
-      const result = await getSmardData(smardSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(smardSchema, getSmardData)
 );
 
 server.tool(
@@ -729,17 +396,7 @@ server.tool(
   "Get power sector data from EMBER Climate. " +
     "Yearly electricity generation, capacity, emissions, and demand by country. Free, no API key.",
   emberSchema.shape,
-  async (params) => {
-    try {
-      const result = await getEmberData(emberSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(emberSchema, getEmberData)
 );
 
 server.tool(
@@ -748,17 +405,7 @@ server.tool(
     "Physical flows (GWh/d), nominations, interruptions, and capacities. " +
     "No API key needed. Covers all EU gas TSOs.",
   entsogSchema.shape,
-  async (params) => {
-    try {
-      const result = await getEntsogData(entsogSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(entsogSchema, getEntsogData)
 );
 
 server.tool(
@@ -767,17 +414,7 @@ server.tool(
     "Imbalance/cashout prices, generation by fuel, balancing bids/offers, " +
     "system warnings, and interconnector flows. No API key needed.",
   elexonBmrsSchema.shape,
-  async (params) => {
-    try {
-      const result = await getElexonBmrs(elexonBmrsSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(elexonBmrsSchema, getElexonBmrs)
 );
 
 server.tool(
@@ -786,17 +423,7 @@ server.tool(
     "Hourly wind speed at 10m/100m hub height, solar radiation (GHI/DNI), temperature. " +
     "Data from 1940 to ~5 days ago. Free, no API key.",
   era5WeatherSchema.shape,
-  async (params) => {
-    try {
-      const result = await getEra5Weather(era5WeatherSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(era5WeatherSchema, getEra5Weather)
 );
 
 server.tool(
@@ -804,17 +431,7 @@ server.tool(
   "Get German/European balancing reserve tender results from Regelleistung.net. " +
     "FCR, aFRR, mFRR procurement prices and volumes. Primary BESS revenue data source.",
   regelleistungSchema.shape,
-  async (params) => {
-    try {
-      const result = await getRegelleistung(regelleistungSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(regelleistungSchema, getRegelleistung)
 );
 
 server.tool(
@@ -823,17 +440,7 @@ server.tool(
     "Real-time generation by source (nuclear, wind, solar, hydro, gas), " +
     "consumption, cross-border exchanges, and outage data. No API key needed.",
   rteFranceSchema.shape,
-  async (params) => {
-    try {
-      const result = await getRteFrance(rteFranceSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(rteFranceSchema, getRteFrance)
 );
 
 server.tool(
@@ -842,17 +449,7 @@ server.tool(
     "Real-time CO2 emissions, production by source, spot prices (DK1/DK2), " +
     "and electricity balance. No API key needed.",
   energiDataSchema.shape,
-  async (params) => {
-    try {
-      const result = await getEnergiData(energiDataSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(energiDataSchema, getEnergiData)
 );
 
 server.tool(
@@ -862,18 +459,10 @@ server.tool(
     "imports/exports, grid frequency, and reserve prices. 3-minute resolution. " +
     "Requires free FINGRID_API_KEY.",
   fingridSchema.shape,
-  async (params) => {
-    try {
-      const result = await getFingridData(fingridSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(fingridSchema, getFingridData)
 );
+
+// --- Hydropower ---
 
 server.tool(
   "get_hydro_inflows",
@@ -881,17 +470,7 @@ server.tool(
     "snowfall, snowmelt, and temperature for key hydro basins (NO, SE, CH, AT, FR, IT, ES, PT, FI, RO). " +
     "Free, no API key.",
   hydroInflowsSchema.shape,
-  async (params) => {
-    try {
-      const result = await getHydroInflows(hydroInflowsSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(hydroInflowsSchema, getHydroInflows)
 );
 
 server.tool(
@@ -900,17 +479,7 @@ server.tool(
     "outage events from Inside Information Platforms. Forced outages and capacity " +
     "reductions that constitute inside information under EU REMIT regulation.",
   acerRemitSchema.shape,
-  async (params) => {
-    try {
-      const result = await getAcerRemit(acerRemitSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(acerRemitSchema, getAcerRemit)
 );
 
 server.tool(
@@ -919,17 +488,7 @@ server.tool(
     "Generation by source, demand, cross-border exchanges, and zonal market prices. " +
     "Covers NORD, CNOR, CSUD, SUD, SICI, SARD zones.",
   ternaSchema.shape,
-  async (params) => {
-    try {
-      const result = await getTernaData(ternaSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(ternaSchema, getTernaData)
 );
 
 server.tool(
@@ -938,18 +497,10 @@ server.tool(
     "Day-ahead prices, demand forecast vs actual, generation mix, wind/solar " +
     "forecast vs actual, and interconnector flows. Requires free ESIOS_API_TOKEN.",
   reeEsiosSchema.shape,
-  async (params) => {
-    try {
-      const result = await getReeEsios(reeEsiosSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(reeEsiosSchema, getReeEsios)
 );
+
+// --- Weather ---
 
 server.tool(
   "get_stormglass",
@@ -958,17 +509,7 @@ server.tool(
     "48-hour forecast. Key for offshore wind assessment. Requires STORMGLASS_API_KEY. " +
     "RATE LIMIT: 10 requests/day on free tier — use sparingly.",
   stormglassSchema.shape,
-  async (params) => {
-    try {
-      const result = await getStormglass(stormglassSchema.parse(params));
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
-    } catch (e) {
-      return {
-        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
-        isError: true,
-      };
-    }
-  }
+  toolHandler(stormglassSchema, getStormglass)
 );
 
 async function main(): Promise<void> {
