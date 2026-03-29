@@ -214,6 +214,19 @@ Ask your AI agent:
 | OpenStreetMap | [openstreetmap.org](https://www.openstreetmap.org/) | Transmission lines |
 | mainsfrequency.com | [mainsfrequency.com](https://www.mainsfrequency.com/) | European grid frequency |
 
+## Quality and safety guardrails
+
+Luminus is meant to be boring in the right places: typed inputs, read-only data access, small runtime dependencies, and reproducible release checks.
+
+Current repo guardrails:
+- CI runs `npm test`, `npm run build`, `npm audit --omit=dev`, and `npm pack --dry-run`
+- Dependabot watches npm and GitHub Actions dependencies
+- `dist/` is cleaned before every build, so stale files do not leak into the published tarball
+- package runtime is pinned to supported Node versions via `.nvmrc` and `package.json` `engines`
+- raw upstream errors stay hidden unless `LUMINUS_DEBUG=1` is enabled locally
+
+See `SECURITY.md` for the release checklist and vulnerability reporting path.
+
 ## Troubleshooting
 
 ### "Error: ENTSOE_API_KEY not set"
