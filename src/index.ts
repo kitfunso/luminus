@@ -39,6 +39,18 @@ import { commodityPricesSchema, getCommodityPrices } from "./tools/commodity-pri
 import { nordpoolSchema, getNordpoolPrices } from "./tools/nordpool-prices.js";
 import { smardSchema, getSmardData } from "./tools/smard-data.js";
 import { emberSchema, getEmberData } from "./tools/ember-data.js";
+import { entsogSchema, getEntsogData } from "./tools/entsog.js";
+import { elexonBmrsSchema, getElexonBmrs } from "./tools/elexon-bmrs.js";
+import { era5WeatherSchema, getEra5Weather } from "./tools/era5-weather.js";
+import { regelleistungSchema, getRegelleistung } from "./tools/regelleistung.js";
+import { rteFranceSchema, getRteFrance } from "./tools/rte-france.js";
+import { energiDataSchema, getEnergiData } from "./tools/energi-data.js";
+import { fingridSchema, getFingridData } from "./tools/fingrid.js";
+import { hydroInflowsSchema, getHydroInflows } from "./tools/hydro-inflows.js";
+import { acerRemitSchema, getAcerRemit } from "./tools/acer-remit.js";
+import { ternaSchema, getTernaData } from "./tools/terna.js";
+import { reeEsiosSchema, getReeEsios } from "./tools/ree-esios.js";
+import { stormglassSchema, getStormglass } from "./tools/stormglass.js";
 
 dotenv.config();
 
@@ -720,6 +732,234 @@ server.tool(
   async (params) => {
     try {
       const result = await getEmberData(emberSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_entsog_data",
+  "Get European gas pipeline data from ENTSOG Transparency Platform. " +
+    "Physical flows (GWh/d), nominations, interruptions, and capacities. " +
+    "No API key needed. Covers all EU gas TSOs.",
+  entsogSchema.shape,
+  async (params) => {
+    try {
+      const result = await getEntsogData(entsogSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_elexon_bmrs",
+  "Get GB balancing mechanism data from Elexon BMRS. " +
+    "Imbalance/cashout prices, generation by fuel, balancing bids/offers, " +
+    "system warnings, and interconnector flows. No API key needed.",
+  elexonBmrsSchema.shape,
+  async (params) => {
+    try {
+      const result = await getElexonBmrs(elexonBmrsSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_era5_weather",
+  "Get historical weather reanalysis from ERA5 (Copernicus/ECMWF) via Open-Meteo Archive. " +
+    "Hourly wind speed at 10m/100m hub height, solar radiation (GHI/DNI), temperature. " +
+    "Data from 1940 to ~5 days ago. Free, no API key.",
+  era5WeatherSchema.shape,
+  async (params) => {
+    try {
+      const result = await getEra5Weather(era5WeatherSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_regelleistung",
+  "Get German/European balancing reserve tender results from Regelleistung.net. " +
+    "FCR, aFRR, mFRR procurement prices and volumes. Primary BESS revenue data source.",
+  regelleistungSchema.shape,
+  async (params) => {
+    try {
+      const result = await getRegelleistung(regelleistungSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_rte_france",
+  "Get French electricity data from RTE (eco2mix via ODRE). " +
+    "Real-time generation by source (nuclear, wind, solar, hydro, gas), " +
+    "consumption, cross-border exchanges, and outage data. No API key needed.",
+  rteFranceSchema.shape,
+  async (params) => {
+    try {
+      const result = await getRteFrance(rteFranceSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_energi_data",
+  "Get Danish electricity data from Energi Data Service (Energinet). " +
+    "Real-time CO2 emissions, production by source, spot prices (DK1/DK2), " +
+    "and electricity balance. No API key needed.",
+  energiDataSchema.shape,
+  async (params) => {
+    try {
+      const result = await getEnergiData(energiDataSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_fingrid_data",
+  "Get Finnish electricity grid data from Fingrid Open Data. " +
+    "Consumption, production, wind/solar/nuclear/hydro generation, " +
+    "imports/exports, grid frequency, and reserve prices. 3-minute resolution. " +
+    "Requires free FINGRID_API_KEY.",
+  fingridSchema.shape,
+  async (params) => {
+    try {
+      const result = await getFingridData(fingridSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_hydro_inflows",
+  "Get European hydropower inflow proxy data using ERA5-Land precipitation, " +
+    "snowfall, snowmelt, and temperature for key hydro basins (NO, SE, CH, AT, FR, IT, ES, PT, FI, RO). " +
+    "Free, no API key.",
+  hydroInflowsSchema.shape,
+  async (params) => {
+    try {
+      const result = await getHydroInflows(hydroInflowsSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_acer_remit",
+  "Get ACER REMIT market transparency data. Urgent market messages (UMMs) and " +
+    "outage events from Inside Information Platforms. Forced outages and capacity " +
+    "reductions that constitute inside information under EU REMIT regulation.",
+  acerRemitSchema.shape,
+  async (params) => {
+    try {
+      const result = await getAcerRemit(acerRemitSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_terna_data",
+  "Get Italian electricity data from Terna Transparency. " +
+    "Generation by source, demand, cross-border exchanges, and zonal market prices. " +
+    "Covers NORD, CNOR, CSUD, SUD, SICI, SARD zones.",
+  ternaSchema.shape,
+  async (params) => {
+    try {
+      const result = await getTernaData(ternaSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_ree_esios",
+  "Get Spanish electricity data from REE ESIOS (Red Eléctrica de España). " +
+    "Day-ahead prices, demand forecast vs actual, generation mix, wind/solar " +
+    "forecast vs actual, and interconnector flows. Requires free ESIOS_API_TOKEN.",
+  reeEsiosSchema.shape,
+  async (params) => {
+    try {
+      const result = await getReeEsios(reeEsiosSchema.parse(params));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    } catch (e) {
+      return {
+        content: [{ type: "text", text: `Error: ${(e as Error).message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get_stormglass",
+  "Get marine/offshore weather from Storm Glass. Wind speed at hub height, " +
+    "wave height/period, swell, sea surface temperature, visibility. " +
+    "48-hour forecast. Key for offshore wind assessment. Requires free STORMGLASS_API_KEY.",
+  stormglassSchema.shape,
+  async (params) => {
+    try {
+      const result = await getStormglass(stormglassSchema.parse(params));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return {
