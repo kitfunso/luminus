@@ -157,13 +157,13 @@ By default all 48 tools are registered. Use `--profile` to load only what you ne
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
-npx luminus-mcp --profile grid       # 9 tools: flows, outages, infrastructure
+npx luminus-mcp --profile grid       # 10 tools: flows, outages, infrastructure
 npx luminus-mcp --profile generation # 6 tools: gen mix, forecasts, carbon
 npx luminus-mcp --profile gas        # 5 tools: storage, LNG, pipeline flows
 npx luminus-mcp --profile renewables # 5 tools: wind/solar forecasts, hydro
 npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
 npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
-npx luminus-mcp --profile regional   # 8 tools: country-specific sources
+npx luminus-mcp --profile regional   # 9 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
 npx luminus-mcp --profile full       # all 48 tools (default)
 ```

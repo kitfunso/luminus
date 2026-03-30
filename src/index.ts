@@ -657,16 +657,20 @@ function registerMetaTools(): void {
 server.tool(
   "luminus_discover",
   "List available Luminus tools and profiles",
-  { profile: z.string().optional().describe("Filter by profile name") },
-  async ({ profile: filterProfile }) => {
-    if (filterProfile) {
-      const profileTools = PROFILES[filterProfile];
+  {
+    profile: z.string().optional().describe("Filter by profile name"),
+    category: z.string().optional().describe("Deprecated alias for profile"),
+  },
+  async ({ profile: filterProfile, category }) => {
+    const requestedProfile = filterProfile ?? category;
+    if (requestedProfile) {
+      const profileTools = PROFILES[requestedProfile];
       if (!profileTools) {
         return {
           content: [{
             type: "text" as const,
             text: JSON.stringify({
-              error: `Unknown profile "${filterProfile}"`,
+              error: `Unknown profile "${requestedProfile}"`,
               validProfiles: ["full", ...getProfileNames()],
             }, null, 2),
           }],
@@ -683,8 +687,8 @@ server.tool(
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            profile: filterProfile,
-            description: getProfileDescription(filterProfile),
+            profile: requestedProfile,
+            description: getProfileDescription(requestedProfile),
             toolCount: tools.length,
             tools,
           }, null, 2),

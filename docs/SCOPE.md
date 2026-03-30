@@ -130,7 +130,7 @@ Luminus/
 2. **Key file permissions**: warns on Unix if keys.json is world-readable
 3. **Audit logging**: all tool calls logged to `~/.luminus/audit.jsonl` with sensitive param redaction
 4. **Conditional registration**: tools with missing keys never register (reduced surface)
-5. **Constant-time comparison**: `timingSafeEqual` for token validation
+5. **Constant-time comparison**: `timingSafeCompare` for token validation
 
 ## Phase 2: deck.gl Frontend
 - Separate package or monorepo
@@ -146,4 +146,3 @@ Luminus/
 - energy-charts.info (Fraunhofer) - Germany-focused charts
 - gridwatch.co.uk - UK-only, simple
 - None of these have MCP servers. That's the gap.
-
