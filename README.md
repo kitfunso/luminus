@@ -116,9 +116,12 @@ Real-time European & UK electricity grid data via MCP. 48 tools, all free.
 npm install luminus-mcp
 ```
 
-Create a `.env` file:
+### API Keys
+
+Set keys via environment variables or `~/.luminus/keys.json`:
 
 ```bash
+# Option 1: .env file
 ENTSOE_API_KEY=your-key-here        # Required for most ENTSO-E tools
 GIE_API_KEY=your-key-here           # Optional: gas storage & LNG
 EIA_API_KEY=your-key-here           # Optional: US gas data
@@ -127,7 +130,15 @@ ESIOS_API_TOKEN=your-token-here     # Optional: Spanish market data
 STORMGLASS_API_KEY=your-key-here    # Optional: offshore marine weather
 ```
 
-### Get API Keys
+```json
+// Option 2: ~/.luminus/keys.json (alternative to env vars)
+{
+  "ENTSOE_API_KEY": "your-key-here",
+  "GIE_API_KEY": "your-key-here"
+}
+```
+
+Key resolution order: environment variable first, then `~/.luminus/keys.json`. Tools with missing keys are automatically skipped at startup (they never appear in the tool list).
 
 All keys are free:
 
@@ -140,10 +151,35 @@ All keys are free:
 
 Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RTE France, Energi Data Service, ERA5 weather, hydro inflows, Nordpool, SMARD, EMBER, and more.
 
+### Profiles
+
+By default all 48 tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
+
+```bash
+npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
+npx luminus-mcp --profile grid       # 9 tools: flows, outages, infrastructure
+npx luminus-mcp --profile generation # 6 tools: gen mix, forecasts, carbon
+npx luminus-mcp --profile gas        # 5 tools: storage, LNG, pipeline flows
+npx luminus-mcp --profile renewables # 5 tools: wind/solar forecasts, hydro
+npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
+npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
+npx luminus-mcp --profile regional   # 8 tools: country-specific sources
+npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
+npx luminus-mcp --profile full       # all 48 tools (default)
+```
+
+Two meta-tools are always registered regardless of profile:
+- `luminus_discover` — list available tools and profiles
+- `luminus_status` — server health: registered tool count, active profile, configured/missing API keys
+
 ### Claude Code
 
 ```bash
+# Full tool set
 claude mcp add luminus -- npx luminus-mcp
+
+# With a profile (recommended for faster responses)
+claude mcp add luminus -- npx luminus-mcp --profile trader
 ```
 
 ### MCP Config (Claude Desktop / OpenClaw)
@@ -153,7 +189,7 @@ claude mcp add luminus -- npx luminus-mcp
   "mcpServers": {
     "luminus": {
       "command": "npx",
-      "args": ["luminus-mcp"],
+      "args": ["luminus-mcp", "--profile", "trader"],
       "env": {
         "ENTSOE_API_KEY": "your-key-here"
       }
@@ -224,6 +260,9 @@ Current repo guardrails:
 - `dist/` is cleaned before every build, so stale files do not leak into the published tarball
 - package runtime is pinned to supported Node versions via `.nvmrc` and `package.json` `engines`
 - raw upstream errors stay hidden unless `LUMINUS_DEBUG=1` is enabled locally
+- tools with missing API keys are silently excluded at startup (reduced attack surface)
+- all tool calls are logged to `~/.luminus/audit.jsonl` with sensitive parameter redaction
+- API keys can be stored in `~/.luminus/keys.json` instead of environment variables (with Unix permission warnings for world-readable files)
 
 See `SECURITY.md` for the release checklist and vulnerability reporting path.
 
@@ -231,7 +270,7 @@ See `SECURITY.md` for the release checklist and vulnerability reporting path.
 
 ### "Error: ENTSOE_API_KEY not set"
 
-Most ENTSO-E tools require an API key. Set it in `.env` or pass via your MCP config's `env` block. Tools that don't need a key (energy-charts, Nordpool, SMARD, Elexon, etc.) will still work.
+Most ENTSO-E tools require an API key. Set it in `.env`, `~/.luminus/keys.json`, or pass via your MCP config's `env` block. Tools with missing keys are automatically excluded from registration, so they won't appear in the tool list. Tools that don't need a key (energy-charts, Nordpool, SMARD, Elexon, etc.) always work.
 
 ### "Error: No data returned" or empty results
 
@@ -279,6 +318,21 @@ LUMINUS_DEBUG=1
 ```
 
 That adds the raw upstream error text to MCP responses and prints the underlying error to stderr.
+
+### Audit logging
+
+All tool calls are logged to `~/.luminus/audit.jsonl` as newline-delimited JSON. Each entry includes a timestamp, tool name, and parameters (with sensitive values like API keys automatically redacted).
+
+```bash
+# View recent tool calls
+tail -20 ~/.luminus/audit.jsonl | jq .
+
+# Log location
+# Windows: C:\Users\<you>\.luminus\audit.jsonl
+# macOS/Linux: ~/.luminus/audit.jsonl
+```
+
+Audit logging is fire-and-forget and never blocks tool execution. Logs rotate automatically at 50MB.
 
 ### Dependency hygiene
 

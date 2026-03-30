@@ -82,27 +82,30 @@ IE  = 10YIE-1001A00010   (Ireland)
 ```
 Luminus/
   src/
-    index.ts              # MCP server entry point
+    index.ts              # MCP server entry point (profile-aware, conditional registration)
     tools/
       generation.ts       # get_generation_mix
-      prices.ts          # get_day_ahead_prices
-      flows.ts           # get_cross_border_flows
-      capacity.ts        # get_installed_capacity
-      outages.ts         # get_outages
-      carbon.ts          # get_carbon_intensity (derived)
-      demand.ts          # get_demand_forecast
-      forecast.ts        # get_wind_solar_forecast
+      prices.ts           # get_day_ahead_prices
+      flows.ts            # get_cross_border_flows
+      outages.ts          # get_outages
+      carbon.ts           # get_carbon_intensity (derived)
+      demand.ts           # get_demand_forecast
+      forecast.ts         # get_renewable_forecast
+      ... (48 tools total)
     lib/
-      entsoe-client.ts   # ENTSO-E API client (handles XML, auth, rate limits)
-      elexon-client.ts   # Elexon BMRS client
-      zone-codes.ts      # EIC code mappings
-      xml-parser.ts      # XML response parsing helpers
-      cache.ts           # Simple in-memory cache (TTL-based)
+      entsoe-client.ts    # ENTSO-E API client (handles XML, auth, rate limits)
+      zone-codes.ts       # EIC code mappings
+      xml-parser.ts       # XML response parsing helpers
+      cache.ts            # In-memory TTL cache
+      tool-handler.ts     # Error normalization & validation wrapper
+      auth.ts             # Layered API key resolution (env -> keys.json)
+      audit.ts            # Append-only tool call audit logging
+      profiles.ts         # Tool profiles for context window optimization
   docs/
     SCOPE.md
-  tests/
   package.json
   tsconfig.json
+  vitest.config.ts
 ```
 
 ## Caching Strategy
@@ -111,6 +114,28 @@ Luminus/
 - Flows: cache 5 min
 - Capacity: cache 24 hours (changes rarely)
 - Outages: cache 15 min
+- Frequency: cache 30 sec
+- Balancing: cache 5 min
+- Forecasts: cache 1 hour
+- Weather: cache 30 min
+- Intraday: cache 15 min
+
+## Context Window Optimization
+
+48 tools registered at once consumes ~5,000-6,000 LLM context tokens. Mitigations:
+
+1. **Tool profiles** (`--profile trader|grid|gas|...`) load only relevant tools (60-90% reduction)
+2. **Conditional registration** skips tools with missing API keys (never appear in context)
+3. **Compressed descriptions** cut tool schema overhead by ~48%
+4. **Discovery meta-tools** (`luminus_discover`, `luminus_status`) let agents inspect what's available
+
+## Security Architecture
+
+1. **Layered key resolution**: env vars -> `~/.luminus/keys.json` -> clear error
+2. **Key file permissions**: warns on Unix if keys.json is world-readable
+3. **Audit logging**: all tool calls logged to `~/.luminus/audit.jsonl` with sensitive param redaction
+4. **Conditional registration**: tools with missing keys never register (reduced surface)
+5. **Constant-time comparison**: `timingSafeEqual` for token validation
 
 ## Phase 2: deck.gl Frontend
 - Separate package or monorepo

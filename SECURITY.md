@@ -32,12 +32,31 @@ Current guardrails:
 - publish dry-run in CI to catch accidental package contents
 - `dist/` is cleaned before each build to avoid stale files being published
 - raw upstream error details are hidden by default and only exposed with `LUMINUS_DEBUG=1`
+- tools with missing API keys are excluded from registration at startup (they never appear in the MCP tool list, reducing attack surface)
+- all tool calls are logged to `~/.luminus/audit.jsonl` with automatic redaction of sensitive parameters (keys, tokens, passwords)
+- constant-time token comparison (`timingSafeEqual`) for any authentication checks
 
-## Local secrets
+## API key management
 
-Keep secrets in `.env` or the MCP host's env block only.
-Never commit real keys.
-Use `.env.example` for placeholders only.
+Keys are resolved in order:
+1. **Environment variable** (e.g. `ENTSOE_API_KEY` in `.env` or MCP host config)
+2. **Key file** (`~/.luminus/keys.json`) — a JSON object mapping key names to values
+
+On Unix systems, the server warns to stderr if `keys.json` is world-readable (mode > `0600`). On Windows this check is skipped.
+
+Never commit real keys. Use `.env.example` for placeholders only.
+
+## Audit logging
+
+All tool invocations are logged to `~/.luminus/audit.jsonl` as newline-delimited JSON:
+
+```json
+{"ts":"2026-03-30T12:00:00.000Z","tool":"get_day_ahead_prices","params":{"zone":"DE"}}
+```
+
+Sensitive parameter values (any key matching `key`, `token`, `secret`, `password`, `auth`, `credential`) are replaced with `[REDACTED]`.
+
+Logging is fire-and-forget (never blocks or throws). Logs rotate automatically when the file exceeds 50 MB.
 
 ## Release checklist
 

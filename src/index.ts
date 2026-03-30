@@ -2,7 +2,18 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
+import { z } from "zod";
 import { toolHandler } from "./lib/tool-handler.js";
+import { hasRequiredKeys, preloadKeyFile, TOOL_KEY_REQUIREMENTS } from "./lib/auth.js";
+import { logToolCall } from "./lib/audit.js";
+import {
+  resolveProfile,
+  getProfileNames,
+  getProfileDescription,
+  isValidProfile,
+  PROFILES,
+  TOTAL_TOOLS,
+} from "./lib/profiles.js";
 
 import { generationSchema, getGenerationMix } from "./tools/generation.js";
 import { pricesSchema, getDayAheadPrices } from "./tools/prices.js";
@@ -53,471 +64,738 @@ import { ternaSchema, getTernaData } from "./tools/terna.js";
 import { reeEsiosSchema, getReeEsios } from "./tools/ree-esios.js";
 import { stormglassSchema, getStormglass } from "./tools/stormglass.js";
 
+// ---------------------------------------------------------------------------
+// CLI argument parsing
+// ---------------------------------------------------------------------------
+
+function parseArgs(): { profile: string } {
+  const idx = process.argv.indexOf("--profile");
+  return { profile: idx !== -1 ? process.argv[idx + 1] ?? "full" : "full" };
+}
+
+// ---------------------------------------------------------------------------
+// Startup configuration
+// ---------------------------------------------------------------------------
+
 dotenv.config();
+
+const { profile } = parseArgs();
+
+if (!isValidProfile(profile)) {
+  process.stderr.write(
+    `[luminus] Unknown profile "${profile}". ` +
+      `Valid profiles: full, ${getProfileNames().join(", ")}\n`,
+  );
+  process.exit(1);
+}
+
+const allowedTools = resolveProfile(profile); // null = all tools
+
+const skippedByProfile: string[] = [];
+const skippedByKeys: string[] = [];
+
+function shouldRegister(toolName: string): boolean {
+  if (allowedTools && !allowedTools.includes(toolName)) {
+    skippedByProfile.push(toolName);
+    return false;
+  }
+  if (!hasRequiredKeys(toolName)) {
+    skippedByKeys.push(toolName);
+    return false;
+  }
+  return true;
+}
+
+/** Track registered data tool names for discovery/status meta-tools. */
+const registeredToolNames: string[] = [];
 
 const server = new McpServer({
   name: "luminus",
   version: "0.1.0",
 });
 
+// ---------------------------------------------------------------------------
+// Audited tool handler wrapper
+// ---------------------------------------------------------------------------
+
+interface ToolResult {
+  content: Array<{ type: "text"; text: string }>;
+  isError?: boolean;
+  [key: string]: unknown;
+}
+
+/**
+ * Wrap toolHandler with audit logging. Logs tool name and params
+ * before delegating to the actual handler.
+ */
+function auditedToolHandler<T extends z.ZodType>(
+  toolName: string,
+  schema: T,
+  handler: (params: z.infer<T>) => Promise<unknown>,
+): (params: unknown) => Promise<ToolResult> {
+  const inner = toolHandler(schema, handler);
+  return async (params: unknown): Promise<ToolResult> => {
+    logToolCall(toolName, (params ?? {}) as Record<string, unknown>);
+    return inner(params);
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Conditional tool registration
+// ---------------------------------------------------------------------------
+
+function registerDataTools(): void {
+
 // --- Generation & Prices ---
 
-server.tool(
-  "get_generation_mix",
-  "Get the current electricity generation mix for a European country/zone. " +
-    "Returns MW output per fuel type (wind, solar, gas, nuclear, hydro, coal, etc). " +
-    "Useful for understanding what powers the grid right now.",
-  generationSchema.shape,
-  toolHandler(generationSchema, getGenerationMix)
-);
+if (shouldRegister("get_generation_mix")) {
+  registeredToolNames.push("get_generation_mix");
+  server.tool(
+    "get_generation_mix",
+    "Current generation mix by fuel type (MW) for a European zone. Wind, solar, gas, nuclear, hydro, coal, etc.",
+    generationSchema.shape,
+    auditedToolHandler("get_generation_mix", generationSchema, getGenerationMix),
+  );
+}
 
-server.tool(
-  "get_day_ahead_prices",
-  "Get day-ahead electricity prices (EUR/MWh) for a European bidding zone. " +
-    "Returns hourly prices with min/max/mean stats. " +
-    "Useful for energy cost analysis and trading signals.",
-  pricesSchema.shape,
-  toolHandler(pricesSchema, getDayAheadPrices)
-);
+if (shouldRegister("get_day_ahead_prices")) {
+  registeredToolNames.push("get_day_ahead_prices");
+  server.tool(
+    "get_day_ahead_prices",
+    "Day-ahead hourly prices (EUR/MWh) for a European zone. Includes min/max/mean stats.",
+    pricesSchema.shape,
+    auditedToolHandler("get_day_ahead_prices", pricesSchema, getDayAheadPrices),
+  );
+}
 
-server.tool(
-  "get_cross_border_flows",
-  "Get physical electricity flows between two European zones in MW. " +
-    "Returns hourly flow data with statistics. " +
-    "Useful for understanding interconnection utilization and energy trade.",
-  flowsSchema.shape,
-  toolHandler(flowsSchema, getCrossBorderFlows)
-);
+if (shouldRegister("get_cross_border_flows")) {
+  registeredToolNames.push("get_cross_border_flows");
+  server.tool(
+    "get_cross_border_flows",
+    "Cross-border electricity flows (MW) between two European zones. Hourly data with stats.",
+    flowsSchema.shape,
+    auditedToolHandler("get_cross_border_flows", flowsSchema, getCrossBorderFlows),
+  );
+}
 
-server.tool(
-  "get_carbon_intensity",
-  "Calculate carbon intensity (gCO2/kWh) for a European zone based on its current generation mix. " +
-    "Returns intensity, fuel breakdown with emission factors, and renewable/fossil percentages. " +
-    "Useful for carbon footprint analysis and green energy comparison.",
-  carbonSchema.shape,
-  toolHandler(carbonSchema, getCarbonIntensity)
-);
+if (shouldRegister("get_carbon_intensity")) {
+  registeredToolNames.push("get_carbon_intensity");
+  server.tool(
+    "get_carbon_intensity",
+    "Carbon intensity (gCO2/kWh) for a European zone. Fuel breakdown, emission factors, renewable/fossil %.",
+    carbonSchema.shape,
+    auditedToolHandler("get_carbon_intensity", carbonSchema, getCarbonIntensity),
+  );
+}
 
-server.tool(
-  "get_gas_storage",
-  "Get European gas storage levels from GIE AGSI+. " +
-    "Returns gas in storage (TWh), fill level (%), injection/withdrawal rates, and year-on-year trend. " +
-    "Useful for energy supply security analysis and gas market fundamentals.",
-  gasStorageSchema.shape,
-  toolHandler(gasStorageSchema, getGasStorage)
-);
+if (shouldRegister("get_gas_storage")) {
+  registeredToolNames.push("get_gas_storage");
+  server.tool(
+    "get_gas_storage",
+    "Gas storage levels (TWh, % fill, injection/withdrawal, YoY trend) from GIE AGSI+.",
+    gasStorageSchema.shape,
+    auditedToolHandler("get_gas_storage", gasStorageSchema, getGasStorage),
+  );
+}
 
-server.tool(
-  "get_weather_forecast",
-  "Get weather forecast for a European location with data relevant to energy markets. " +
-    "Returns hourly temperature, wind speed (for wind generation), and solar radiation (for solar generation). " +
-    "Accepts country code (uses capital city) or custom lat/lon coordinates.",
-  weatherSchema.shape,
-  toolHandler(weatherSchema, getWeatherForecast)
-);
+if (shouldRegister("get_weather_forecast")) {
+  registeredToolNames.push("get_weather_forecast");
+  server.tool(
+    "get_weather_forecast",
+    "Weather forecast: hourly temperature, wind speed, solar radiation. Accepts country code or lat/lon.",
+    weatherSchema.shape,
+    auditedToolHandler("get_weather_forecast", weatherSchema, getWeatherForecast),
+  );
+}
 
-server.tool(
-  "get_us_gas_data",
-  "Get US natural gas market data from the EIA. " +
-    "Supports weekly storage levels (Bcf) and Henry Hub futures prices (USD/MMBtu). " +
-    "Useful for transatlantic gas market analysis and LNG flow context.",
-  usGasSchema.shape,
-  toolHandler(usGasSchema, getUsGasData)
-);
+if (shouldRegister("get_us_gas_data")) {
+  registeredToolNames.push("get_us_gas_data");
+  server.tool(
+    "get_us_gas_data",
+    "US gas data from EIA: weekly storage (Bcf), Henry Hub prices (USD/MMBtu).",
+    usGasSchema.shape,
+    auditedToolHandler("get_us_gas_data", usGasSchema, getUsGasData),
+  );
+}
 
 // --- UK Specific ---
 
-server.tool(
-  "get_uk_carbon_intensity",
-  "Get UK carbon intensity and generation mix from National Grid ESO. " +
-    "Returns gCO2/kWh intensity, index (very low to very high), and fuel-type percentages. " +
-    "Supports current national, regional breakdown, and historical by date.",
-  ukCarbonSchema.shape,
-  toolHandler(ukCarbonSchema, getUkCarbonIntensity)
-);
+if (shouldRegister("get_uk_carbon_intensity")) {
+  registeredToolNames.push("get_uk_carbon_intensity");
+  server.tool(
+    "get_uk_carbon_intensity",
+    "UK carbon intensity (gCO2/kWh) and generation mix from National Grid ESO. National, regional, or historical.",
+    ukCarbonSchema.shape,
+    auditedToolHandler("get_uk_carbon_intensity", ukCarbonSchema, getUkCarbonIntensity),
+  );
+}
 
-server.tool(
-  "get_uk_grid_demand",
-  "Get UK electricity demand and grid frequency from National Grid ESO. " +
-    "Demand returns actual MW + forecast for recent settlement periods. " +
-    "Frequency returns real-time Hz (~50 Hz nominal; deviations = grid stress).",
-  ukGridSchema.shape,
-  toolHandler(ukGridSchema, getUkGridDemand)
-);
+if (shouldRegister("get_uk_grid_demand")) {
+  registeredToolNames.push("get_uk_grid_demand");
+  server.tool(
+    "get_uk_grid_demand",
+    "UK demand (MW actual + forecast) and grid frequency (Hz) from National Grid ESO.",
+    ukGridSchema.shape,
+    auditedToolHandler("get_uk_grid_demand", ukGridSchema, getUkGridDemand),
+  );
+}
 
 // --- Balancing & Forecasts ---
 
-server.tool(
-  "get_balancing_prices",
-  "Get imbalance/balancing prices (EUR/MWh) for a European bidding zone. " +
-    "Returns settlement period prices with min/max/mean stats. " +
-    "Useful for understanding real-time balancing market costs.",
-  balancingSchema.shape,
-  toolHandler(balancingSchema, getBalancingPrices)
-);
+if (shouldRegister("get_balancing_prices")) {
+  registeredToolNames.push("get_balancing_prices");
+  server.tool(
+    "get_balancing_prices",
+    "Balancing/imbalance prices (EUR/MWh) per settlement period for a European zone. Min/max/mean stats.",
+    balancingSchema.shape,
+    auditedToolHandler("get_balancing_prices", balancingSchema, getBalancingPrices),
+  );
+}
 
-server.tool(
-  "get_renewable_forecast",
-  "Get day-ahead wind and solar generation forecast (MW) for a European zone. " +
-    "Returns hourly forecasts per source (Wind Onshore, Wind Offshore, Solar) with peak MW. " +
-    "Useful for renewable energy planning and residual load analysis.",
-  renewableForecastSchema.shape,
-  toolHandler(renewableForecastSchema, getRenewableForecast)
-);
+if (shouldRegister("get_renewable_forecast")) {
+  registeredToolNames.push("get_renewable_forecast");
+  server.tool(
+    "get_renewable_forecast",
+    "Day-ahead wind/solar forecast (MW) for a European zone. Hourly, per source (onshore, offshore, solar).",
+    renewableForecastSchema.shape,
+    auditedToolHandler("get_renewable_forecast", renewableForecastSchema, getRenewableForecast),
+  );
+}
 
-server.tool(
-  "get_demand_forecast",
-  "Get day-ahead total load/demand forecast (MW) for a European zone. " +
-    "Returns hourly demand with min/max/mean stats and total energy. " +
-    "Useful for supply-demand balance analysis and peak planning.",
-  demandForecastSchema.shape,
-  toolHandler(demandForecastSchema, getDemandForecast)
-);
+if (shouldRegister("get_demand_forecast")) {
+  registeredToolNames.push("get_demand_forecast");
+  server.tool(
+    "get_demand_forecast",
+    "Day-ahead demand forecast (MW) for a European zone. Hourly with min/max/mean and total energy.",
+    demandForecastSchema.shape,
+    auditedToolHandler("get_demand_forecast", demandForecastSchema, getDemandForecast),
+  );
+}
 
 // --- Grid Infrastructure ---
 
-server.tool(
-  "get_power_plants",
-  "Get European power plant data from Open Power System Data. " +
-    "Returns plant name, capacity (MW), fuel type, location, and commissioning year. " +
-    "Covers conventional and renewable plants. Filter by country, fuel type, or minimum capacity.",
-  powerPlantsSchema.shape,
-  toolHandler(powerPlantsSchema, getPowerPlants)
-);
+if (shouldRegister("get_power_plants")) {
+  registeredToolNames.push("get_power_plants");
+  server.tool(
+    "get_power_plants",
+    "European power plant registry from OPSD. Name, capacity (MW), fuel, location, year. Filter by country/fuel/capacity.",
+    powerPlantsSchema.shape,
+    auditedToolHandler("get_power_plants", powerPlantsSchema, getPowerPlants),
+  );
+}
 
-server.tool(
-  "get_auction_results",
-  "Get cross-border capacity auction results from JAO (Joint Allocation Office). " +
-    "Returns allocated capacity (MW), auction price (EUR/MW), and offered capacity for a border corridor. " +
-    "Useful for interconnection value and congestion rent analysis.",
-  auctionSchema.shape,
-  toolHandler(auctionSchema, getAuctionResults)
-);
+if (shouldRegister("get_auction_results")) {
+  registeredToolNames.push("get_auction_results");
+  server.tool(
+    "get_auction_results",
+    "Cross-border capacity auction results from JAO. Allocated MW, price (EUR/MW), offered capacity per corridor.",
+    auctionSchema.shape,
+    auditedToolHandler("get_auction_results", auctionSchema, getAuctionResults),
+  );
+}
 
-server.tool(
-  "get_outages",
-  "Get generation or transmission outages for a European zone from ENTSO-E. " +
-    "Returns unit name, fuel type, available/unavailable MW, start/end dates, and reason. " +
-    "Useful for supply risk analysis and maintenance planning.",
-  outagesSchema.shape,
-  toolHandler(outagesSchema, getOutages)
-);
+if (shouldRegister("get_outages")) {
+  registeredToolNames.push("get_outages");
+  server.tool(
+    "get_outages",
+    "Generation/transmission outages from ENTSO-E. Unit, fuel, available/unavailable MW, dates, reason.",
+    outagesSchema.shape,
+    auditedToolHandler("get_outages", outagesSchema, getOutages),
+  );
+}
 
-server.tool(
-  "get_lng_terminals",
-  "Get European LNG terminal data from GIE ALSI. " +
-    "Returns LNG inventory (mcm), send-out rate, capacity, and days to reach storage per terminal. " +
-    "Useful for gas supply security and LNG market analysis.",
-  lngTerminalsSchema.shape,
-  toolHandler(lngTerminalsSchema, getLngTerminals)
-);
+if (shouldRegister("get_lng_terminals")) {
+  registeredToolNames.push("get_lng_terminals");
+  server.tool(
+    "get_lng_terminals",
+    "LNG terminal data from GIE ALSI. Inventory (mcm), send-out, capacity, days-to-storage per terminal.",
+    lngTerminalsSchema.shape,
+    auditedToolHandler("get_lng_terminals", lngTerminalsSchema, getLngTerminals),
+  );
+}
 
-server.tool(
-  "get_solar_irradiance",
-  "Get solar irradiance and PV yield estimates for any location from PVGIS. " +
-    "Returns monthly irradiance (kWh/m2), optimal panel angle, and annual yield estimate. " +
-    "No API key needed. Useful for solar project assessment.",
-  solarSchema.shape,
-  toolHandler(solarSchema, getSolarIrradiance)
-);
+if (shouldRegister("get_solar_irradiance")) {
+  registeredToolNames.push("get_solar_irradiance");
+  server.tool(
+    "get_solar_irradiance",
+    "Solar irradiance and PV yield from PVGIS. Monthly kWh/m2, optimal angle, annual yield. No API key.",
+    solarSchema.shape,
+    auditedToolHandler("get_solar_irradiance", solarSchema, getSolarIrradiance),
+  );
+}
 
-server.tool(
-  "get_net_positions",
-  "Calculate net import/export position (MW) for a European zone by summing all cross-border flows. " +
-    "Returns total net position (positive = net importer) and per-border breakdown. " +
-    "Useful for understanding a country's energy trade balance.",
-  netPositionsSchema.shape,
-  toolHandler(netPositionsSchema, getNetPositions)
-);
+if (shouldRegister("get_net_positions")) {
+  registeredToolNames.push("get_net_positions");
+  server.tool(
+    "get_net_positions",
+    "Net import/export position (MW) for a European zone. Total + per-border breakdown. Positive = net importer.",
+    netPositionsSchema.shape,
+    auditedToolHandler("get_net_positions", netPositionsSchema, getNetPositions),
+  );
+}
 
-server.tool(
-  "get_transfer_capacities",
-  "Get net transfer capacity (NTC) in MW between two European zones from ENTSO-E. " +
-    "Returns hourly NTC values (max allowed commercial flow) with min/max/mean stats. " +
-    "Useful for interconnection utilization and congestion analysis.",
-  transferCapacitySchema.shape,
-  toolHandler(transferCapacitySchema, getTransferCapacity)
-);
+if (shouldRegister("get_transfer_capacities")) {
+  registeredToolNames.push("get_transfer_capacities");
+  server.tool(
+    "get_transfer_capacities",
+    "Net transfer capacity (MW) between two European zones from ENTSO-E. Hourly NTC with min/max/mean.",
+    transferCapacitySchema.shape,
+    auditedToolHandler("get_transfer_capacities", transferCapacitySchema, getTransferCapacity),
+  );
+}
 
-server.tool(
-  "get_eu_frequency",
-  "Get real-time European grid frequency (~50 Hz). " +
-    "Returns frequency in Hz, deviation in mHz, and status (normal/deviation). " +
-    "Deviations indicate grid stress from supply-demand imbalance.",
-  frequencySchema.shape,
-  toolHandler(frequencySchema, getEuFrequency)
-);
+if (shouldRegister("get_eu_frequency")) {
+  registeredToolNames.push("get_eu_frequency");
+  server.tool(
+    "get_eu_frequency",
+    "Real-time EU grid frequency (Hz), deviation (mHz), status. Deviations signal supply-demand imbalance.",
+    frequencySchema.shape,
+    auditedToolHandler("get_eu_frequency", frequencySchema, getEuFrequency),
+  );
+}
 
-server.tool(
-  "get_hydro_reservoir",
-  "Get hydro reservoir filling levels (stored energy in MWh) for a European zone from ENTSO-E. " +
-    "Returns weekly reservoir data. Best coverage: NO, SE, AT, CH, ES, PT. " +
-    "Useful for hydropower supply analysis and price forecasting.",
-  hydroSchema.shape,
-  toolHandler(hydroSchema, getHydroReservoir)
-);
+if (shouldRegister("get_hydro_reservoir")) {
+  registeredToolNames.push("get_hydro_reservoir");
+  server.tool(
+    "get_hydro_reservoir",
+    "Hydro reservoir fill (MWh) from ENTSO-E. Weekly data. Best coverage: NO, SE, AT, CH, ES, PT.",
+    hydroSchema.shape,
+    auditedToolHandler("get_hydro_reservoir", hydroSchema, getHydroReservoir),
+  );
+}
 
-server.tool(
-  "get_transmission_lines",
-  "Get high-voltage transmission line routes from OpenStreetMap. " +
-    "Returns line voltage (kV), operator, cable count, and lat/lon coordinates. " +
-    "Filter by country or bounding box. Defaults to 220kV+ lines. Rate-limited.",
-  transmissionSchema.shape,
-  toolHandler(transmissionSchema, getTransmissionLines)
-);
+if (shouldRegister("get_transmission_lines")) {
+  registeredToolNames.push("get_transmission_lines");
+  server.tool(
+    "get_transmission_lines",
+    "HV transmission lines from OSM. Voltage (kV), operator, cables, coordinates. Filter by country/bbox. 220kV+ default. Rate-limited.",
+    transmissionSchema.shape,
+    auditedToolHandler("get_transmission_lines", transmissionSchema, getTransmissionLines),
+  );
+}
 
 // --- Intraday & Balancing ---
 
-server.tool(
-  "get_intraday_prices",
-  "Get intraday/continuous electricity prices for a European bidding zone. " +
-    "Returns hourly prices from the intraday market with stats. " +
-    "Compare with day-ahead prices to spot market moves and trading opportunities.",
-  intradayPricesSchema.shape,
-  toolHandler(intradayPricesSchema, getIntradayPrices)
-);
+if (shouldRegister("get_intraday_prices")) {
+  registeredToolNames.push("get_intraday_prices");
+  server.tool(
+    "get_intraday_prices",
+    "Intraday continuous electricity prices (EUR/MWh) for a European zone. Hourly with stats.",
+    intradayPricesSchema.shape,
+    auditedToolHandler("get_intraday_prices", intradayPricesSchema, getIntradayPrices),
+  );
+}
 
-server.tool(
-  "get_imbalance_prices",
-  "Get real-time imbalance/settlement prices for a European zone. " +
-    "Returns per-period imbalance prices (EUR/MWh) — the price paid for deviations from scheduled position. " +
-    "Key signal for balancing market traders and BRP risk management.",
-  imbalancePricesSchema.shape,
-  toolHandler(imbalancePricesSchema, getImbalancePrices)
-);
+if (shouldRegister("get_imbalance_prices")) {
+  registeredToolNames.push("get_imbalance_prices");
+  server.tool(
+    "get_imbalance_prices",
+    "Imbalance settlement prices (EUR/MWh) per period. Price for deviations from scheduled position.",
+    imbalancePricesSchema.shape,
+    auditedToolHandler("get_imbalance_prices", imbalancePricesSchema, getImbalancePrices),
+  );
+}
 
-server.tool(
-  "get_intraday_da_spread",
-  "Get the spread between intraday and day-ahead prices for a European zone. " +
-    "Returns per-hour spread (intraday minus day-ahead) with a directional signal. " +
-    "Intraday premium = something changed since auction (outage, forecast miss, demand spike). " +
-    "Core signal for directional and spread traders.",
-  intradaySpreadSchema.shape,
-  toolHandler(intradaySpreadSchema, getIntradayDaSpread)
-);
+if (shouldRegister("get_intraday_da_spread")) {
+  registeredToolNames.push("get_intraday_da_spread");
+  server.tool(
+    "get_intraday_da_spread",
+    "Intraday vs day-ahead spread per hour. Directional signal: premium = post-auction change (outage, forecast miss, demand spike).",
+    intradaySpreadSchema.shape,
+    auditedToolHandler("get_intraday_da_spread", intradaySpreadSchema, getIntradayDaSpread),
+  );
+}
 
-server.tool(
-  "get_realtime_generation",
-  "Get actual real-time generation by fuel type (MW) for a European zone. " +
-    "Returns generation per source (wind, solar, gas, nuclear, etc.) with total. " +
-    "Uses ENTSO-E for EU zones, Elexon BMRS for GB. 5-15 min resolution.",
-  realtimeGenerationSchema.shape,
-  toolHandler(realtimeGenerationSchema, getRealtimeGeneration)
-);
+if (shouldRegister("get_realtime_generation")) {
+  registeredToolNames.push("get_realtime_generation");
+  server.tool(
+    "get_realtime_generation",
+    "Real-time generation by fuel type (MW). ENTSO-E for EU, Elexon BMRS for GB. 5-15 min resolution.",
+    realtimeGenerationSchema.shape,
+    auditedToolHandler("get_realtime_generation", realtimeGenerationSchema, getRealtimeGeneration),
+  );
+}
 
-server.tool(
-  "get_balancing_actions",
-  "Get activated balancing energy actions (MW) for a European zone. " +
-    "Returns upward and downward regulation volumes per period. " +
-    "Uses ENTSO-E for EU zones, Elexon BMRS BOD for GB. " +
-    "Indicates real-time grid stress and TSO intervention.",
-  balancingActionsSchema.shape,
-  toolHandler(balancingActionsSchema, getBalancingActions)
-);
+if (shouldRegister("get_balancing_actions")) {
+  registeredToolNames.push("get_balancing_actions");
+  server.tool(
+    "get_balancing_actions",
+    "Activated balancing energy (MW): up/down regulation per period. ENTSO-E for EU, Elexon BOD for GB.",
+    balancingActionsSchema.shape,
+    auditedToolHandler("get_balancing_actions", balancingActionsSchema, getBalancingActions),
+  );
+}
 
 // --- BESS & Ancillary ---
 
-server.tool(
-  "get_ancillary_prices",
-  "Get FCR/aFRR/mFRR reserve procurement prices for a European zone. " +
-    "Returns per-period prices in EUR/MW. " +
-    "BESS operators use reserve markets for 30-50% of revenue — often 3-5x more profitable than energy arbitrage.",
-  ancillaryPricesSchema.shape,
-  toolHandler(ancillaryPricesSchema, getAncillaryPrices)
-);
+if (shouldRegister("get_ancillary_prices")) {
+  registeredToolNames.push("get_ancillary_prices");
+  server.tool(
+    "get_ancillary_prices",
+    "FCR/aFRR/mFRR reserve prices (EUR/MW) per period. Key BESS revenue stream (30-50%, often 3-5x arbitrage).",
+    ancillaryPricesSchema.shape,
+    auditedToolHandler("get_ancillary_prices", ancillaryPricesSchema, getAncillaryPrices),
+  );
+}
 
-server.tool(
-  "get_remit_messages",
-  "Get REMIT urgent market messages for a European zone. " +
-    "Returns forced outages, capacity reductions, and market-moving events. " +
-    "Early detection of large outages signals imminent price spikes.",
-  remitMessagesSchema.shape,
-  toolHandler(remitMessagesSchema, getRemitMessages)
-);
+if (shouldRegister("get_remit_messages")) {
+  registeredToolNames.push("get_remit_messages");
+  server.tool(
+    "get_remit_messages",
+    "REMIT urgent market messages: forced outages, capacity reductions, market-moving events. Early spike signal.",
+    remitMessagesSchema.shape,
+    auditedToolHandler("get_remit_messages", remitMessagesSchema, getRemitMessages),
+  );
+}
 
-server.tool(
-  "get_price_spread_analysis",
-  "Analyze daily price spread for BESS arbitrage. " +
-    "Returns optimal charge/discharge schedule, expected revenue per MW, and a signal strength. " +
-    "Built for battery storage operators evaluating arbitrage opportunities.",
-  priceSpreadAnalysisSchema.shape,
-  toolHandler(priceSpreadAnalysisSchema, getPriceSpreadAnalysis)
-);
+if (shouldRegister("get_price_spread_analysis")) {
+  registeredToolNames.push("get_price_spread_analysis");
+  server.tool(
+    "get_price_spread_analysis",
+    "BESS arbitrage analysis: optimal charge/discharge schedule, revenue per MW, signal strength.",
+    priceSpreadAnalysisSchema.shape,
+    auditedToolHandler("get_price_spread_analysis", priceSpreadAnalysisSchema, getPriceSpreadAnalysis),
+  );
+}
 
 // --- Gas & LNG ---
 
-server.tool(
-  "get_eu_gas_price",
-  "Get European natural gas prices (TTF or NBP). " +
-    "Returns latest price in EUR/MWh with daily history. No API key needed. " +
-    "Use for spark spread calculations, BESS revenue comparisons, and gas-power switching signals.",
-  euGasPriceSchema.shape,
-  toolHandler(euGasPriceSchema, getEuGasPrice)
-);
+if (shouldRegister("get_eu_gas_price")) {
+  registeredToolNames.push("get_eu_gas_price");
+  server.tool(
+    "get_eu_gas_price",
+    "EU gas prices (EUR/MWh): TTF or NBP. Latest + daily history. No API key. Spark spread, gas-power switching.",
+    euGasPriceSchema.shape,
+    auditedToolHandler("get_eu_gas_price", euGasPriceSchema, getEuGasPrice),
+  );
+}
 
 // --- Regional Specialists ---
 
-server.tool(
-  "get_energy_charts",
-  "Query energy-charts.info (Fraunhofer ISE) for European electricity data. " +
-    "No API key needed. Returns prices (15-min resolution), real-time generation by fuel type, " +
-    "or cross-border flows. Covers all EU countries except GB. " +
-    "Faster and more reliable than ENTSO-E.",
-  energyChartsSchema.shape,
-  toolHandler(energyChartsSchema, getEnergyCharts)
-);
+if (shouldRegister("get_energy_charts")) {
+  registeredToolNames.push("get_energy_charts");
+  server.tool(
+    "get_energy_charts",
+    "Energy-Charts (Fraunhofer ISE): prices (15-min), generation by fuel, cross-border flows. All EU except GB. No API key. Faster than ENTSO-E.",
+    energyChartsSchema.shape,
+    auditedToolHandler("get_energy_charts", energyChartsSchema, getEnergyCharts),
+  );
+}
 
-server.tool(
-  "get_commodity_prices",
-  "Get European energy commodity prices: EUA carbon (CO2.L), Brent crude (BZ=F), TTF gas (TTF=F). " +
-    "No API key needed. Returns latest price, 5-day history, and stats.",
-  commodityPricesSchema.shape,
-  toolHandler(commodityPricesSchema, getCommodityPrices)
-);
+if (shouldRegister("get_commodity_prices")) {
+  registeredToolNames.push("get_commodity_prices");
+  server.tool(
+    "get_commodity_prices",
+    "EU commodity prices: EUA carbon, Brent crude, TTF gas. Latest + 5-day history + stats. No API key.",
+    commodityPricesSchema.shape,
+    auditedToolHandler("get_commodity_prices", commodityPricesSchema, getCommodityPrices),
+  );
+}
 
-server.tool(
-  "get_nordpool_prices",
-  "Get Nordic and Baltic day-ahead prices from Nordpool at 15-min resolution. " +
-    "Covers SE1-SE4, NO1-NO5, DK1-DK2, FI. No API key needed.",
-  nordpoolSchema.shape,
-  toolHandler(nordpoolSchema, getNordpoolPrices)
-);
+if (shouldRegister("get_nordpool_prices")) {
+  registeredToolNames.push("get_nordpool_prices");
+  server.tool(
+    "get_nordpool_prices",
+    "Nordic/Baltic day-ahead prices (15-min) from Nordpool. SE1-4, NO1-5, DK1-2, FI. No API key.",
+    nordpoolSchema.shape,
+    auditedToolHandler("get_nordpool_prices", nordpoolSchema, getNordpoolPrices),
+  );
+}
 
-server.tool(
-  "get_smard_data",
-  "Get high-resolution German electricity data from SMARD (Bundesnetzagentur). " +
-    "Hourly generation, consumption, and market data. No API key needed.",
-  smardSchema.shape,
-  toolHandler(smardSchema, getSmardData)
-);
+if (shouldRegister("get_smard_data")) {
+  registeredToolNames.push("get_smard_data");
+  server.tool(
+    "get_smard_data",
+    "German electricity from SMARD (BNetzA): hourly generation, consumption, market data. No API key.",
+    smardSchema.shape,
+    auditedToolHandler("get_smard_data", smardSchema, getSmardData),
+  );
+}
 
-server.tool(
-  "get_ember_data",
-  "Get power sector data from EMBER Climate. " +
-    "Yearly electricity generation, capacity, emissions, and demand by country. Free, no API key.",
-  emberSchema.shape,
-  toolHandler(emberSchema, getEmberData)
-);
+if (shouldRegister("get_ember_data")) {
+  registeredToolNames.push("get_ember_data");
+  server.tool(
+    "get_ember_data",
+    "EMBER Climate: yearly generation, capacity, emissions, demand by country. No API key.",
+    emberSchema.shape,
+    auditedToolHandler("get_ember_data", emberSchema, getEmberData),
+  );
+}
 
-server.tool(
-  "get_entsog_data",
-  "Get European gas pipeline data from ENTSOG Transparency Platform. " +
-    "Physical flows (GWh/d), nominations, interruptions, and capacities. " +
-    "No API key needed. Covers all EU gas TSOs.",
-  entsogSchema.shape,
-  toolHandler(entsogSchema, getEntsogData)
-);
+if (shouldRegister("get_entsog_data")) {
+  registeredToolNames.push("get_entsog_data");
+  server.tool(
+    "get_entsog_data",
+    "ENTSOG gas pipeline data: physical flows (GWh/d), nominations, interruptions, capacities. All EU TSOs. No API key.",
+    entsogSchema.shape,
+    auditedToolHandler("get_entsog_data", entsogSchema, getEntsogData),
+  );
+}
 
-server.tool(
-  "get_elexon_bmrs",
-  "Get GB balancing mechanism data from Elexon BMRS. " +
-    "Imbalance/cashout prices, generation by fuel, balancing bids/offers, " +
-    "system warnings, and interconnector flows. No API key needed.",
-  elexonBmrsSchema.shape,
-  toolHandler(elexonBmrsSchema, getElexonBmrs)
-);
+if (shouldRegister("get_elexon_bmrs")) {
+  registeredToolNames.push("get_elexon_bmrs");
+  server.tool(
+    "get_elexon_bmrs",
+    "GB balancing mechanism from Elexon BMRS: cashout prices, generation by fuel, bids/offers, system warnings, interconnectors. No API key.",
+    elexonBmrsSchema.shape,
+    auditedToolHandler("get_elexon_bmrs", elexonBmrsSchema, getElexonBmrs),
+  );
+}
 
-server.tool(
-  "get_era5_weather",
-  "Get historical weather reanalysis from ERA5 (Copernicus/ECMWF) via Open-Meteo Archive. " +
-    "Hourly wind speed at 10m/100m hub height, solar radiation (GHI/DNI), temperature. " +
-    "Data from 1940 to ~5 days ago. Free, no API key.",
-  era5WeatherSchema.shape,
-  toolHandler(era5WeatherSchema, getEra5Weather)
-);
+if (shouldRegister("get_era5_weather")) {
+  registeredToolNames.push("get_era5_weather");
+  server.tool(
+    "get_era5_weather",
+    "ERA5 weather reanalysis via Open-Meteo: hourly wind (10m/100m), solar (GHI/DNI), temperature. 1940 to ~5 days ago. No API key.",
+    era5WeatherSchema.shape,
+    auditedToolHandler("get_era5_weather", era5WeatherSchema, getEra5Weather),
+  );
+}
 
-server.tool(
-  "get_regelleistung",
-  "Get German/European balancing reserve tender results from Regelleistung.net. " +
-    "FCR, aFRR, mFRR procurement prices and volumes. Primary BESS revenue data source.",
-  regelleistungSchema.shape,
-  toolHandler(regelleistungSchema, getRegelleistung)
-);
+if (shouldRegister("get_regelleistung")) {
+  registeredToolNames.push("get_regelleistung");
+  server.tool(
+    "get_regelleistung",
+    "Regelleistung.net: FCR/aFRR/mFRR reserve tender prices and volumes. Primary BESS revenue data source.",
+    regelleistungSchema.shape,
+    auditedToolHandler("get_regelleistung", regelleistungSchema, getRegelleistung),
+  );
+}
 
-server.tool(
-  "get_rte_france",
-  "Get French electricity data from RTE (eco2mix via ODRE). " +
-    "Real-time generation by source (nuclear, wind, solar, hydro, gas), " +
-    "consumption, cross-border exchanges, and outage data. No API key needed.",
-  rteFranceSchema.shape,
-  toolHandler(rteFranceSchema, getRteFrance)
-);
+if (shouldRegister("get_rte_france")) {
+  registeredToolNames.push("get_rte_france");
+  server.tool(
+    "get_rte_france",
+    "French electricity from RTE (eco2mix): real-time generation, consumption, exchanges, outages. No API key.",
+    rteFranceSchema.shape,
+    auditedToolHandler("get_rte_france", rteFranceSchema, getRteFrance),
+  );
+}
 
-server.tool(
-  "get_energi_data",
-  "Get Danish electricity data from Energi Data Service (Energinet). " +
-    "Real-time CO2 emissions, production by source, spot prices (DK1/DK2), " +
-    "and electricity balance. No API key needed.",
-  energiDataSchema.shape,
-  toolHandler(energiDataSchema, getEnergiData)
-);
+if (shouldRegister("get_energi_data")) {
+  registeredToolNames.push("get_energi_data");
+  server.tool(
+    "get_energi_data",
+    "Danish electricity from Energi Data Service: CO2 emissions, production, spot prices (DK1/DK2), balance. No API key.",
+    energiDataSchema.shape,
+    auditedToolHandler("get_energi_data", energiDataSchema, getEnergiData),
+  );
+}
 
-server.tool(
-  "get_fingrid_data",
-  "Get Finnish electricity grid data from Fingrid Open Data. " +
-    "Consumption, production, wind/solar/nuclear/hydro generation, " +
-    "imports/exports, grid frequency, and reserve prices. 3-minute resolution. " +
-    "Requires free FINGRID_API_KEY.",
-  fingridSchema.shape,
-  toolHandler(fingridSchema, getFingridData)
-);
+if (shouldRegister("get_fingrid_data")) {
+  registeredToolNames.push("get_fingrid_data");
+  server.tool(
+    "get_fingrid_data",
+    "Finnish grid from Fingrid: consumption, generation, imports/exports, frequency, reserve prices. 3-min resolution. Requires FINGRID_API_KEY.",
+    fingridSchema.shape,
+    auditedToolHandler("get_fingrid_data", fingridSchema, getFingridData),
+  );
+}
 
 // --- Hydropower ---
 
-server.tool(
-  "get_hydro_inflows",
-  "Get European hydropower inflow proxy data using ERA5-Land precipitation, " +
-    "snowfall, snowmelt, and temperature for key hydro basins (NO, SE, CH, AT, FR, IT, ES, PT, FI, RO). " +
-    "Free, no API key.",
-  hydroInflowsSchema.shape,
-  toolHandler(hydroInflowsSchema, getHydroInflows)
-);
+if (shouldRegister("get_hydro_inflows")) {
+  registeredToolNames.push("get_hydro_inflows");
+  server.tool(
+    "get_hydro_inflows",
+    "Hydro inflow proxy from ERA5-Land: precipitation, snowfall, snowmelt, temperature for NO/SE/CH/AT/FR/IT/ES/PT/FI/RO. No API key.",
+    hydroInflowsSchema.shape,
+    auditedToolHandler("get_hydro_inflows", hydroInflowsSchema, getHydroInflows),
+  );
+}
 
-server.tool(
-  "get_acer_remit",
-  "Get ACER REMIT market transparency data. Urgent market messages (UMMs) and " +
-    "outage events from Inside Information Platforms. Forced outages and capacity " +
-    "reductions that constitute inside information under EU REMIT regulation.",
-  acerRemitSchema.shape,
-  toolHandler(acerRemitSchema, getAcerRemit)
-);
+if (shouldRegister("get_acer_remit")) {
+  registeredToolNames.push("get_acer_remit");
+  server.tool(
+    "get_acer_remit",
+    "ACER REMIT: UMMs and outage events from Inside Information Platforms. Forced outages, capacity reductions under EU REMIT.",
+    acerRemitSchema.shape,
+    auditedToolHandler("get_acer_remit", acerRemitSchema, getAcerRemit),
+  );
+}
 
-server.tool(
-  "get_terna_data",
-  "Get Italian electricity data from Terna Transparency. " +
-    "Generation by source, demand, cross-border exchanges, and zonal market prices. " +
-    "Covers NORD, CNOR, CSUD, SUD, SICI, SARD zones.",
-  ternaSchema.shape,
-  toolHandler(ternaSchema, getTernaData)
-);
+if (shouldRegister("get_terna_data")) {
+  registeredToolNames.push("get_terna_data");
+  server.tool(
+    "get_terna_data",
+    "Italian electricity from Terna: generation, demand, exchanges, zonal prices. NORD/CNOR/CSUD/SUD/SICI/SARD zones.",
+    ternaSchema.shape,
+    auditedToolHandler("get_terna_data", ternaSchema, getTernaData),
+  );
+}
 
-server.tool(
-  "get_ree_esios",
-  "Get Spanish electricity data from REE ESIOS (Red Eléctrica de España). " +
-    "Day-ahead prices, demand forecast vs actual, generation mix, wind/solar " +
-    "forecast vs actual, and interconnector flows. Requires free ESIOS_API_TOKEN.",
-  reeEsiosSchema.shape,
-  toolHandler(reeEsiosSchema, getReeEsios)
-);
+if (shouldRegister("get_ree_esios")) {
+  registeredToolNames.push("get_ree_esios");
+  server.tool(
+    "get_ree_esios",
+    "Spanish electricity from REE ESIOS: prices, demand, generation, wind/solar forecast, interconnectors. Requires ESIOS_API_TOKEN.",
+    reeEsiosSchema.shape,
+    auditedToolHandler("get_ree_esios", reeEsiosSchema, getReeEsios),
+  );
+}
 
 // --- Weather ---
 
+if (shouldRegister("get_stormglass")) {
+  registeredToolNames.push("get_stormglass");
+  server.tool(
+    "get_stormglass",
+    "Marine/offshore weather from Storm Glass: wind, waves, swell, SST, visibility. 48h forecast. Requires STORMGLASS_API_KEY. 10 req/day free.",
+    stormglassSchema.shape,
+    auditedToolHandler("get_stormglass", stormglassSchema, getStormglass),
+  );
+}
+
+} // end registerDataTools
+
+// ---------------------------------------------------------------------------
+// Discovery meta-tools (always registered regardless of profile)
+// ---------------------------------------------------------------------------
+
+function registerMetaTools(): void {
+
 server.tool(
-  "get_stormglass",
-  "Get marine/offshore weather from Storm Glass. Wind speed at hub height, " +
-    "wave height/period, swell, sea surface temperature, visibility. " +
-    "48-hour forecast. Key for offshore wind assessment. Requires STORMGLASS_API_KEY. " +
-    "RATE LIMIT: 10 requests/day on free tier — use sparingly.",
-  stormglassSchema.shape,
-  toolHandler(stormglassSchema, getStormglass)
+  "luminus_discover",
+  "List available Luminus tools and profiles",
+  { category: z.string().optional().describe("Filter by profile name") },
+  async ({ category }) => {
+    if (category) {
+      const profileTools = PROFILES[category];
+      if (!profileTools) {
+        return {
+          content: [{
+            type: "text" as const,
+            text: JSON.stringify({
+              error: `Unknown profile "${category}"`,
+              validProfiles: ["full", ...getProfileNames()],
+            }, null, 2),
+          }],
+        };
+      }
+
+      const tools = profileTools.map((name) => ({
+        name,
+        registered: registeredToolNames.includes(name),
+        hasKeys: hasRequiredKeys(name),
+      }));
+
+      return {
+        content: [{
+          type: "text" as const,
+          text: JSON.stringify({
+            profile: category,
+            description: getProfileDescription(category),
+            toolCount: tools.length,
+            tools,
+          }, null, 2),
+        }],
+      };
+    }
+
+    // List all profiles with summary info
+    const profiles = ["full", ...getProfileNames()].map((name) => {
+      const tools = name === "full" ? null : PROFILES[name];
+      return {
+        name,
+        description: getProfileDescription(name),
+        toolCount: tools ? tools.length : TOTAL_TOOLS,
+      };
+    });
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({
+          activeProfile: profile,
+          registeredToolCount: registeredToolNames.length,
+          profiles,
+        }, null, 2),
+      }],
+    };
+  },
 );
 
+server.tool(
+  "luminus_status",
+  "Server status: registered tools, active profile, configured API keys",
+  {},
+  async () => {
+    const allKeyNames = new Set<string>();
+    const configuredKeys: string[] = [];
+    const missingKeys: string[] = [];
+
+    for (const keys of Object.values(TOOL_KEY_REQUIREMENTS)) {
+      for (const key of keys) {
+        allKeyNames.add(key);
+      }
+    }
+
+    for (const key of allKeyNames) {
+      if (process.env[key]) {
+        configuredKeys.push(key);
+      } else {
+        missingKeys.push(key);
+      }
+    }
+
+    return {
+      content: [{
+        type: "text" as const,
+        text: JSON.stringify({
+          profile,
+          registeredTools: registeredToolNames.length,
+          totalAvailable: TOTAL_TOOLS,
+          skippedByProfile: skippedByProfile.length,
+          skippedByMissingKeys: skippedByKeys.length,
+          configuredKeys: configuredKeys.sort(),
+          missingKeys: missingKeys.sort(),
+        }, null, 2),
+      }],
+    };
+  },
+);
+
+} // end registerMetaTools
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
 async function main(): Promise<void> {
+  // Pre-load key file BEFORE registration so hasRequiredKeys sees file-based keys
+  await preloadKeyFile();
+
+  // Register data tools (after key file is loaded)
+  registerDataTools();
+
+  // Register discovery meta-tools (always, regardless of profile)
+  registerMetaTools();
+
+  process.stderr.write(
+    `[luminus] Profile: ${profile} | ` +
+      `Registered: ${registeredToolNames.length + 2} tools ` +
+      `(${registeredToolNames.length} data + 2 meta)\n`,
+  );
+
+  if (skippedByProfile.length > 0) {
+    process.stderr.write(
+      `[luminus] Skipped by profile: ${skippedByProfile.length} tools\n`,
+    );
+  }
+
+  if (skippedByKeys.length > 0) {
+    process.stderr.write(
+      `[luminus] Skipped (missing API keys): ${skippedByKeys.join(", ")}\n`,
+    );
+  }
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
 
-main().catch((err) => {
-  console.error("Fatal:", err);
+main().catch((err: unknown) => {
+  process.stderr.write(
+    `[luminus] Fatal: ${err instanceof Error ? err.message : String(err)}\n`,
+  );
   process.exit(1);
 });
