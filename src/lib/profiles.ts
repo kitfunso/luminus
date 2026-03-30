@@ -28,6 +28,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_power_plants',
     'get_auction_results',
     'get_remit_messages',
+    'get_acer_remit',
   ],
   generation: [
     'get_generation_mix',
@@ -72,6 +73,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_regelleistung',
     'get_terna_data',
     'get_ree_esios',
+    'get_ember_data',
   ],
   weather: [
     'get_weather_forecast',
@@ -101,10 +103,10 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
  * Returns `null` for "full" (meaning all tools should be registered).
  * Returns `undefined` if the profile name is unknown.
  */
-export function resolveProfile(name: string): string[] | null {
+export function resolveProfile(name: string): string[] | null | undefined {
   if (name === 'full') return null;
   const tools = PROFILES[name];
-  if (!tools) return null;
+  if (!tools) return undefined;
   return [...tools];
 }
 
@@ -123,5 +125,11 @@ export function isValidProfile(name: string): boolean {
   return name === 'full' || name in PROFILES;
 }
 
-/** Total number of unique tools across all profiles. */
-export const TOTAL_TOOLS = 48;
+/** Total number of unique tools (derived from all profile entries + unassigned). */
+export const TOTAL_TOOLS = (() => {
+  const allTools = new Set<string>();
+  for (const tools of Object.values(PROFILES)) {
+    for (const t of tools) allTools.add(t);
+  }
+  return allTools.size;
+})();

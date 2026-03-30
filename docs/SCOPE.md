@@ -45,12 +45,7 @@ IE  = 10YIE-1001A00010   (Ireland)
 - Returns: MW flows between two zones
 - Params: from_zone, to_zone, date
 
-#### 4. get_installed_capacity
-- ENTSO-E documentType: A68 (Installed Generation Capacity)
-- Returns: MW by production type
-- Params: country, year
-
-#### 5. get_outages
+#### 4. get_outages
 - ENTSO-E documentType: A80 (Generation Unavailability) / A78 (Transmission Unavailability)
 - Returns: unit name, fuel type, available/unavailable MW, start/end
 - Params: country, type (generation/transmission), date_range
@@ -66,7 +61,7 @@ IE  = 10YIE-1001A00010   (Ireland)
 - Returns: MW per hour
 - Params: country, date
 
-#### 8. get_wind_solar_forecast
+#### 8. get_renewable_forecast
 - ENTSO-E documentType: A69 (Wind/Solar Generation Forecast)
 - Returns: MW per hour for wind and solar
 - Params: country, date

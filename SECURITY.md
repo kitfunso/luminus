@@ -34,7 +34,7 @@ Current guardrails:
 - raw upstream error details are hidden by default and only exposed with `LUMINUS_DEBUG=1`
 - tools with missing API keys are excluded from registration at startup (they never appear in the MCP tool list, reducing attack surface)
 - all tool calls are logged to `~/.luminus/audit.jsonl` with automatic redaction of sensitive parameters (keys, tokens, passwords)
-- constant-time token comparison (`timingSafeEqual`) for any authentication checks
+- constant-time token comparison (`timingSafeEqual`) exported for future client authentication
 
 ## API key management
 

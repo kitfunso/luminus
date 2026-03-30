@@ -54,7 +54,15 @@ async function loadKeyFile(): Promise<Record<string, string>> {
     const parsed = KeyFileSchema.parse(JSON.parse(raw));
     cachedKeyFile = parsed;
     return parsed;
-  } catch {
+  } catch (err: unknown) {
+    // Distinguish "file not found" (normal) from "file exists but is broken" (warn)
+    const isNotFound =
+      err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT";
+    if (!isNotFound) {
+      process.stderr.write(
+        `[luminus] WARNING: failed to load ${KEYS_PATH}: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+    }
     cachedKeyFile = null;
     return {};
   }
@@ -92,7 +100,7 @@ export async function resolveApiKey(name: string): Promise<string> {
   throw new ConfigurationError(name);
 }
 
-/** Constant-time string comparison. */
+/** Constant-time string comparison. Reserved for future client authentication. */
 export function timingSafeCompare(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
   const bufB = Buffer.from(b);
@@ -186,6 +194,14 @@ export function hasRequiredKeys(toolName: string): boolean {
     if (cachedKeyFile?.[keyName]) return true;
     return false;
   });
+}
+
+/** Check whether a specific API key name is available (env or key file). */
+export function isKeyConfigured(keyName: string): boolean {
+  if (resolvedKeys.has(keyName)) return true;
+  if (process.env[keyName]) return true;
+  if (cachedKeyFile?.[keyName]) return true;
+  return false;
 }
 
 /** Pre-load keys.json so hasRequiredKeys works immediately. */

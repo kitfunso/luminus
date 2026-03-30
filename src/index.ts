@@ -4,7 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import dotenv from "dotenv";
 import { z } from "zod";
 import { toolHandler } from "./lib/tool-handler.js";
-import { hasRequiredKeys, preloadKeyFile, TOOL_KEY_REQUIREMENTS } from "./lib/auth.js";
+import { hasRequiredKeys, isKeyConfigured, preloadKeyFile, TOOL_KEY_REQUIREMENTS } from "./lib/auth.js";
 import { logToolCall } from "./lib/audit.js";
 import {
   resolveProfile,
@@ -89,7 +89,7 @@ if (!isValidProfile(profile)) {
   process.exit(1);
 }
 
-const allowedTools = resolveProfile(profile); // null = all tools
+const allowedTools = resolveProfile(profile) ?? null; // null = all tools
 
 const skippedByProfile: string[] = [];
 const skippedByKeys: string[] = [];
@@ -657,16 +657,16 @@ function registerMetaTools(): void {
 server.tool(
   "luminus_discover",
   "List available Luminus tools and profiles",
-  { category: z.string().optional().describe("Filter by profile name") },
-  async ({ category }) => {
-    if (category) {
-      const profileTools = PROFILES[category];
+  { profile: z.string().optional().describe("Filter by profile name") },
+  async ({ profile: filterProfile }) => {
+    if (filterProfile) {
+      const profileTools = PROFILES[filterProfile];
       if (!profileTools) {
         return {
           content: [{
             type: "text" as const,
             text: JSON.stringify({
-              error: `Unknown profile "${category}"`,
+              error: `Unknown profile "${filterProfile}"`,
               validProfiles: ["full", ...getProfileNames()],
             }, null, 2),
           }],
@@ -683,8 +683,8 @@ server.tool(
         content: [{
           type: "text" as const,
           text: JSON.stringify({
-            profile: category,
-            description: getProfileDescription(category),
+            profile: filterProfile,
+            description: getProfileDescription(filterProfile),
             toolCount: tools.length,
             tools,
           }, null, 2),
@@ -731,7 +731,7 @@ server.tool(
     }
 
     for (const key of allKeyNames) {
-      if (process.env[key]) {
+      if (isKeyConfigured(key)) {
         configuredKeys.push(key);
       } else {
         missingKeys.push(key);

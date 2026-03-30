@@ -30,8 +30,10 @@ async function ensureDir(): Promise<void> {
   try {
     await mkdir(AUDIT_DIR, { recursive: true });
     dirEnsured = true;
-  } catch {
-    // swallow — dir may already exist or be uncreatable
+  } catch (err: unknown) {
+    debugLog(
+      `mkdir failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
 
@@ -57,6 +59,7 @@ export function logToolCall(
     try {
       await ensureDir();
       await appendFile(AUDIT_FILE, line, "utf-8");
+      rotateIfNeeded();
     } catch (err: unknown) {
       debugLog(
         `write failed: ${err instanceof Error ? err.message : String(err)}`,
