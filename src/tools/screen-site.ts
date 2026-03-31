@@ -298,7 +298,10 @@ async function screenSiteGb(
     verdict: { overall, flags },
     layers_available: ["terrain", "grid", "solar", "constraints", "agricultural_land", "flood_risk"],
     layers_unavailable: {
-      land_cover: "Not applicable for GB",
+      land_cover:
+        "CORINE 2018 does not cover Great Britain. " +
+        "Agricultural land classification (agricultural_land layer) provides partial land-use context for England. " +
+        "A future integration with the UKCEH Land Cover Map could fill this gap.",
     },
     source_metadata: {
       terrain: GIS_SOURCES["open-meteo-elevation"],

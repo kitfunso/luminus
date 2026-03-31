@@ -43,6 +43,9 @@ describe("verifyGisSources", () => {
       if (url.includes("overpass-api.de")) {
         return makeOkResponse({ elements: [] });
       }
+      if (url.includes("api.neso.energy") && url.includes("gsp_gnode")) {
+        return { ok: true, status: 200, text: async () => "gsp_id,gsp_name,gsp_lat,gsp_lon\nGSP1,TEST,51.5,-0.1" };
+      }
       if (url.includes("api.neso.energy")) {
         return makeOkResponse({ success: true, result: { records: [{}] } });
       }
@@ -61,9 +64,9 @@ describe("verifyGisSources", () => {
     const result = await verifyGisSources({});
 
     expect(result.checked_at).toBeDefined();
-    expect(result.sources.length).toBe(9);
-    expect(result.summary.total).toBe(9);
-    expect(result.summary.ok).toBe(9);
+    expect(result.sources.length).toBe(10);
+    expect(result.summary.total).toBe(10);
+    expect(result.summary.ok).toBe(10);
     expect(result.summary.degraded).toBe(0);
     expect(result.summary.unreachable).toBe(0);
   });
@@ -157,6 +160,9 @@ describe("verifyGisSources", () => {
       if (url.includes("overpass-api.de")) {
         return makeErrorResponse(429);
       }
+      if (url.includes("api.neso.energy") && url.includes("gsp_gnode")) {
+        return { ok: true, status: 200, text: async () => "gsp_id,gsp_name,gsp_lat,gsp_lon\nGSP1,TEST,51.5,-0.1" };
+      }
       if (url.includes("api.neso.energy")) {
         return makeOkResponse({ success: true, result: { records: [{}] } });
       }
@@ -180,7 +186,10 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    expect(result.summary.ok).toBe(5);
+    // ok: open-meteo, neso-gsp-lookup, neso-tec, eea-natura2000, corine, pvgis = 6
+    // degraded: overpass (429), ea-flood-map (500) = 2
+    // unreachable: natural-england, natural-england-alc (arcgis.com network failure) = 2
+    expect(result.summary.ok).toBe(6);
     expect(result.summary.degraded).toBe(2);
     expect(result.summary.unreachable).toBe(2);
   });

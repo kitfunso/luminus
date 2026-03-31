@@ -11,6 +11,8 @@
  * top-level class group, and a conservative `is_planning_exclusion` flag.
  */
 
+import { guardArcGisFields } from "./schema-guard.js";
+
 const CORINE_QUERY_URL =
   "https://image.discomap.eea.europa.eu/arcgis/rest/services/Corine/CLC2018_WM/MapServer/0/query";
 
@@ -166,6 +168,8 @@ export async function queryCorineAtPoint(
     // No polygon hit — typically offshore, or at the very edge of coverage.
     return null;
   }
+
+  guardArcGisFields(features, ["Code_18"], "CORINE Land Cover");
 
   const code = String(features[0].attributes?.Code_18 ?? "").trim();
   if (!code) return null;

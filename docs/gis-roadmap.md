@@ -14,25 +14,28 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 - [x] **Sprint 8**: EU extension for `get_land_constraints` via EEA Natura 2000
 - [x] **Sprint 9**: `get_land_cover` via CORINE Land Cover 2018, with explicit GB non-coverage note
 - [x] **Sprint 10**: `get_grid_connection_queue` via NESO public TEC register, plus NESO GIS health check
+- [x] **Sprint 11**: EU `screen_site` mode, Overpass hardening, schema-drift guards, NESO GSP spatial bridge
 
 ## Current active tranche
 
 - [x] First real GB connection-intelligence slice shipped
-- [ ] Conservative spatial bridge between site coordinates and public connection-register geography
+- [x] Conservative spatial bridge between site coordinates and public connection-register geography — shipped: `get_grid_connection_intelligence` uses NESO GSP-Gnode CSV for nearest-GSP lookup, then queries TEC register by GSP name
 - [ ] Stronger DNO-level capacity or queue signal, if a public source proves clean enough
 
 ## Prioritised next actions
 
-1. [ ] Decide the next honest grid-capacity tranche: spatial bridge to NESO/GSP geography, or a DNO-level public source
+1. [x] ~~Spatial bridge to NESO/GSP geography~~ — shipped: nearest-GSP lookup via NESO CSV + TEC register name match + OSM substations
 2. [x] ~~Evaluate a reduced EU `screen_site` mode~~ — shipped: EU countries use terrain + solar + grid + Natura 2000 + CORINE, with GB-only layers explicitly omitted and `layers_available`/`layers_unavailable` in the response
 3. [x] ~~Harden shared Overpass querying~~ — shipped: rate limiter (2 concurrent / 10 per minute), exponential backoff, AbortController timeout, query-too-expensive detection
 4. [ ] Revisit `compare_sites` scoring weights after real usage feedback
 5. [ ] Decide where larger pre-processed GIS assets should live if spatial indexing becomes necessary
+6. [ ] Upgrade GSP lookup from nearest-point to polygon containment (requires bundling ~10MB GeoJSON or simplifying boundaries)
+7. [ ] Explore DNO-level open data (UKPN, NGED, SSEN) for distribution-level capacity signals
 
 ## Key constraints and caveats
 
 - `screen_site` and `compare_sites` now support **GB + EU** — EU mode uses fewer layers (no agricultural land or flood risk)
-- `get_land_cover` is **not GB-capable** because CORINE 2018 does not cover Great Britain
+- `get_land_cover` is **not GB-capable** because CORINE 2018 does not cover Great Britain — the GB `screen_site` response documents this gap and notes that `agricultural_land` provides partial land-use context for England; a real UK source (UKCEH Land Cover Map via WMS) remains a future option
 - `get_grid_proximity` is **distance/infrastructure only**, not capacity
 - `get_grid_connection_queue` is **NESO transmission-register only**, not a GB-wide DNO headroom map
 - Public GIS services can change field names, service structure, or uptime without warning

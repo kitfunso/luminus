@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
+import { guardArcGisFields } from "../lib/schema-guard.js";
 
 const cache = new TtlCache();
 const EA_FLOOD_MAP_BASE =
@@ -95,7 +96,13 @@ async function queryLayer(layer: FloodLayerConfig, lon: number, lat: number): Pr
     );
   }
 
-  return Array.isArray(json.features) ? json.features : [];
+  const features: ArcGisFeature[] = Array.isArray(json.features) ? json.features : [];
+  guardArcGisFields(
+    features as Array<{ attributes: Record<string, unknown> }>,
+    ["layer", "Shape__Area"],
+    `Environment Agency Flood Map (${layer.label})`,
+  );
+  return features;
 }
 
 function toRoundedHectares(value: unknown): number | null {

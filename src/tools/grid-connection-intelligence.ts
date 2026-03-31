@@ -1,0 +1,181 @@
+import { z } from "zod";
+import { lookupGspRegion, type GspLookupResult } from "../lib/neso-gsp.js";
+import { getGridConnectionQueue } from "./grid-connection-queue.js";
+import { getGridProximity } from "./grid-proximity.js";
+import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
+
+export const gridConnectionIntelligenceSchema = z.object({
+  lat: z.number().describe("Latitude (-90 to 90). WGS84."),
+  lon: z.number().describe("Longitude (-180 to 180). WGS84."),
+  radius_km: z
+    .number()
+    .optional()
+    .describe("GSP search radius in km (default 25, max 50)."),
+  country: z.string().describe('Only "GB" is supported.'),
+});
+
+interface NearestGspResult {
+  gsp_id: string;
+  gsp_name: string;
+  distance_km: number;
+  region_id: string;
+  region_name: string;
+}
+
+interface ConnectionQueueResult {
+  projects: Array<Record<string, unknown>>;
+  total_mw_queued: number;
+  search_term: string;
+}
+
+interface NearbySubstation {
+  name: string | null;
+  voltage_kv: number | null;
+  distance_km: number;
+}
+
+interface GridConnectionIntelligenceResult {
+  lat: number;
+  lon: number;
+  country: string;
+  nearest_gsp: NearestGspResult | null;
+  connection_queue: ConnectionQueueResult | null;
+  nearby_substations: NearbySubstation[];
+  confidence_notes: string[];
+  source_metadata: {
+    gsp_lookup: GisSourceMetadata;
+    tec_register: GisSourceMetadata;
+    grid_proximity: GisSourceMetadata;
+  };
+  disclaimer: string;
+}
+
+const DISCLAIMER =
+  "This combines a nearest-GSP spatial approximation with the NESO TEC register and OSM substation data. " +
+  "It is not a connection offer, capacity guarantee, or DNO headroom assessment. " +
+  "Always verify with the relevant network operator before making connection decisions.";
+
+function buildConfidenceNotes(gspResult: GspLookupResult | null): string[] {
+  const notes: string[] = [
+    "GSP lookup uses nearest-GSP approximation, not polygon containment",
+    "TEC register connection sites are matched by GSP name substring, not spatial coordinates",
+    "Connection queue data shows contracted positions, not guaranteed available capacity",
+  ];
+
+  if (!gspResult) {
+    notes.push("No GSP found within search radius");
+  }
+
+  return notes;
+}
+
+function deriveSearchTerm(gspName: string): string {
+  // GSP names are typically UPPER_CASE, e.g. "BERKSWELL" -> "Berkswell"
+  const cleaned = gspName.trim();
+  if (cleaned.length === 0) return cleaned;
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+}
+
+export async function getGridConnectionIntelligence(
+  params: z.infer<typeof gridConnectionIntelligenceSchema>,
+): Promise<GridConnectionIntelligenceResult> {
+  const { lat, lon, country } = params;
+  const radiusKm = params.radius_km ?? 25;
+
+  if (country.toUpperCase() !== "GB") {
+    throw new Error('Only country "GB" is supported for grid connection intelligence.');
+  }
+
+  if (lat < -90 || lat > 90) throw new Error("Latitude must be between -90 and 90.");
+  if (lon < -180 || lon > 180) throw new Error("Longitude must be between -180 and 180.");
+  if (radiusKm <= 0 || radiusKm > 50) throw new Error("radius_km must be between 0 and 50.");
+
+  // Step 1: Find nearest GSP
+  const gspResult = await lookupGspRegion(lat, lon, radiusKm);
+
+  // Step 2: In parallel, query TEC register (if GSP found) and nearby substations
+  const tecPromise = gspResult
+    ? queryTecRegister(gspResult.gsp_name)
+    : Promise.resolve(null);
+
+  const proximityPromise = queryGridProximity(lat, lon, radiusKm);
+
+  const [connectionQueue, nearbySubstations] = await Promise.all([
+    tecPromise,
+    proximityPromise,
+  ]);
+
+  return {
+    lat,
+    lon,
+    country: "GB",
+    nearest_gsp: gspResult
+      ? {
+          gsp_id: gspResult.gsp_id,
+          gsp_name: gspResult.gsp_name,
+          distance_km: gspResult.distance_km,
+          region_id: gspResult.region_id,
+          region_name: gspResult.region_name,
+        }
+      : null,
+    connection_queue: connectionQueue,
+    nearby_substations: nearbySubstations,
+    confidence_notes: buildConfidenceNotes(gspResult),
+    source_metadata: {
+      gsp_lookup: GIS_SOURCES["neso-gsp-lookup"],
+      tec_register: GIS_SOURCES["neso-tec-register"],
+      grid_proximity: GIS_SOURCES["overpass-osm"],
+    },
+    disclaimer: DISCLAIMER,
+  };
+}
+
+async function queryTecRegister(
+  gspName: string,
+): Promise<ConnectionQueueResult | null> {
+  const searchTerm = deriveSearchTerm(gspName);
+  if (searchTerm.length === 0) return null;
+
+  try {
+    const result = await getGridConnectionQueue({
+      connection_site_query: searchTerm,
+      limit: 50,
+    });
+
+    const totalMwQueued = result.summary.total_net_change_mw;
+
+    return {
+      projects: result.projects as unknown as Array<Record<string, unknown>>,
+      total_mw_queued: totalMwQueued,
+      search_term: searchTerm,
+    };
+  } catch {
+    // TEC register failure should not block the overall result
+    return null;
+  }
+}
+
+async function queryGridProximity(
+  lat: number,
+  lon: number,
+  radiusKm: number,
+): Promise<NearbySubstation[]> {
+  try {
+    // grid-proximity has a max radius of 25km
+    const clampedRadius = Math.min(radiusKm, 25);
+    const result = await getGridProximity({
+      lat,
+      lon,
+      radius_km: clampedRadius,
+    });
+
+    return result.substations.map((sub) => ({
+      name: sub.name,
+      voltage_kv: sub.voltage_kv,
+      distance_km: sub.distance_km,
+    }));
+  } catch {
+    // Proximity failure should not block the overall result
+    return [];
+  }
+}

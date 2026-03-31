@@ -153,6 +153,24 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
       "Contains CORINE Land Cover 2018 data from the Copernicus Land Monitoring Service, " +
       "© European Environment Agency (EEA).",
   },
+  "neso-gsp-lookup": {
+    id: "neso-gsp-lookup",
+    name: "NESO GSP-Gnode Region Lookup",
+    provider: "National Energy System Operator (NESO)",
+    licence: "NESO Open Data Licence",
+    url: "https://api.neso.energy/dataset/2810092e-d4b2-472f-b955-d8bea01f9ec0",
+    api_key_required: false,
+    coverage: "Great Britain Grid Supply Point regions",
+    update_frequency: "Updated infrequently — GSP boundaries change rarely",
+    reliability: "high",
+    caveats: [
+      "Uses nearest-GSP by haversine distance, not polygon containment — an approximation",
+      "GSP coordinates are centroid-like reference points, not precise boundary anchors",
+      "Some GSP names may not match TEC register connection site names exactly",
+      "Coverage is GB only — does not include Northern Ireland or offshore",
+    ],
+    attribution: "Contains data from the National Energy System Operator (NESO) GSP-Gnode lookup.",
+  },
   "neso-tec-register": {
     id: "neso-tec-register",
     name: "NESO Transmission Entry Capacity Register",
@@ -324,6 +342,17 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
       } catch {
         return "Response is not valid JSON";
       }
+    },
+  },
+  {
+    source_id: "neso-gsp-lookup",
+    url: "https://api.neso.energy/dataset/2810092e-d4b2-472f-b955-d8bea01f9ec0/resource/bbe2cc72-a6c6-46e6-8f4e-48b879467368/download/gsp_gnode_directconnect_region_lookup.csv",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      if (!body.includes("gsp_id")) return "Response missing gsp_id column header";
+      return null;
     },
   },
   {

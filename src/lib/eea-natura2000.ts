@@ -1,3 +1,5 @@
+import { guardArcGisFields } from "./schema-guard.js";
+
 const EEA_NATURA2000_BASE =
   "https://bio.discomap.eea.europa.eu/arcgis/rest/services/ProtectedSites/Natura2000_Dyna_WM/MapServer/0/query";
 
@@ -64,6 +66,13 @@ export async function queryNatura2000Layer(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const features: any[] = json.features ?? [];
+
+  guardArcGisFields(
+    features,
+    ["SITECODE", "SITENAME", "SITETYPE", "MS", "Area_km2"],
+    "EEA Natura 2000",
+  );
+
   return features.map((feature) => {
     const attrs = feature.attributes ?? {};
     const areaKm2 = attrs.Area_km2;

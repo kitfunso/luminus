@@ -66,6 +66,7 @@ import { stormglassSchema, getStormglass } from "./tools/stormglass.js";
 import { terrainAnalysisSchema, getTerrainAnalysis } from "./tools/terrain-analysis.js";
 import { gridProximitySchema, getGridProximity } from "./tools/grid-proximity.js";
 import { gridConnectionQueueSchema, getGridConnectionQueue } from "./tools/grid-connection-queue.js";
+import { gridConnectionIntelligenceSchema, getGridConnectionIntelligence } from "./tools/grid-connection-intelligence.js";
 import { landConstraintsSchema, getLandConstraints } from "./tools/land-constraints.js";
 import { landCoverSchema, getLandCover } from "./tools/land-cover.js";
 import { agriculturalLandSchema, getAgriculturalLand } from "./tools/agricultural-land.js";
@@ -685,6 +686,16 @@ if (shouldRegister("get_grid_connection_queue")) {
     "GB transmission connection-register signal from NESO's public TEC register. Search by connection site, project, host TO, technology, status, or agreement type and get matched projects plus aggregated MW by connection site. This is not a DNO headroom map or a guaranteed connection offer. No API key.",
     gridConnectionQueueSchema.shape,
     auditedToolHandler("get_grid_connection_queue", gridConnectionQueueSchema, getGridConnectionQueue),
+  );
+}
+
+if (shouldRegister("get_grid_connection_intelligence")) {
+  registeredToolNames.push("get_grid_connection_intelligence");
+  server.tool(
+    "get_grid_connection_intelligence",
+    "GB grid connection intelligence: finds nearest GSP, queries the TEC register for connection activity at that GSP, and shows nearby substations. Combines spatial GSP lookup with NESO queue data. Not a connection offer or capacity guarantee.",
+    gridConnectionIntelligenceSchema.shape,
+    auditedToolHandler("get_grid_connection_intelligence", gridConnectionIntelligenceSchema, getGridConnectionIntelligence),
   );
 }
 

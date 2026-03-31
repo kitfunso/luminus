@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
+import { guardJsonFields } from "../lib/schema-guard.js";
 
 const cache = new TtlCache();
 const NESO_TEC_RESOURCE_ID = "17becbab-e3e8-473f-b303-3806f43a6a10";
@@ -170,6 +171,24 @@ async function fetchNesoTecRegister(): Promise<ProjectMatch[]> {
   }
 
   const records = Array.isArray(json.result?.records) ? json.result.records : [];
+
+  if (records.length > 0) {
+    guardJsonFields(
+      records[0] as Record<string, unknown>,
+      [
+        "Project Name",
+        "Connection Site",
+        "MW Connected",
+        "MW Increase / Decrease",
+        "Cumulative Total Capacity (MW)",
+        "Project Status",
+        "HOST TO",
+        "Plant Type",
+      ],
+      "NESO TEC Register",
+    );
+  }
+
   const projects = records.map(toProject);
   cache.set("neso-tec-register:all", projects, TTL.STATIC_DATA);
   return projects;

@@ -327,7 +327,12 @@ describe("screenSite", () => {
     expect(result.verdict).toBeDefined();
     expect(result.verdict.overall).toBeDefined();
     expect(result.layers_available).toEqual(["terrain", "grid", "solar", "constraints", "agricultural_land", "flood_risk"]);
-    expect(result.layers_unavailable).toEqual({ land_cover: "Not applicable for GB" });
+    expect(result.layers_unavailable).toEqual({
+      land_cover:
+        "CORINE 2018 does not cover Great Britain. " +
+        "Agricultural land classification (agricultural_land layer) provides partial land-use context for England. " +
+        "A future integration with the UKCEH Land Cover Map could fill this gap.",
+    });
   });
 
   it("calls all six underlying tools", async () => {

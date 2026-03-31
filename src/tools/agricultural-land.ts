@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
+import { guardArcGisFields } from "../lib/schema-guard.js";
 
 const cache = new TtlCache();
 const NE_ARCGIS_BASE =
@@ -82,7 +83,13 @@ async function queryPointLayer(serviceName: string, lon: number, lat: number, ou
     );
   }
 
-  return Array.isArray(json.features) ? json.features : [];
+  const features: ArcGisFeature[] = Array.isArray(json.features) ? json.features : [];
+  guardArcGisFields(
+    features as Array<{ attributes: Record<string, unknown> }>,
+    outFields,
+    `Natural England ALC (${serviceName})`,
+  );
+  return features;
 }
 
 function normaliseGrade(value: unknown): string | null {

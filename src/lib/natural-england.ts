@@ -8,6 +8,8 @@
  * Attribution: © Natural England copyright. Contains Ordnance Survey data © Crown copyright.
  */
 
+import { guardArcGisFields } from "./schema-guard.js";
+
 const NE_ARCGIS_BASE =
   "https://services.arcgis.com/JJzESW51TqeY9uat/arcgis/rest/services";
 
@@ -124,6 +126,11 @@ export async function queryLayer(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const features: any[] = json.features ?? [];
+
+  const expectedFields = [layer.nameField];
+  if (layer.areaField) expectedFields.push(layer.areaField);
+  guardArcGisFields(features, expectedFields, `Natural England ${layer.constraintType.toUpperCase()}`);
+
   return features.map((f) => {
     const attrs = f.attributes ?? {};
     const areaRaw = layer.areaField ? attrs[layer.areaField] : null;
