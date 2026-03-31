@@ -69,11 +69,9 @@ function buildConfidenceNotes(gspResult: GspLookupResult | null): string[] {
   return notes;
 }
 
-function deriveSearchTerm(gspName: string): string {
-  // GSP names are typically UPPER_CASE, e.g. "BERKSWELL" -> "Berkswell"
-  const cleaned = gspName.trim();
-  if (cleaned.length === 0) return cleaned;
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+function deriveSearchTerm(regionName: string): string {
+  // Region names are already human-readable (e.g. "Berkswell", "Bramley")
+  return regionName.trim();
 }
 
 export async function getGridConnectionIntelligence(
@@ -94,8 +92,10 @@ export async function getGridConnectionIntelligence(
   const gspResult = await lookupGspRegion(lat, lon, radiusKm);
 
   // Step 2: In parallel, query TEC register (if GSP found) and nearby substations
+  // Use region_name (e.g. "Berkswell") not gsp_name (e.g. "BESW_1") — TEC register
+  // Connection Site values are human-readable names like "Berkswell GSP"
   const tecPromise = gspResult
-    ? queryTecRegister(gspResult.gsp_name)
+    ? queryTecRegister(gspResult.region_name)
     : Promise.resolve(null);
 
   const proximityPromise = queryGridProximity(lat, lon, radiusKm);
@@ -131,9 +131,9 @@ export async function getGridConnectionIntelligence(
 }
 
 async function queryTecRegister(
-  gspName: string,
+  regionName: string,
 ): Promise<ConnectionQueueResult | null> {
-  const searchTerm = deriveSearchTerm(gspName);
+  const searchTerm = deriveSearchTerm(regionName);
   if (searchTerm.length === 0) return null;
 
   try {

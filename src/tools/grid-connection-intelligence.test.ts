@@ -32,7 +32,7 @@ const MOCK_GSP_RESULT = {
 
 const MOCK_TEC_RESULT = {
   filters: {
-    connection_site_query: "Berkswell",
+    connection_site_query: "West Midlands",
     project_name_query: null,
     host_to: null,
     plant_type: null,
@@ -172,7 +172,7 @@ describe("getGridConnectionIntelligence", () => {
     expect(result.connection_queue).not.toBeNull();
     expect(result.connection_queue!.projects).toHaveLength(2);
     expect(result.connection_queue!.total_mw_queued).toBe(250);
-    expect(result.connection_queue!.search_term).toBe("Berkswell");
+    expect(result.connection_queue!.search_term).toBe("West Midlands");
 
     expect(result.nearby_substations).toHaveLength(2);
     expect(result.nearby_substations[0].name).toBe("Berkswell Substation");
