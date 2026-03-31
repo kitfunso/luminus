@@ -25,6 +25,10 @@ vi.mock("./flood-risk.js", () => ({
   getFloodRisk: vi.fn(),
   floodRiskSchema: {} as any,
 }));
+vi.mock("./land-cover.js", () => ({
+  getLandCover: vi.fn(),
+  landCoverSchema: {} as any,
+}));
 
 import { screenSite } from "./screen-site.js";
 import { getTerrainAnalysis } from "./terrain-analysis.js";
@@ -33,6 +37,7 @@ import { getSolarIrradiance } from "./solar.js";
 import { getLandConstraints } from "./land-constraints.js";
 import { getAgriculturalLand } from "./agricultural-land.js";
 import { getFloodRisk } from "./flood-risk.js";
+import { getLandCover } from "./land-cover.js";
 
 const terrainMock = vi.mocked(getTerrainAnalysis);
 const gridMock = vi.mocked(getGridProximity);
@@ -40,6 +45,7 @@ const solarMock = vi.mocked(getSolarIrradiance);
 const constraintsMock = vi.mocked(getLandConstraints);
 const agriculturalLandMock = vi.mocked(getAgriculturalLand);
 const floodRiskMock = vi.mocked(getFloodRisk);
+const landCoverMock = vi.mocked(getLandCover);
 
 // --- Fixtures ---
 
@@ -211,6 +217,45 @@ const FLOOD_STORAGE = {
   explanation: "Point intersects a flood storage area.",
 };
 
+const GOOD_LAND_COVER = {
+  lat: 52.0,
+  lon: 13.4,
+  country: "DE",
+  land_cover: {
+    code: "211",
+    label: "Non-irrigated arable land",
+    class_group: "Agricultural areas",
+    is_planning_exclusion: false,
+    source: "corine-land-cover-2018",
+  },
+  coverage_note: null,
+  source_metadata: { id: "corine-land-cover" },
+};
+
+const EXCLUSION_LAND_COVER = {
+  lat: 52.0,
+  lon: 13.4,
+  country: "DE",
+  land_cover: {
+    code: "411",
+    label: "Inland marshes",
+    class_group: "Wetlands",
+    is_planning_exclusion: true,
+    source: "corine-land-cover-2018",
+  },
+  coverage_note: null,
+  source_metadata: { id: "corine-land-cover" },
+};
+
+const EU_NO_CONSTRAINTS = {
+  lat: 52.0,
+  lon: 13.4,
+  radius_km: 2,
+  country: "DE",
+  constraints: [],
+  summary: { has_hard_constraint: false, constraint_count: 0 },
+};
+
 function setupMocks(overrides: {
   terrain?: any;
   grid?: any;
@@ -218,6 +263,7 @@ function setupMocks(overrides: {
   constraints?: any;
   agriculturalLand?: any;
   floodRisk?: any;
+  landCover?: any;
 } = {}) {
   terrainMock.mockResolvedValue(overrides.terrain ?? FLAT_TERRAIN);
   gridMock.mockResolvedValue(overrides.grid ?? GOOD_GRID);
@@ -225,6 +271,7 @@ function setupMocks(overrides: {
   constraintsMock.mockResolvedValue(overrides.constraints ?? NO_CONSTRAINTS);
   agriculturalLandMock.mockResolvedValue(overrides.agriculturalLand ?? NO_BMV);
   floodRiskMock.mockResolvedValue(overrides.floodRisk ?? FLOOD_CLEAR);
+  landCoverMock.mockResolvedValue(overrides.landCover ?? GOOD_LAND_COVER);
 }
 
 describe("screenSite", () => {
@@ -250,10 +297,10 @@ describe("screenSite", () => {
     ).rejects.toThrow("Longitude must be between -180 and 180");
   });
 
-  it("rejects non-GB country", async () => {
+  it("rejects unsupported country code", async () => {
     await expect(
-      screenSite({ lat: 48.85, lon: 2.35, country: "FR" }),
-    ).rejects.toThrow('Country "FR" is not supported');
+      screenSite({ lat: 40.71, lon: -74.01, country: "US" }),
+    ).rejects.toThrow('Country "US" is not supported');
   });
 
   it("rejects radius_km > 10", async () => {
@@ -279,6 +326,8 @@ describe("screenSite", () => {
     expect(result.flood_risk).toBeDefined();
     expect(result.verdict).toBeDefined();
     expect(result.verdict.overall).toBeDefined();
+    expect(result.layers_available).toEqual(["terrain", "grid", "solar", "constraints", "agricultural_land", "flood_risk"]);
+    expect(result.layers_unavailable).toEqual({ land_cover: "Not applicable for GB" });
   });
 
   it("calls all six underlying tools", async () => {
@@ -471,5 +520,83 @@ describe("screenSite", () => {
 
     expect(result.disclaimer).toBeDefined();
     expect(result.disclaimer.length).toBeGreaterThan(0);
+  });
+
+  // --- EU screening ---
+
+  describe("EU screening", () => {
+    it("accepts an EU country code (DE)", async () => {
+      setupMocks({ constraints: EU_NO_CONSTRAINTS });
+      const result = await screenSite({ lat: 52.52, lon: 13.41, country: "DE" });
+
+      expect(result.country).toBe("DE");
+      expect(result.terrain).toBeDefined();
+      expect(result.grid).toBeDefined();
+      expect(result.solar).toBeDefined();
+      expect(result.constraints).toBeDefined();
+      expect(result.land_cover).toBeDefined();
+    });
+
+    it("calls terrain, grid, solar, constraints, and land_cover for EU", async () => {
+      setupMocks({ constraints: EU_NO_CONSTRAINTS });
+      await screenSite({ lat: 52.52, lon: 13.41, country: "DE" });
+
+      expect(terrainMock).toHaveBeenCalledOnce();
+      expect(gridMock).toHaveBeenCalledOnce();
+      expect(solarMock).toHaveBeenCalledOnce();
+      expect(constraintsMock).toHaveBeenCalledOnce();
+      expect(landCoverMock).toHaveBeenCalledOnce();
+    });
+
+    it("does NOT call agricultural_land or flood_risk for EU", async () => {
+      setupMocks({ constraints: EU_NO_CONSTRAINTS });
+      await screenSite({ lat: 52.52, lon: 13.41, country: "DE" });
+
+      expect(agriculturalLandMock).not.toHaveBeenCalled();
+      expect(floodRiskMock).not.toHaveBeenCalled();
+    });
+
+    it("returns layers_available and layers_unavailable for EU", async () => {
+      setupMocks({ constraints: EU_NO_CONSTRAINTS });
+      const result = await screenSite({ lat: 52.52, lon: 13.41, country: "DE" });
+
+      expect(result.layers_available).toEqual(["terrain", "grid", "solar", "constraints", "land_cover"]);
+      expect(result.layers_unavailable).toEqual({
+        agricultural_land: "England only — no equivalent EU source",
+        flood_risk: "England only — no equivalent EU source",
+      });
+    });
+
+    it("sets agricultural_land and flood_risk to null for EU", async () => {
+      setupMocks({ constraints: EU_NO_CONSTRAINTS });
+      const result = await screenSite({ lat: 52.52, lon: 13.41, country: "DE" });
+
+      expect(result.agricultural_land).toBeNull();
+      expect(result.flood_risk).toBeNull();
+    });
+
+    it("land_cover planning exclusion triggers a warn verdict", async () => {
+      setupMocks({ constraints: EU_NO_CONSTRAINTS, landCover: EXCLUSION_LAND_COVER });
+      const result = await screenSite({ lat: 52.52, lon: 13.41, country: "DE" });
+
+      expect(result.verdict.overall).toBe("warn");
+      expect(result.verdict.flags.some((f: any) => f.category === "land_cover" && f.level === "warn")).toBe(true);
+    });
+
+    it("uses Natura 2000 and CORINE source metadata for EU", async () => {
+      setupMocks({ constraints: EU_NO_CONSTRAINTS });
+      const result = await screenSite({ lat: 52.52, lon: 13.41, country: "DE" });
+
+      expect(result.source_metadata.constraints.id).toBe("eea-natura2000");
+      expect(result.source_metadata.land_cover?.id).toBe("corine-land-cover");
+      expect(result.source_metadata.agricultural_land).toBeUndefined();
+      expect(result.source_metadata.flood_risk).toBeUndefined();
+    });
+
+    it("still rejects unsupported country codes (US)", async () => {
+      await expect(
+        screenSite({ lat: 40.71, lon: -74.01, country: "US" }),
+      ).rejects.toThrow('Country "US" is not supported');
+    });
   });
 });

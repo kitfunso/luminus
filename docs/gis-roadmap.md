@@ -24,14 +24,14 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 ## Prioritised next actions
 
 1. [ ] Decide the next honest grid-capacity tranche: spatial bridge to NESO/GSP geography, or a DNO-level public source
-2. [ ] Evaluate a reduced EU `screen_site` mode using terrain + solar + grid + Natura 2000 + CORINE, with GB-only layers omitted explicitly
-3. [ ] Harden shared Overpass querying and decide whether to extract a dedicated shared client
+2. [x] ~~Evaluate a reduced EU `screen_site` mode~~ — shipped: EU countries use terrain + solar + grid + Natura 2000 + CORINE, with GB-only layers explicitly omitted and `layers_available`/`layers_unavailable` in the response
+3. [x] ~~Harden shared Overpass querying~~ — shipped: rate limiter (2 concurrent / 10 per minute), exponential backoff, AbortController timeout, query-too-expensive detection
 4. [ ] Revisit `compare_sites` scoring weights after real usage feedback
 5. [ ] Decide where larger pre-processed GIS assets should live if spatial indexing becomes necessary
 
 ## Key constraints and caveats
 
-- `screen_site` and `compare_sites` are still **GB-only** because agricultural land and flood-risk coverage are England-first
+- `screen_site` and `compare_sites` now support **GB + EU** — EU mode uses fewer layers (no agricultural land or flood risk)
 - `get_land_cover` is **not GB-capable** because CORINE 2018 does not cover Great Britain
 - `get_grid_proximity` is **distance/infrastructure only**, not capacity
 - `get_grid_connection_queue` is **NESO transmission-register only**, not a GB-wide DNO headroom map

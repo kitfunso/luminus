@@ -732,7 +732,7 @@ if (shouldRegister("screen_site")) {
   registeredToolNames.push("screen_site");
   server.tool(
     "screen_site",
-    "Composite PV/BESS site screening for a UK location. Combines terrain, grid proximity, solar resource, land constraints, agricultural land classification, and flood-planning risk into a single pass/warn/fail verdict. GB only. No API key.",
+    "Composite PV/BESS site screening for GB and EU locations. GB: terrain, grid, solar, land constraints, agricultural land, flood risk. EU: terrain, grid, solar, land constraints (Natura 2000), land cover (CORINE). Returns pass/warn/fail verdict with layers_available/layers_unavailable. No API key.",
     screenSiteSchema.shape,
     auditedToolHandler("screen_site", screenSiteSchema, screenSite),
   );
@@ -752,7 +752,7 @@ if (shouldRegister("compare_sites")) {
   registeredToolNames.push("compare_sites");
   server.tool(
     "compare_sites",
-    "Compare and rank 2-10 candidate PV/BESS sites. Runs screen_site on each point, then scores and ranks by verdict, solar resource, grid proximity, and terrain. Returns transparent heuristic reasoning. GB only. No API key.",
+    "Compare and rank 2-10 candidate PV/BESS sites. Runs screen_site on each point, then scores and ranks by verdict, solar resource, grid proximity, and terrain. Returns transparent heuristic reasoning. GB and EU member states supported. No API key.",
     compareSitesSchema.shape,
     auditedToolHandler("compare_sites", compareSitesSchema, compareSites),
   );

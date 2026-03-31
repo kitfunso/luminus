@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./screen-site.js", () => ({
   screenSite: vi.fn(),
   screenSiteSchema: {} as any,
+  EU_COUNTRY_CODES: new Set([
+    "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
+    "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT",
+    "NL", "PL", "PT", "RO", "SE", "SI", "SK",
+  ]),
 }));
 
 import { compareSites } from "./compare-sites.js";
@@ -161,11 +166,11 @@ describe("compareSites", () => {
     ).rejects.toThrow("at most 10");
   });
 
-  it("rejects non-GB country", async () => {
+  it("rejects unsupported country code", async () => {
     await expect(
       compareSites({
-        sites: [{ lat: 48.85, lon: 2.35 }, { lat: 48.9, lon: 2.4 }],
-        country: "FR",
+        sites: [{ lat: 40.71, lon: -74.01 }, { lat: 40.75, lon: -73.98 }],
+        country: "US",
       }),
     ).rejects.toThrow('not supported');
   });

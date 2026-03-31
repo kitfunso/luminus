@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { screenSite } from "./screen-site.js";
+import { screenSite, EU_COUNTRY_CODES } from "./screen-site.js";
 
 // --- Schema ---
 
@@ -15,7 +15,7 @@ export const compareSitesSchema = z.object({
     .describe("Array of candidate sites to compare (2-10)."),
   country: z
     .string()
-    .describe('ISO 3166-1 alpha-2 country code. Only "GB" is supported in this version.'),
+    .describe('ISO 3166-1 alpha-2 country code. "GB" and EU member states are supported.'),
   radius_km: z
     .number()
     .optional()
@@ -177,9 +177,9 @@ export async function compareSites(
   const country = params.country.toUpperCase();
   const radiusKm = params.radius_km;
 
-  if (country !== "GB") {
+  if (country !== "GB" && !EU_COUNTRY_CODES.has(country)) {
     throw new Error(
-      `Country "${params.country}" is not supported. Only "GB" (Great Britain) is available in this version.`,
+      `Country "${params.country}" is not supported. "GB" and EU member states are available.`,
     );
   }
   if (params.sites.length < 2) {
@@ -195,7 +195,7 @@ export async function compareSites(
       screenSite({
         lat: site.lat,
         lon: site.lon,
-        country: "GB",
+        country,
         ...(radiusKm !== undefined ? { radius_km: radiusKm } : {}),
       }),
     ),

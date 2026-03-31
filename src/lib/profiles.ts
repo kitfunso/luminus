@@ -110,7 +110,7 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   bess: 'Battery storage arbitrage: spreads, ancillary prices, and balancing actions',
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
-  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening, multi-site comparison, and source verification',
+  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), and source verification',
   full: 'All 55 tools registered (default)',
 };
 
