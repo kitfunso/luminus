@@ -117,6 +117,8 @@ Real-time European & UK electricity grid data via MCP. 55 tools, all free.
 | `compare_sites` | Composite | Compare and rank 2-10 candidate PV/BESS sites by verdict, solar resource, grid proximity, and terrain (GB only) |
 | `verify_gis_sources` | All GIS providers | Health check for upstream GIS data sources. Reports status, response time, and provenance metadata |
 
+Roadmap: see [`docs/gis-roadmap.md`](docs/gis-roadmap.md).
+
 ### Weather & Climate
 
 | Tool | Source | Description |
