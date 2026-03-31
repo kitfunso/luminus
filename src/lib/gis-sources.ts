@@ -76,6 +76,25 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     attribution:
       "Contains Natural England data. Contains Ordnance Survey data. Crown copyright and database rights.",
   },
+  "eea-natura2000": {
+    id: "eea-natura2000",
+    name: "EEA Natura 2000 Protected Sites",
+    provider: "European Environment Agency / ArcGIS REST",
+    licence: "EEA public environmental data access",
+    url: "https://bio.discomap.eea.europa.eu/arcgis/rest/services/ProtectedSites/Natura2000_Dyna_WM/MapServer",
+    api_key_required: false,
+    coverage: "EU Natura 2000 network coverage via EEA protected sites service",
+    update_frequency: "Updated when EEA refreshes Natura 2000 releases",
+    reliability: "medium",
+    caveats: [
+      "Covers Natura 2000 protected sites only, not the full set of national planning designations in each EU country",
+      "Site type codes are simplified into birds or habitats directive groupings for fast screening",
+      "This is a coarse screening layer, not a legal boundary determination or permitting decision",
+      "ArcGIS service structure and field names can change between publishing cycles",
+    ],
+    attribution:
+      "Contains European Environment Agency Natura 2000 protected sites data.",
+  },
   "natural-england-alc": {
     id: "natural-england-alc",
     name: "Natural England Agricultural Land Classification",
@@ -185,6 +204,23 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
   {
     source_id: "natural-england",
     url: "https://services.arcgis.com/JJzESW51TqeY9uat/arcgis/rest/services/SSSI_England/FeatureServer/0/query?where=1%3D1&resultRecordCount=1&outFields=NAME&returnGeometry=false&f=json",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.error) return `ArcGIS error: ${json.error.message ?? "unknown"}`;
+        if (!Array.isArray(json.features)) return "Response missing features array";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "eea-natura2000",
+    url: "https://bio.discomap.eea.europa.eu/arcgis/rest/services/ProtectedSites/Natura2000_Dyna_WM/MapServer/0/query?where=1%3D1&resultRecordCount=1&outFields=SITECODE%2CSITENAME%2CSITETYPE&returnGeometry=false&f=json",
     method: "GET",
     timeout_ms: 15_000,
     validate: (status, body) => {

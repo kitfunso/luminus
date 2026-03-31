@@ -680,7 +680,7 @@ if (shouldRegister("get_land_constraints")) {
   registeredToolNames.push("get_land_constraints");
   server.tool(
     "get_land_constraints",
-    "GB land constraints: SSSIs, SACs, SPAs, Ramsar, National Parks, AONBs within a radius. Hard exclusion check for PV/BESS siting. Natural England data, OGL v3. No API key.",
+    "Land-constraint screening within a radius. GB uses Natural England protected areas, EU member states use EEA Natura 2000 protected sites. Hard exclusion check for PV/BESS siting. No API key.",
     landConstraintsSchema.shape,
     auditedToolHandler("get_land_constraints", landConstraintsSchema, getLandConstraints),
   );

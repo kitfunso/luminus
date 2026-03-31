@@ -5,6 +5,7 @@ import {
   queryLayer,
   type ConstraintFeature,
 } from "../lib/natural-england.js";
+import { queryNatura2000Layer } from "../lib/eea-natura2000.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 
 const cache = new TtlCache();
@@ -18,7 +19,7 @@ export const landConstraintsSchema = z.object({
     .describe("Search radius in km (default 2, max 10)."),
   country: z
     .string()
-    .describe('ISO 3166-1 alpha-2 country code. Only "GB" is supported in this version.'),
+    .describe('ISO 3166-1 alpha-2 country code. Supports "GB" plus EU member states in this version.'),
 });
 
 interface LandConstraintsSummary {
@@ -44,7 +45,57 @@ const HARD_CONSTRAINT_TYPES = new Set([
   "spa",
   "ramsar",
   "national_park",
+  "natura2000",
+  "natura2000_birds",
+  "natura2000_habitats",
 ]);
+
+const EU_COUNTRY_CODES = new Set([
+  "AT",
+  "BE",
+  "BG",
+  "CY",
+  "CZ",
+  "DE",
+  "DK",
+  "EE",
+  "ES",
+  "FI",
+  "FR",
+  "GR",
+  "HR",
+  "HU",
+  "IE",
+  "IT",
+  "LT",
+  "LU",
+  "LV",
+  "MT",
+  "NL",
+  "PL",
+  "PT",
+  "RO",
+  "SE",
+  "SI",
+  "SK",
+]);
+
+function dedupeConstraints(constraints: ConstraintFeature[]): ConstraintFeature[] {
+  const seen = new Set<string>();
+  return constraints.filter((constraint) => {
+    const key = `${constraint.type}:${constraint.name}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function summariseConstraints(constraints: ConstraintFeature[]): LandConstraintsSummary {
+  return {
+    has_hard_constraint: constraints.some((constraint) => HARD_CONSTRAINT_TYPES.has(constraint.type)),
+    constraint_count: constraints.length,
+  };
+}
 
 export async function getLandConstraints(
   params: z.infer<typeof landConstraintsSchema>,
@@ -52,12 +103,6 @@ export async function getLandConstraints(
   const { lat, lon } = params;
   const country = params.country.toUpperCase();
   const radiusKm = params.radius_km ?? 2;
-
-  if (country !== "GB") {
-    throw new Error(
-      `Country "${params.country}" is not supported. Only "GB" (Great Britain) is available in this version. EU coverage is planned for a future sprint.`,
-    );
-  }
 
   if (lat < -90 || lat > 90) {
     throw new Error("Latitude must be between -90 and 90.");
@@ -69,72 +114,81 @@ export async function getLandConstraints(
     throw new Error("radius_km must be between 0 and 10.");
   }
 
-  const cacheKey = `land-constraints:${lat}:${lon}:${radiusKm}`;
-  const cached = cache.get<LandConstraintsResult>(cacheKey);
-  if (cached) return cached;
-
-  // Query all protected area layers in parallel. Use allSettled so
-  // partial failures (one layer down) still return whatever succeeded.
-  const layerResults = await Promise.allSettled(
-    GB_PROTECTED_AREA_LAYERS.map((layer) =>
-      queryLayer(layer, lat, lon, radiusKm),
-    ),
-  );
-
-  const constraints: ConstraintFeature[] = [];
-  const warnings: string[] = [];
-
-  for (let i = 0; i < layerResults.length; i++) {
-    const result = layerResults[i];
-    if (result.status === "fulfilled") {
-      constraints.push(...result.value);
-    } else {
-      const layerType = GB_PROTECTED_AREA_LAYERS[i].constraintType;
-      const msg =
-        result.reason instanceof Error
-          ? result.reason.message
-          : String(result.reason);
-      warnings.push(`${layerType}: ${msg}`);
-    }
-  }
-
-  if (warnings.length === GB_PROTECTED_AREA_LAYERS.length) {
+  if (country !== "GB" && !EU_COUNTRY_CODES.has(country)) {
     throw new Error(
-      `All Natural England API queries failed: ${warnings.join("; ")}`,
+      `Country "${params.country}" is not supported. Use "GB" for Great Britain or an EU member-state country code in this version.`,
     );
   }
 
-  // Deduplicate: ArcGIS often returns multiple sub-polygon features for the
-  // same designation. Keep one entry per unique name+type pair.
-  const seen = new Set<string>();
-  const deduped = constraints.filter((c) => {
-    const key = `${c.type}:${c.name}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const cacheKey = `land-constraints:${lat}:${lon}:${radiusKm}:${country}`;
+  const cached = cache.get<LandConstraintsResult>(cacheKey);
+  if (cached) return cached;
 
-  const hasHard = deduped.some((c) =>
-    HARD_CONSTRAINT_TYPES.has(c.type),
-  );
+  if (country === "GB") {
+    const layerResults = await Promise.allSettled(
+      GB_PROTECTED_AREA_LAYERS.map((layer) =>
+        queryLayer(layer, lat, lon, radiusKm),
+      ),
+    );
 
-  const result: LandConstraintsResult = {
-    lat,
-    lon,
-    radius_km: radiusKm,
-    country: "GB",
-    constraints: deduped,
-    summary: {
-      has_hard_constraint: hasHard,
-      constraint_count: deduped.length,
-    },
-    source_metadata: GIS_SOURCES["natural-england"],
-  };
+    const constraints: ConstraintFeature[] = [];
+    const warnings: string[] = [];
 
-  if (warnings.length > 0) {
-    result.warnings = warnings;
+    for (let i = 0; i < layerResults.length; i++) {
+      const result = layerResults[i];
+      if (result.status === "fulfilled") {
+        constraints.push(...result.value);
+      } else {
+        const layerType = GB_PROTECTED_AREA_LAYERS[i].constraintType;
+        const msg =
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason);
+        warnings.push(`${layerType}: ${msg}`);
+      }
+    }
+
+    if (warnings.length === GB_PROTECTED_AREA_LAYERS.length) {
+      throw new Error(
+        `All Natural England API queries failed: ${warnings.join("; ")}`,
+      );
+    }
+
+    const deduped = dedupeConstraints(constraints);
+    const result: LandConstraintsResult = {
+      lat,
+      lon,
+      radius_km: radiusKm,
+      country: "GB",
+      constraints: deduped,
+      summary: summariseConstraints(deduped),
+      source_metadata: GIS_SOURCES["natural-england"],
+    };
+
+    if (warnings.length > 0) {
+      result.warnings = warnings;
+    }
+
+    cache.set(cacheKey, result, TTL.STATIC_DATA);
+    return result;
   }
 
-  cache.set(cacheKey, result, TTL.STATIC_DATA);
-  return result;
+  try {
+    const constraints = dedupeConstraints(await queryNatura2000Layer(lat, lon, radiusKm));
+    const result: LandConstraintsResult = {
+      lat,
+      lon,
+      radius_km: radiusKm,
+      country,
+      constraints,
+      summary: summariseConstraints(constraints),
+      source_metadata: GIS_SOURCES["eea-natura2000"],
+    };
+
+    cache.set(cacheKey, result, TTL.STATIC_DATA);
+    return result;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`EEA Natura 2000 query failed: ${message}`);
+  }
 }

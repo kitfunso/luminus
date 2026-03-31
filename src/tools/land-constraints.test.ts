@@ -32,7 +32,27 @@ const SAC_FEATURE = {
 const NATIONAL_PARK_FEATURE = {
   attributes: {
     NAME: "Dartmoor",
-    HECTARES: 95350,
+    MEASURE: 95350,
+  },
+};
+
+const NATURA2000_BIRDS_FEATURE = {
+  attributes: {
+    SITECODE: "FR0000001",
+    SITENAME: "Marais de test",
+    SITETYPE: "A",
+    MS: "FR",
+    Area_km2: 12.34,
+  },
+};
+
+const NATURA2000_HABITATS_FEATURE = {
+  attributes: {
+    SITECODE: "FR0000002",
+    SITENAME: "Vallée de test",
+    SITETYPE: "B",
+    MS: "FR",
+    Area_km2: 5.67,
   },
 };
 
@@ -45,10 +65,10 @@ describe("getLandConstraints", () => {
     vi.restoreAllMocks();
   });
 
-  it("rejects non-GB countries with a clear error", async () => {
+  it("rejects unsupported non-EU countries with a clear error", async () => {
     await expect(
-      getLandConstraints({ lat: 48.85, lon: 2.35, country: "FR" }),
-    ).rejects.toThrow('Country "FR" is not supported');
+      getLandConstraints({ lat: 40.71, lon: -74.0, country: "US" }),
+    ).rejects.toThrow('Country "US" is not supported');
   });
 
   it("rejects invalid latitude", async () => {
@@ -69,7 +89,7 @@ describe("getLandConstraints", () => {
     ).rejects.toThrow("radius_km must be between 0 and 10");
   });
 
-  it("returns constraints from NE API response", async () => {
+  it("returns GB constraints from Natural England API response", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (typeof url === "string" && url.includes("SSSI")) {
         return makeArcGisResponse([SSSI_FEATURE]);
@@ -91,7 +111,32 @@ describe("getLandConstraints", () => {
     expect(result.constraints[0].source).toBe("natural-england");
   });
 
-  it("returns empty constraints for a clear area", async () => {
+  it("returns EU Natura 2000 constraints for supported EU countries", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("bio.discomap.eea.europa.eu")) {
+        return makeArcGisResponse([NATURA2000_BIRDS_FEATURE, NATURA2000_HABITATS_FEATURE]);
+      }
+      return makeEmptyResponse();
+    });
+
+    const result = await getLandConstraints({
+      lat: 48.85,
+      lon: 2.35,
+      country: "FR",
+    });
+
+    expect(result.country).toBe("FR");
+    expect(result.constraints).toHaveLength(2);
+    expect(result.constraints[0].source).toBe("eea-natura2000");
+    expect(result.constraints[0].area_ha).toBe(1234);
+    expect(result.constraints.map((c) => c.type)).toEqual(
+      expect.arrayContaining(["natura2000_birds", "natura2000_habitats"]),
+    );
+    expect(result.summary.has_hard_constraint).toBe(true);
+    expect(result.summary.constraint_count).toBe(2);
+  });
+
+  it("returns empty constraints for a clear GB area", async () => {
     fetchMock.mockImplementation(async () => makeEmptyResponse());
 
     const result = await getLandConstraints({
@@ -103,6 +148,20 @@ describe("getLandConstraints", () => {
     expect(result.constraints).toHaveLength(0);
     expect(result.summary.has_hard_constraint).toBe(false);
     expect(result.summary.constraint_count).toBe(0);
+  });
+
+  it("returns empty constraints for a clear EU area", async () => {
+    fetchMock.mockImplementation(async () => makeEmptyResponse());
+
+    const result = await getLandConstraints({
+      lat: 48.1,
+      lon: 11.5,
+      country: "DE",
+    });
+
+    expect(result.country).toBe("DE");
+    expect(result.constraints).toHaveLength(0);
+    expect(result.summary.has_hard_constraint).toBe(false);
   });
 
   it("sets has_hard_constraint for SSSI and SAC hits", async () => {
@@ -145,7 +204,7 @@ describe("getLandConstraints", () => {
     expect(result.constraints[0].type).toBe("national_park");
   });
 
-  it("handles partial layer failures with warnings", async () => {
+  it("handles GB partial layer failures with warnings", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       if (typeof url === "string" && url.includes("SSSI")) {
         return makeArcGisResponse([SSSI_FEATURE]);
@@ -167,32 +226,59 @@ describe("getLandConstraints", () => {
     expect(result.warnings!.length).toBeGreaterThan(0);
   });
 
-  it("throws when all layers fail", async () => {
-    fetchMock.mockImplementation(async () => ({
-      ok: false,
-      status: 500,
-      text: async () => "Server error",
-    }));
+  it("throws when all GB layers fail", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("services.arcgis.com")) {
+        return {
+          ok: false,
+          status: 500,
+          text: async () => "Server error",
+        };
+      }
+      return makeEmptyResponse();
+    });
 
     await expect(
       getLandConstraints({ lat: 51.68, lon: 0.08, country: "GB" }),
     ).rejects.toThrow("All Natural England API queries failed");
   });
 
-  it("handles NE API JSON error body", async () => {
-    fetchMock.mockImplementation(async () => ({
-      ok: true,
-      json: async () => ({
-        error: { code: 400, message: "Invalid query parameters" },
-      }),
-    }));
+  it("throws when the EU Natura 2000 query fails", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("bio.discomap.eea.europa.eu")) {
+        return {
+          ok: false,
+          status: 503,
+          text: async () => "Service unavailable",
+        };
+      }
+      return makeEmptyResponse();
+    });
+
+    await expect(
+      getLandConstraints({ lat: 48.2, lon: 16.3, country: "AT" }),
+    ).rejects.toThrow("EEA Natura 2000 query failed");
+  });
+
+  it("handles Natural England JSON error body", async () => {
+    fetchMock.mockImplementation(async (url: string) => {
+      if (typeof url === "string" && url.includes("services.arcgis.com")) {
+        return {
+          ok: true,
+          json: async () => ({
+            error: { code: 400, message: "Invalid query parameters" },
+          }),
+        };
+      }
+      return makeEmptyResponse();
+    });
 
     await expect(
       getLandConstraints({ lat: 51.72, lon: 0.12, country: "GB" }),
     ).rejects.toThrow("All Natural England API queries failed");
   });
 
-  it("returns cached result on second call", async () => {
+  it("returns cached result on second GB call", async () => {
     fetchMock.mockImplementation(async () => makeEmptyResponse());
 
     await getLandConstraints({ lat: 51.69, lon: 0.09, country: "GB" });
@@ -216,7 +302,7 @@ describe("getLandConstraints", () => {
     expect(result.radius_km).toBe(2);
   });
 
-  it("includes source_metadata with provenance fields", async () => {
+  it("includes GB source_metadata with provenance fields", async () => {
     fetchMock.mockImplementation(async () => makeEmptyResponse());
 
     const result = await getLandConstraints({
@@ -234,15 +320,31 @@ describe("getLandConstraints", () => {
     expect(result.source_metadata.attribution).toBeDefined();
   });
 
+  it("includes EU source_metadata with provenance fields", async () => {
+    fetchMock.mockImplementation(async () => makeEmptyResponse());
+
+    const result = await getLandConstraints({
+      lat: 48.3,
+      lon: 16.4,
+      country: "AT",
+    });
+
+    expect(result.source_metadata).toBeDefined();
+    expect(result.source_metadata.id).toBe("eea-natura2000");
+    expect(result.source_metadata.provider).toContain("European Environment Agency");
+    expect(result.source_metadata.reliability).toBe("medium");
+    expect(result.source_metadata.caveats.length).toBeGreaterThan(0);
+  });
+
   it("accepts lowercase country code", async () => {
     fetchMock.mockImplementation(async () => makeEmptyResponse());
 
     const result = await getLandConstraints({
-      lat: 51.71,
-      lon: 0.11,
-      country: "gb",
+      lat: 48.85,
+      lon: 2.35,
+      country: "fr",
     });
 
-    expect(result.country).toBe("GB");
+    expect(result.country).toBe("FR");
   });
 });

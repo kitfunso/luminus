@@ -107,7 +107,7 @@ Real-time European & UK electricity grid data via MCP. 54 tools, all free.
 |------|--------|-------------|
 | `get_terrain_analysis` | Open-Meteo Elevation | Elevation, slope, aspect, and flatness score for a location |
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
-| `get_land_constraints` | Natural England | GB protected areas (SSSIs, SACs, SPAs, Ramsar, National Parks, AONBs) within a radius |
+| `get_land_constraints` | Natural England / EEA Natura 2000 | GB protected areas via Natural England, plus EU Natura 2000 protected sites within a radius |
 | `get_agricultural_land` | Natural England ALC | Best and Most Versatile agricultural land screening. Prefers detailed post-1988 surveys, falls back to provisional ALC |
 | `get_flood_risk` | Environment Agency | Flood-planning screen using Flood Zone 2, Flood Zone 3, and flood storage areas |
 | `screen_site` | Composite | PV/BESS site screening: terrain + grid + solar + constraints + agricultural land + flood risk in one pass/warn/fail verdict (GB only) |
@@ -264,6 +264,7 @@ Ask your AI agent:
 | OpenStreetMap | [openstreetmap.org](https://www.openstreetmap.org/) | Transmission lines, substations |
 | Open-Meteo Elevation | [open-meteo.com](https://open-meteo.com/) | Terrain elevation (Copernicus EU-DEM) |
 | Natural England Open Data | [naturalengland-defra.opendata.arcgis.com](https://naturalengland-defra.opendata.arcgis.com/) | England protected areas and agricultural land classification |
+| EEA Natura 2000 | [bio.discomap.eea.europa.eu](https://bio.discomap.eea.europa.eu/arcgis/rest/services/ProtectedSites/Natura2000_Dyna_WM/MapServer) | EU Natura 2000 protected sites |
 | Environment Agency Flood Map for Planning | [environment.data.gov.uk](https://environment.data.gov.uk/dataset/04532375-a198-476e-985e-0579a0a11b47) | England flood zones and flood storage areas |
 | mainsfrequency.com | [mainsfrequency.com](https://www.mainsfrequency.com/) | European grid frequency |
 
@@ -385,6 +386,7 @@ The current GIS tranche is built to favour keyless or low-friction public source
 | Open-Meteo elevation | terrain and elevation context | No | No | Public HTTP access, lightweight for point lookups |
 | OpenStreetMap / Overpass / OpenInfraMap-derived queries | substations, lines, coarse grid proximity | No | No | Keyless but public endpoints can be slow or flaky, so fallback logic matters |
 | Natural England / UK open GIS services | protected areas, constraint screening, agricultural land classification | Usually no | Usually no | Public access, but service quality and endpoint shape can be inconsistent |
+| EEA Natura 2000 | EU protected-area screening | No | No | Good first EU-wide layer, but it is not the full national planning-constraints stack in each country |
 | Environment Agency Flood Map for Planning | Flood Zone 2/3 and flood storage area screening | No | No | Public ArcGIS service for England planning layers, but still not a substitute for a site-specific FRA |
 | CORINE / Copernicus-style open data | land-cover and broader EU layers | No | Usually no for basic access/downloads | Better suited to staged ingestion or pre-processing than naive live API calls |
 
