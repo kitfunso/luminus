@@ -76,22 +76,38 @@ export async function getAuctionResults(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const json: any = await response.json();
 
-  // JAO API returns an array or single object
+  // JAO finalComputation endpoint now returns CNEC flow-based data (not auction allocations).
+  // Extract cross-border capacity results for the requested corridor.
   const entries = Array.isArray(json) ? json : json.data ? (Array.isArray(json.data) ? json.data : [json.data]) : [json];
 
   if (entries.length === 0) {
     throw new Error(`No auction data for corridor ${corridor} on ${params.date}.`);
   }
 
-  const entry = entries[0];
+  // Filter entries relevant to this corridor direction
+  const [hubFrom, hubTo] = corridor.split("-");
+  const relevant = entries.filter(
+    (e: any) => e.hubFrom === hubFrom && e.hubTo === hubTo,
+  );
+
+  // Aggregate: sum RAM (Remaining Available Margin) across CNECs as a capacity proxy
+  let totalRamMw = 0;
+  let count = 0;
+  for (const e of relevant) {
+    const ram = Number(e.ram ?? 0);
+    if (ram > 0) {
+      totalRamMw += ram;
+      count++;
+    }
+  }
 
   const result: AuctionResult = {
     corridor,
     date: params.date,
-    allocated_capacity_mw: entry.allocatedCapacity ?? entry.allocated ?? null,
-    auction_price_eur_mw: entry.auctionPrice ?? entry.price ?? null,
-    offered_capacity_mw: entry.offeredCapacity ?? entry.offered ?? null,
-    requested_capacity_mw: entry.requestedCapacity ?? entry.requested ?? null,
+    allocated_capacity_mw: count > 0 ? Math.round(totalRamMw / count) : null,
+    auction_price_eur_mw: null, // No longer in this endpoint
+    offered_capacity_mw: count > 0 ? Math.round(totalRamMw / count) : null,
+    requested_capacity_mw: null,
   };
 
   cache.set(cacheKey, result, TTL.AUCTION);
