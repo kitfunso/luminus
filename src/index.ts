@@ -66,6 +66,7 @@ import { stormglassSchema, getStormglass } from "./tools/stormglass.js";
 import { terrainAnalysisSchema, getTerrainAnalysis } from "./tools/terrain-analysis.js";
 import { gridProximitySchema, getGridProximity } from "./tools/grid-proximity.js";
 import { landConstraintsSchema, getLandConstraints } from "./tools/land-constraints.js";
+import { landCoverSchema, getLandCover } from "./tools/land-cover.js";
 import { agriculturalLandSchema, getAgriculturalLand } from "./tools/agricultural-land.js";
 import { floodRiskSchema, getFloodRisk } from "./tools/flood-risk.js";
 import { screenSiteSchema, screenSite } from "./tools/screen-site.js";
@@ -686,6 +687,16 @@ if (shouldRegister("get_land_constraints")) {
   );
 }
 
+if (shouldRegister("get_land_cover")) {
+  registeredToolNames.push("get_land_cover");
+  server.tool(
+    "get_land_cover",
+    "Land-cover classification for a point using CORINE Land Cover 2018. Returns the 3-digit CLC code, human label, top-level land-cover group, and a conservative planning-exclusion flag for wetlands, water bodies, and woodland. EU27 + EEA/EFTA only. Great Britain is not covered by CORINE 2018. No API key.",
+    landCoverSchema.shape,
+    auditedToolHandler("get_land_cover", landCoverSchema, getLandCover),
+  );
+}
+
 if (shouldRegister("get_agricultural_land")) {
   registeredToolNames.push("get_agricultural_land");
   server.tool(
@@ -720,7 +731,7 @@ if (shouldRegister("verify_gis_sources")) {
   registeredToolNames.push("verify_gis_sources");
   server.tool(
     "verify_gis_sources",
-    "Health check for GIS data sources. Pings each upstream provider or dataset endpoint (Open-Meteo, Overpass, Natural England protected areas, Natural England ALC, Environment Agency Flood Map, PVGIS) and reports status, response time, and source metadata. Use before relying on GIS tool results.",
+    "Health check for GIS data sources. Pings each upstream provider or dataset endpoint (Open-Meteo, Overpass, Natural England protected areas, EEA Natura 2000, CORINE Land Cover, Natural England ALC, Environment Agency Flood Map, PVGIS) and reports status, response time, and source metadata. Use before relying on GIS tool results.",
     verifyGisSourcesSchema.shape,
     auditedToolHandler("verify_gis_sources", verifyGisSourcesSchema, verifyGisSources),
   );

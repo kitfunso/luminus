@@ -108,6 +108,7 @@ Real-time European & UK electricity grid data via MCP. 54 tools, all free.
 | `get_terrain_analysis` | Open-Meteo Elevation | Elevation, slope, aspect, and flatness score for a location |
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
 | `get_land_constraints` | Natural England / EEA Natura 2000 | GB protected areas via Natural England, plus EU Natura 2000 protected sites within a radius |
+| `get_land_cover` | CORINE Land Cover 2018 | Point land-cover classification for EU27 + EEA/EFTA sites, with conservative planning-exclusion flags for wetlands, water bodies, and woodland. GB not covered |
 | `get_agricultural_land` | Natural England ALC | Best and Most Versatile agricultural land screening. Prefers detailed post-1988 surveys, falls back to provisional ALC |
 | `get_flood_risk` | Environment Agency | Flood-planning screen using Flood Zone 2, Flood Zone 3, and flood storage areas |
 | `screen_site` | Composite | PV/BESS site screening: terrain + grid + solar + constraints + agricultural land + flood risk in one pass/warn/fail verdict (GB only) |
@@ -166,7 +167,7 @@ Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RT
 
 ### Profiles
 
-By default all 54 tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
+By default all 55 tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
@@ -178,8 +179,8 @@ npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
 npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
 npx luminus-mcp --profile regional   # 9 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
-npx luminus-mcp --profile gis        # 10 tools: solar, terrain, grid proximity, constraints, agricultural land, flood risk, site screening, comparison, verification
-npx luminus-mcp --profile full       # all 54 tools (default)
+npx luminus-mcp --profile gis        # 11 tools: solar, terrain, grid proximity, constraints, land cover, agricultural land, flood risk, site screening, comparison, verification
+npx luminus-mcp --profile full       # all 55 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:

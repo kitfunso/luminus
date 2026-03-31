@@ -46,6 +46,9 @@ describe("verifyGisSources", () => {
       if (url.includes("arcgis.com") || url.includes("environment.data.gov.uk") || url.includes("bio.discomap.eea.europa.eu")) {
         return makeOkResponse({ features: [{ attributes: { NAME: "Test" } }] });
       }
+      if (url.includes("image.discomap.eea.europa.eu")) {
+        return makeOkResponse({ features: [{ attributes: { Code_18: "211" } }] });
+      }
       if (url.includes("jrc.ec.europa.eu")) {
         return makeOkResponse({ outputs: { totals: {} } });
       }
@@ -55,9 +58,9 @@ describe("verifyGisSources", () => {
     const result = await verifyGisSources({});
 
     expect(result.checked_at).toBeDefined();
-    expect(result.sources.length).toBe(7);
-    expect(result.summary.total).toBe(7);
-    expect(result.summary.ok).toBe(7);
+    expect(result.sources.length).toBe(8);
+    expect(result.summary.total).toBe(8);
+    expect(result.summary.ok).toBe(8);
     expect(result.summary.degraded).toBe(0);
     expect(result.summary.unreachable).toBe(0);
   });
@@ -157,6 +160,9 @@ describe("verifyGisSources", () => {
       if (url.includes("bio.discomap.eea.europa.eu")) {
         return makeOkResponse({ features: [{ attributes: { SITECODE: "FR0001" } }] });
       }
+      if (url.includes("image.discomap.eea.europa.eu")) {
+        return makeOkResponse({ features: [{ attributes: { Code_18: "211" } }] });
+      }
       if (url.includes("environment.data.gov.uk")) {
         return makeErrorResponse(500);
       }
@@ -168,7 +174,7 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    expect(result.summary.ok).toBe(3);
+    expect(result.summary.ok).toBe(4);
     expect(result.summary.degraded).toBe(2);
     expect(result.summary.unreachable).toBe(2);
   });

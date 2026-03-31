@@ -133,6 +133,26 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     attribution:
       "Contains Environment Agency information licensed under the Open Government Licence v3.0.",
   },
+  "corine-land-cover": {
+    id: "corine-land-cover",
+    name: "CORINE Land Cover 2018",
+    provider: "European Environment Agency / Copernicus Land Monitoring Service",
+    licence: "Copernicus Land Monitoring Service (free, attribution required)",
+    url: "https://land.copernicus.eu/pan-european/corine-land-cover/clc2018",
+    api_key_required: false,
+    coverage: "EU27 member states plus EEA/EFTA countries. Great Britain not covered (UK withdrew after CLC 2012).",
+    update_frequency: "Static — CLC 2018 is the most recent release; next update expected as CLC 2024",
+    reliability: "high",
+    caveats: [
+      "Minimum mapping unit is 25 hectares — small parcels may not appear",
+      "Great Britain is not covered; use get_agricultural_land for England instead",
+      "Classification is based on 2018 satellite imagery; recent land-use changes will not be reflected",
+      "ArcGIS service structure or field names may change between EEA publishing cycles",
+    ],
+    attribution:
+      "Contains CORINE Land Cover 2018 data from the Copernicus Land Monitoring Service, " +
+      "© European Environment Agency (EEA).",
+  },
   "pvgis": {
     id: "pvgis",
     name: "PVGIS (Photovoltaic Geographical Information System)",
@@ -246,6 +266,25 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
         const json = JSON.parse(body);
         if (json.error) return `ArcGIS error: ${json.error.message ?? "unknown"}`;
         if (!Array.isArray(json.features)) return "Response missing features array";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "corine-land-cover",
+    url: "https://image.discomap.eea.europa.eu/arcgis/rest/services/Corine/CLC2018_WM/MapServer/0/query?geometry=2.35%2C48.85&geometryType=esriGeometryPoint&inSR=4326&spatialRel=esriSpatialRelIntersects&outFields=Code_18&returnGeometry=false&resultRecordCount=1&f=json",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.error) return `ArcGIS error: ${json.error.message ?? "unknown"}`;
+        if (!Array.isArray(json.features)) return "Response missing features array";
+        const code = json.features[0]?.attributes?.Code_18;
+        if (typeof code !== "string" || code.length === 0) return "Response missing Code_18 value";
         return null;
       } catch {
         return "Response is not valid JSON";

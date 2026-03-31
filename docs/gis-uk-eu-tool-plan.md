@@ -59,13 +59,15 @@ country: string      // "GB" or ISO 3166-1 alpha-2 (determines data source)
 |---------|--------|-----|---------|
 | GB | Natural England MAGIC | WFS `https://magic.defra.gov.uk/` | Open Government Licence v3 |
 | EU-wide | EEA Natura 2000 | WFS `https://bio.discomap.eea.europa.eu/` | EEA standard reuse |
-| EU-wide | CORINE Land Cover 2018 | WFS via Copernicus Land Monitoring | Free, Copernicus licence |
+| EU-wide | CORINE Land Cover 2018 | ArcGIS REST via EEA DiscoMap | Free, Copernicus licence |
 
 **Caching:** `TTL.STATIC_DATA` (24h). Designation boundaries change on multi-year cycles.
 
 **API key:** None. All sources are free public WFS endpoints.
 
 ---
+
+**Implemented note (2026-03-31, sprint 9):** A dedicated `get_land_cover` tool is now the preferred CORINE integration path. It queries the EEA DiscoMap ArcGIS REST service at a point, returns the 3-digit CLC code plus human label, and applies a conservative planning-exclusion flag only for wetlands, water bodies, and woodland. Great Britain is intentionally excluded because CORINE 2018 no longer covers GB after the UK's withdrawal from the programme.
 
 ### 2. `get_grid_proximity`
 
