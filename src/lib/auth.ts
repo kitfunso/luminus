@@ -184,6 +184,7 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   screen_site: [],
   verify_gis_sources: [],
   compare_sites: [],
+  estimate_site_revenue: ["ENTSOE_API_KEY"],
 } as const;
 
 /**

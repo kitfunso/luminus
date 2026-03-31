@@ -74,6 +74,7 @@ import { floodRiskSchema, getFloodRisk } from "./tools/flood-risk.js";
 import { screenSiteSchema, screenSite } from "./tools/screen-site.js";
 import { verifyGisSourcesSchema, verifyGisSources } from "./tools/verify-gis-sources.js";
 import { compareSitesSchema, compareSites } from "./tools/compare-sites.js";
+import { siteRevenueSchema, estimateSiteRevenue } from "./tools/site-revenue.js";
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -766,6 +767,16 @@ if (shouldRegister("compare_sites")) {
     "Compare and rank 2-10 candidate PV/BESS sites. Runs screen_site on each point, then scores and ranks by verdict, solar resource, grid proximity, and terrain. Returns transparent heuristic reasoning. GB and EU member states supported. No API key.",
     compareSitesSchema.shape,
     auditedToolHandler("compare_sites", compareSitesSchema, compareSites),
+  );
+}
+
+if (shouldRegister("estimate_site_revenue")) {
+  registeredToolNames.push("estimate_site_revenue");
+  server.tool(
+    "estimate_site_revenue",
+    "Estimate annual PV generation revenue or BESS arbitrage revenue for a candidate site. Combines solar resource with day-ahead prices (PV) or spread analysis (BESS). Not a financial model.",
+    siteRevenueSchema.shape,
+    auditedToolHandler("estimate_site_revenue", siteRevenueSchema, estimateSiteRevenue),
   );
 }
 

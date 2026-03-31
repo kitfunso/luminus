@@ -3,7 +3,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Real-time European & UK electricity grid data via MCP. 56 tools, all free.
+Real-time European & UK electricity grid data via MCP. 57 tools, all free.
 
 ## Tools
 
@@ -116,6 +116,7 @@ Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 | `get_flood_risk` | Environment Agency | Flood-planning screen using Flood Zone 2, Flood Zone 3, and flood storage areas |
 | `screen_site` | Composite | PV/BESS site screening: terrain + grid + solar + constraints + agricultural land + flood risk in one pass/warn/fail verdict (GB + EU) |
 | `compare_sites` | Composite | Compare and rank 2-10 candidate PV/BESS sites by verdict, solar resource, grid proximity, and terrain (GB + EU) |
+| `estimate_site_revenue` | PVGIS + ENTSO-E | Estimate annual PV generation revenue or BESS arbitrage revenue for a candidate site. Requires ENTSO-E key. |
 | `verify_gis_sources` | All GIS providers | Health check for upstream GIS data sources. Reports status, response time, and provenance metadata |
 
 Roadmap: see [`docs/gis-roadmap.md`](docs/gis-roadmap.md).
@@ -185,7 +186,7 @@ npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
 npx luminus-mcp --profile regional   # 9 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
 npx luminus-mcp --profile gis        # 13 tools: solar, terrain, grid proximity, connection queue, connection intelligence, constraints, land cover, agricultural land, flood risk, site screening (GB+EU), comparison, verification
-npx luminus-mcp --profile full       # all 56 tools (default)
+npx luminus-mcp --profile full       # all 57 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:

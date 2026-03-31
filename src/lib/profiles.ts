@@ -64,6 +64,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_balancing_actions',
     'get_day_ahead_prices',
     'get_intraday_prices',
+    'estimate_site_revenue',
   ],
   regional: [
     'get_energy_charts',
@@ -97,6 +98,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'screen_site',
     'verify_gis_sources',
     'compare_sites',
+    'estimate_site_revenue',
   ],
 } as const;
 
