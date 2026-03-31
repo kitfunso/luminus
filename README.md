@@ -382,6 +382,10 @@ Data freshness depends on each source. Most update every 15-60 minutes. Check th
 
 MIT. See [LICENSE](LICENSE).
 
+## GIS roadmap
+
+See [`docs/gis-roadmap.md`](docs/gis-roadmap.md) for the shipped sprint baseline, current tranche, next actions, and hard caveats.
+
 ## UK/EU GIS data sources, API keys, and registration
 
 The current GIS tranche is built to favour keyless or low-friction public sources for a UK/EU MVP.
