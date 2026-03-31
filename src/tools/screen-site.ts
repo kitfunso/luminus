@@ -4,6 +4,7 @@ import { getGridProximity } from "./grid-proximity.js";
 import { getSolarIrradiance } from "./solar.js";
 import { getLandConstraints } from "./land-constraints.js";
 import { getAgriculturalLand } from "./agricultural-land.js";
+import { getFloodRisk } from "./flood-risk.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 
 export const screenSiteSchema = z.object({
@@ -31,7 +32,7 @@ const IRRADIANCE_WARN_KWH = 900;
 type Verdict = "pass" | "warn" | "fail";
 
 interface VerdictFlag {
-  category: "terrain" | "grid" | "solar" | "constraints" | "agricultural_land";
+  category: "terrain" | "grid" | "solar" | "constraints" | "agricultural_land" | "flood_risk";
   level: "warn" | "fail";
   reason: string;
 }
@@ -47,6 +48,7 @@ interface ScreenSiteSourceMetadata {
   solar: GisSourceMetadata;
   constraints: GisSourceMetadata;
   agricultural_land: GisSourceMetadata;
+  flood_risk: GisSourceMetadata;
 }
 
 interface ScreenSiteResult {
@@ -59,6 +61,7 @@ interface ScreenSiteResult {
   solar: any | null;
   constraints: any | null;
   agricultural_land: any | null;
+  flood_risk: any | null;
   verdict: ScreenSiteVerdict;
   source_metadata: ScreenSiteSourceMetadata;
   warnings?: string[];
@@ -78,6 +81,7 @@ function evaluateVerdict(
   solar: any | null,
   constraints: any | null,
   agriculturalLand: any | null,
+  floodRisk: any | null,
 ): { flags: VerdictFlag[]; overall: Verdict } {
   const flags: VerdictFlag[] = [];
 
@@ -132,6 +136,28 @@ function evaluateVerdict(
     });
   }
 
+  // Flood risk: Flood Zone 3 and flood storage areas are treated as fail,
+  // Flood Zone 2 as warn. This is a screening heuristic, not a legal rule.
+  if (floodRisk?.flood_storage_area) {
+    flags.push({
+      category: "flood_risk",
+      level: "fail",
+      reason: "Point intersects an Environment Agency flood storage area",
+    });
+  } else if (floodRisk?.flood_zone === "3") {
+    flags.push({
+      category: "flood_risk",
+      level: "fail",
+      reason: "Point is in Flood Zone 3 (high probability floodplain)",
+    });
+  } else if (floodRisk?.flood_zone === "2") {
+    flags.push({
+      category: "flood_risk",
+      level: "warn",
+      reason: "Point is in Flood Zone 2 (medium probability floodplain)",
+    });
+  }
+
   // Overall: fail > warn > pass
   let overall: Verdict = "pass";
   if (flags.some((f) => f.level === "warn")) overall = "warn";
@@ -166,13 +192,14 @@ export async function screenSite(
   }
 
   // Run all sub-tools in parallel with allSettled for resilience
-  const [terrainResult, gridResult, solarResult, constraintsResult, agriculturalLandResult] =
+  const [terrainResult, gridResult, solarResult, constraintsResult, agriculturalLandResult, floodRiskResult] =
     await Promise.allSettled([
       getTerrainAnalysis({ lat, lon }),
       getGridProximity({ lat, lon, radius_km: radiusKm }),
       getSolarIrradiance({ lat, lon }),
       getLandConstraints({ lat, lon, radius_km: radiusKm, country: "GB" }),
       getAgriculturalLand({ lat, lon, country: "GB" }),
+      getFloodRisk({ lat, lon, country: "GB" }),
     ]);
 
   const warnings: string[] = [];
@@ -207,12 +234,18 @@ export async function screenSite(
     warnings.push(`agricultural_land: ${agriculturalLandResult.reason instanceof Error ? agriculturalLandResult.reason.message : String(agriculturalLandResult.reason)}`);
   }
 
+  const floodRisk =
+    floodRiskResult.status === "fulfilled" ? floodRiskResult.value : null;
+  if (floodRiskResult.status === "rejected") {
+    warnings.push(`flood_risk: ${floodRiskResult.reason instanceof Error ? floodRiskResult.reason.message : String(floodRiskResult.reason)}`);
+  }
+
   // If all sub-queries failed, throw
-  if (terrain === null && grid === null && solar === null && constraints === null && agriculturalLand === null) {
+  if (terrain === null && grid === null && solar === null && constraints === null && agriculturalLand === null && floodRisk === null) {
     throw new Error(`All sub-queries failed for screen_site: ${warnings.join("; ")}`);
   }
 
-  const { flags, overall } = evaluateVerdict(terrain, grid, solar, constraints, agriculturalLand);
+  const { flags, overall } = evaluateVerdict(terrain, grid, solar, constraints, agriculturalLand, floodRisk);
 
   const result: ScreenSiteResult = {
     lat,
@@ -224,6 +257,7 @@ export async function screenSite(
     solar,
     constraints,
     agricultural_land: agriculturalLand,
+    flood_risk: floodRisk,
     verdict: { overall, flags },
     source_metadata: {
       terrain: GIS_SOURCES["open-meteo-elevation"],
@@ -231,6 +265,7 @@ export async function screenSite(
       solar: GIS_SOURCES["pvgis"],
       constraints: GIS_SOURCES["natural-england"],
       agricultural_land: GIS_SOURCES["natural-england-alc"],
+      flood_risk: GIS_SOURCES["ea-flood-map"],
     },
     disclaimer: DISCLAIMER,
   };

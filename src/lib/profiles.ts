@@ -89,6 +89,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_grid_proximity',
     'get_land_constraints',
     'get_agricultural_land',
+    'get_flood_risk',
     'screen_site',
     'verify_gis_sources',
     'compare_sites',
@@ -106,8 +107,8 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   bess: 'Battery storage arbitrage: spreads, ancillary prices, and balancing actions',
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
-  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, land constraints, agricultural-land screening, composite site screening, multi-site comparison, and source verification',
-  full: 'All 53 tools registered (default)',
+  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, land constraints, agricultural-land screening, flood-risk screening, composite site screening, multi-site comparison, and source verification',
+  full: 'All 54 tools registered (default)',
 };
 
 /**

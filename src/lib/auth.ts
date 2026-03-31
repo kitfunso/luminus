@@ -178,6 +178,7 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   get_grid_proximity: [],
   get_land_constraints: [],
   get_agricultural_land: [],
+  get_flood_risk: [],
   screen_site: [],
   verify_gis_sources: [],
   compare_sites: [],

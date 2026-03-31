@@ -67,6 +67,7 @@ import { terrainAnalysisSchema, getTerrainAnalysis } from "./tools/terrain-analy
 import { gridProximitySchema, getGridProximity } from "./tools/grid-proximity.js";
 import { landConstraintsSchema, getLandConstraints } from "./tools/land-constraints.js";
 import { agriculturalLandSchema, getAgriculturalLand } from "./tools/agricultural-land.js";
+import { floodRiskSchema, getFloodRisk } from "./tools/flood-risk.js";
 import { screenSiteSchema, screenSite } from "./tools/screen-site.js";
 import { verifyGisSourcesSchema, verifyGisSources } from "./tools/verify-gis-sources.js";
 import { compareSitesSchema, compareSites } from "./tools/compare-sites.js";
@@ -695,11 +696,21 @@ if (shouldRegister("get_agricultural_land")) {
   );
 }
 
+if (shouldRegister("get_flood_risk")) {
+  registeredToolNames.push("get_flood_risk");
+  server.tool(
+    "get_flood_risk",
+    "Flood-planning screen for an English site. Checks Environment Agency Flood Zone 2, Flood Zone 3, and flood storage areas, then summarises planning risk. GB input, England coverage only. No API key.",
+    floodRiskSchema.shape,
+    auditedToolHandler("get_flood_risk", floodRiskSchema, getFloodRisk),
+  );
+}
+
 if (shouldRegister("screen_site")) {
   registeredToolNames.push("screen_site");
   server.tool(
     "screen_site",
-    "Composite PV/BESS site screening for a UK location. Combines terrain, grid proximity, solar resource, land constraints, and agricultural land classification into a single pass/warn/fail verdict. GB only. No API key.",
+    "Composite PV/BESS site screening for a UK location. Combines terrain, grid proximity, solar resource, land constraints, agricultural land classification, and flood-planning risk into a single pass/warn/fail verdict. GB only. No API key.",
     screenSiteSchema.shape,
     auditedToolHandler("screen_site", screenSiteSchema, screenSite),
   );
@@ -709,7 +720,7 @@ if (shouldRegister("verify_gis_sources")) {
   registeredToolNames.push("verify_gis_sources");
   server.tool(
     "verify_gis_sources",
-    "Health check for GIS data sources. Pings each upstream provider or dataset endpoint (Open-Meteo, Overpass, Natural England protected areas, Natural England ALC, PVGIS) and reports status, response time, and source metadata. Use before relying on GIS tool results.",
+    "Health check for GIS data sources. Pings each upstream provider or dataset endpoint (Open-Meteo, Overpass, Natural England protected areas, Natural England ALC, Environment Agency Flood Map, PVGIS) and reports status, response time, and source metadata. Use before relying on GIS tool results.",
     verifyGisSourcesSchema.shape,
     auditedToolHandler("verify_gis_sources", verifyGisSourcesSchema, verifyGisSources),
   );

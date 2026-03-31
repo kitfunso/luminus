@@ -78,7 +78,7 @@ const WEIGHT_GRID = 20;
 const WEIGHT_TERRAIN = 10;
 
 const HEURISTICS_USED = [
-  `Verdict tier (weight ${WEIGHT_VERDICT}%): pass=3, warn=2, fail=1. Hard constraints (SSSI, SAC, etc.) produce fail.`,
+  `Verdict tier (weight ${WEIGHT_VERDICT}%): pass=3, warn=2, fail=1. Hard constraints and high flood-planning risk (for example Flood Zone 3) produce fail.`,
   `Solar resource (weight ${WEIGHT_SOLAR}%): annual irradiance (kWh/m2), higher is better. Normalised across candidates.`,
   `Grid proximity (weight ${WEIGHT_GRID}%): min(nearest_substation_km, nearest_line_km), closer is better. Normalised across candidates.`,
   `Terrain flatness (weight ${WEIGHT_TERRAIN}%): slope in degrees, flatter is better. Normalised across candidates.`,
@@ -131,18 +131,21 @@ function extractDataGaps(screen: any): string[] {
   if (screen.solar === null) gaps.push("solar");
   if (screen.constraints === null) gaps.push("constraints");
   if (screen.agricultural_land === null) gaps.push("agricultural_land");
+  if (screen.flood_risk === null) gaps.push("flood_risk");
   return gaps;
 }
 
 function buildReasoning(
-  ranked: { verdict: Verdict; solar_kwh_m2: number | null; nearest_grid_km: number | null; slope_deg: number | null; constraint_count: number; data_gaps: string[] },
+  ranked: { verdict: Verdict; flags: Array<{ category: string; reason: string }>; solar_kwh_m2: number | null; nearest_grid_km: number | null; slope_deg: number | null; constraint_count: number; data_gaps: string[] },
 ): string {
   const parts: string[] = [];
 
   if (ranked.verdict === "fail") {
-    parts.push(`Failed: ${ranked.constraint_count} protected area constraint(s).`);
+    const categories = ranked.flags.map((f) => f.category).join(", ");
+    parts.push(`Failed screening due to: ${categories || "unknown reason"}.`);
   } else if (ranked.verdict === "warn") {
-    parts.push("Warnings present (see screen_site flags for details).");
+    const categories = ranked.flags.map((f) => f.category).join(", ");
+    parts.push(`Warnings present: ${categories || "see screen_site flags for details"}.`);
   } else {
     parts.push("No blocking constraints or warnings.");
   }
@@ -266,6 +269,7 @@ export async function compareSites(
       lon: s.result.lon,
       verdict,
       flag_count: s.result.verdict.flags?.length ?? 0,
+      flags: s.result.verdict.flags ?? [],
       solar_kwh_m2: solar,
       slope_deg: slope,
       nearest_grid_km: grid,

@@ -3,7 +3,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Real-time European & UK electricity grid data via MCP. 53 tools, all free.
+Real-time European & UK electricity grid data via MCP. 54 tools, all free.
 
 ## Tools
 
@@ -109,7 +109,8 @@ Real-time European & UK electricity grid data via MCP. 53 tools, all free.
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
 | `get_land_constraints` | Natural England | GB protected areas (SSSIs, SACs, SPAs, Ramsar, National Parks, AONBs) within a radius |
 | `get_agricultural_land` | Natural England ALC | Best and Most Versatile agricultural land screening. Prefers detailed post-1988 surveys, falls back to provisional ALC |
-| `screen_site` | Composite | PV/BESS site screening: terrain + grid + solar + constraints + agricultural land in one pass/warn/fail verdict (GB only) |
+| `get_flood_risk` | Environment Agency | Flood-planning screen using Flood Zone 2, Flood Zone 3, and flood storage areas |
+| `screen_site` | Composite | PV/BESS site screening: terrain + grid + solar + constraints + agricultural land + flood risk in one pass/warn/fail verdict (GB only) |
 | `compare_sites` | Composite | Compare and rank 2-10 candidate PV/BESS sites by verdict, solar resource, grid proximity, and terrain (GB only) |
 | `verify_gis_sources` | All GIS providers | Health check for upstream GIS data sources. Reports status, response time, and provenance metadata |
 
@@ -165,7 +166,7 @@ Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RT
 
 ### Profiles
 
-By default all 53 tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
+By default all 54 tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
@@ -177,8 +178,8 @@ npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
 npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
 npx luminus-mcp --profile regional   # 9 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
-npx luminus-mcp --profile gis        # 8 tools: solar, terrain, grid proximity, constraints, agricultural land, site screening, verification
-npx luminus-mcp --profile full       # all 53 tools (default)
+npx luminus-mcp --profile gis        # 10 tools: solar, terrain, grid proximity, constraints, agricultural land, flood risk, site screening, comparison, verification
+npx luminus-mcp --profile full       # all 54 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:
@@ -262,6 +263,8 @@ Ask your AI agent:
 | JAO | [jao.eu](https://www.jao.eu/) | Cross-border auctions |
 | OpenStreetMap | [openstreetmap.org](https://www.openstreetmap.org/) | Transmission lines, substations |
 | Open-Meteo Elevation | [open-meteo.com](https://open-meteo.com/) | Terrain elevation (Copernicus EU-DEM) |
+| Natural England Open Data | [naturalengland-defra.opendata.arcgis.com](https://naturalengland-defra.opendata.arcgis.com/) | England protected areas and agricultural land classification |
+| Environment Agency Flood Map for Planning | [environment.data.gov.uk](https://environment.data.gov.uk/dataset/04532375-a198-476e-985e-0579a0a11b47) | England flood zones and flood storage areas |
 | mainsfrequency.com | [mainsfrequency.com](https://www.mainsfrequency.com/) | European grid frequency |
 
 ## Quality and safety guardrails
@@ -381,13 +384,14 @@ The current GIS tranche is built to favour keyless or low-friction public source
 | PVGIS | solar resource / yield context | No | No | Public HTTP access, good fit for UK/EU MVP |
 | Open-Meteo elevation | terrain and elevation context | No | No | Public HTTP access, lightweight for point lookups |
 | OpenStreetMap / Overpass / OpenInfraMap-derived queries | substations, lines, coarse grid proximity | No | No | Keyless but public endpoints can be slow or flaky, so fallback logic matters |
-| Natural England / UK open GIS services | protected areas / constraint screening | Usually no | Usually no | Public access, but service quality and endpoint shape can be inconsistent |
+| Natural England / UK open GIS services | protected areas, constraint screening, agricultural land classification | Usually no | Usually no | Public access, but service quality and endpoint shape can be inconsistent |
+| Environment Agency Flood Map for Planning | Flood Zone 2/3 and flood storage area screening | No | No | Public ArcGIS service for England planning layers, but still not a substitute for a site-specific FRA |
 | CORINE / Copernicus-style open data | land-cover and broader EU layers | No | Usually no for basic access/downloads | Better suited to staged ingestion or pre-processing than naive live API calls |
 
 ### What this means in practice
 
 - Most of the MVP stack is **keyless**.
-- You do **not** need to register just to use the current sprint-1 GIS tools.
+- You do **not** need to register just to use the current GIS tool set.
 - Public GIS endpoints are still not the same thing as production-grade infrastructure.
 - For the first version, we should prove usefulness with public sources first, then decide later whether to cache, mirror, or formalise any upstream dependencies.
 

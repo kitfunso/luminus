@@ -21,6 +21,10 @@ vi.mock("./agricultural-land.js", () => ({
   getAgriculturalLand: vi.fn(),
   agriculturalLandSchema: {} as any,
 }));
+vi.mock("./flood-risk.js", () => ({
+  getFloodRisk: vi.fn(),
+  floodRiskSchema: {} as any,
+}));
 
 import { screenSite } from "./screen-site.js";
 import { getTerrainAnalysis } from "./terrain-analysis.js";
@@ -28,12 +32,14 @@ import { getGridProximity } from "./grid-proximity.js";
 import { getSolarIrradiance } from "./solar.js";
 import { getLandConstraints } from "./land-constraints.js";
 import { getAgriculturalLand } from "./agricultural-land.js";
+import { getFloodRisk } from "./flood-risk.js";
 
 const terrainMock = vi.mocked(getTerrainAnalysis);
 const gridMock = vi.mocked(getGridProximity);
 const solarMock = vi.mocked(getSolarIrradiance);
 const constraintsMock = vi.mocked(getLandConstraints);
 const agriculturalLandMock = vi.mocked(getAgriculturalLand);
+const floodRiskMock = vi.mocked(getFloodRisk);
 
 // --- Fixtures ---
 
@@ -153,18 +159,72 @@ const BMV_UNCERTAIN = {
   explanation: "Grade 3 cannot distinguish 3a from 3b.",
 };
 
+const FLOOD_CLEAR = {
+  lat: 52.0,
+  lon: 0.5,
+  country: "GB",
+  flood_zone: "1",
+  flood_storage_area: false,
+  planning_risk: "low",
+  flood_zone_3: [],
+  flood_zone_2: [],
+  flood_storage_areas: [],
+  explanation: "No flood-planning layers intersect this point.",
+};
+
+const FLOOD_ZONE_2 = {
+  lat: 52.0,
+  lon: 0.5,
+  country: "GB",
+  flood_zone: "2",
+  flood_storage_area: false,
+  planning_risk: "medium",
+  flood_zone_3: [],
+  flood_zone_2: [{ layer: "flood_zone_2", label: "Flood Zone 2", type: "Rivers and Sea", area_ha: 10 }],
+  flood_storage_areas: [],
+  explanation: "Point is in Flood Zone 2.",
+};
+
+const FLOOD_ZONE_3 = {
+  lat: 52.0,
+  lon: 0.5,
+  country: "GB",
+  flood_zone: "3",
+  flood_storage_area: false,
+  planning_risk: "high",
+  flood_zone_3: [{ layer: "flood_zone_3", label: "Flood Zone 3", type: "Tidal Models", area_ha: 10 }],
+  flood_zone_2: [{ layer: "flood_zone_2", label: "Flood Zone 2", type: "Tidal Models", area_ha: 12 }],
+  flood_storage_areas: [],
+  explanation: "Point is in Flood Zone 3.",
+};
+
+const FLOOD_STORAGE = {
+  lat: 52.0,
+  lon: 0.5,
+  country: "GB",
+  flood_zone: "1",
+  flood_storage_area: true,
+  planning_risk: "high",
+  flood_zone_3: [],
+  flood_zone_2: [],
+  flood_storage_areas: [{ layer: "flood_storage_area", label: "Flood Storage Areas", type: null, area_ha: 4 }],
+  explanation: "Point intersects a flood storage area.",
+};
+
 function setupMocks(overrides: {
   terrain?: any;
   grid?: any;
   solar?: any;
   constraints?: any;
   agriculturalLand?: any;
+  floodRisk?: any;
 } = {}) {
   terrainMock.mockResolvedValue(overrides.terrain ?? FLAT_TERRAIN);
   gridMock.mockResolvedValue(overrides.grid ?? GOOD_GRID);
   solarMock.mockResolvedValue(overrides.solar ?? GOOD_SOLAR);
   constraintsMock.mockResolvedValue(overrides.constraints ?? NO_CONSTRAINTS);
   agriculturalLandMock.mockResolvedValue(overrides.agriculturalLand ?? NO_BMV);
+  floodRiskMock.mockResolvedValue(overrides.floodRisk ?? FLOOD_CLEAR);
 }
 
 describe("screenSite", () => {
@@ -216,11 +276,12 @@ describe("screenSite", () => {
     expect(result.solar).toBeDefined();
     expect(result.constraints).toBeDefined();
     expect(result.agricultural_land).toBeDefined();
+    expect(result.flood_risk).toBeDefined();
     expect(result.verdict).toBeDefined();
     expect(result.verdict.overall).toBeDefined();
   });
 
-  it("calls all five underlying tools", async () => {
+  it("calls all six underlying tools", async () => {
     setupMocks();
     await screenSite({ lat: 52.0, lon: 0.5, country: "GB" });
 
@@ -229,6 +290,7 @@ describe("screenSite", () => {
     expect(solarMock).toHaveBeenCalledOnce();
     expect(constraintsMock).toHaveBeenCalledOnce();
     expect(agriculturalLandMock).toHaveBeenCalledOnce();
+    expect(floodRiskMock).toHaveBeenCalledOnce();
   });
 
   it("passes radius_km to grid and constraints", async () => {
@@ -301,6 +363,30 @@ describe("screenSite", () => {
     expect(result.verdict.flags.some((f: any) => f.category === "agricultural_land")).toBe(true);
   });
 
+  it("returns warn verdict for Flood Zone 2", async () => {
+    setupMocks({ floodRisk: FLOOD_ZONE_2 });
+    const result = await screenSite({ lat: 52.0, lon: 0.5, country: "GB" });
+
+    expect(result.verdict.overall).toBe("warn");
+    expect(result.verdict.flags.some((f: any) => f.category === "flood_risk")).toBe(true);
+  });
+
+  it("returns fail verdict for Flood Zone 3", async () => {
+    setupMocks({ floodRisk: FLOOD_ZONE_3 });
+    const result = await screenSite({ lat: 52.0, lon: 0.5, country: "GB" });
+
+    expect(result.verdict.overall).toBe("fail");
+    expect(result.verdict.flags.some((f: any) => f.category === "flood_risk")).toBe(true);
+  });
+
+  it("returns fail verdict for flood storage areas", async () => {
+    setupMocks({ floodRisk: FLOOD_STORAGE });
+    const result = await screenSite({ lat: 52.0, lon: 0.5, country: "GB" });
+
+    expect(result.verdict.overall).toBe("fail");
+    expect(result.verdict.flags.some((f: any) => f.category === "flood_risk")).toBe(true);
+  });
+
   it("fail takes precedence over warn", async () => {
     setupMocks({ constraints: SSSI_CONSTRAINT, terrain: STEEP_TERRAIN, agriculturalLand: BMV_YES });
     const result = await screenSite({ lat: 52.0, lon: 0.5, country: "GB" });
@@ -330,6 +416,7 @@ describe("screenSite", () => {
     solarMock.mockRejectedValue(new Error("fail3"));
     constraintsMock.mockRejectedValue(new Error("fail4"));
     agriculturalLandMock.mockRejectedValue(new Error("fail5"));
+    floodRiskMock.mockRejectedValue(new Error("fail6"));
 
     await expect(
       screenSite({ lat: 52.0, lon: 0.5, country: "GB" }),
@@ -354,7 +441,7 @@ describe("screenSite", () => {
 
   // --- Source metadata ---
 
-  it("includes source_metadata for all five providers", async () => {
+  it("includes source_metadata for all six providers", async () => {
     setupMocks();
     const result = await screenSite({ lat: 52.0, lon: 0.5, country: "GB" });
 
@@ -364,6 +451,7 @@ describe("screenSite", () => {
     expect(result.source_metadata.solar.id).toBe("pvgis");
     expect(result.source_metadata.constraints.id).toBe("natural-england");
     expect(result.source_metadata.agricultural_land.id).toBe("natural-england-alc");
+    expect(result.source_metadata.flood_risk.id).toBe("ea-flood-map");
 
     for (const meta of Object.values(result.source_metadata)) {
       expect(meta.provider).toBeDefined();

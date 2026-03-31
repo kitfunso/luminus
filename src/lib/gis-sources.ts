@@ -95,6 +95,25 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     attribution:
       "Contains Natural England Agricultural Land Classification data. Contains Ordnance Survey data. Crown copyright and database rights.",
   },
+  "ea-flood-map": {
+    id: "ea-flood-map",
+    name: "Environment Agency Flood Map for Planning",
+    provider: "Environment Agency / DEFRA ArcGIS",
+    licence: "Open Government Licence v3",
+    url: "https://environment.data.gov.uk/dataset/04532375-a198-476e-985e-0579a0a11b47",
+    api_key_required: false,
+    coverage: "England only for Flood Map for Planning layers",
+    update_frequency: "Updated periodically as national and local flood models are refreshed",
+    reliability: "medium",
+    caveats: [
+      "England only — separate services are needed for Scotland, Wales, and Northern Ireland",
+      "Flood Map for Planning is for development screening, not property-level flood advice",
+      "Flood Zone 2 should be interpreted together with Flood Zone 3 and flood storage areas",
+      "ArcGIS service structure and field names can change between publishing cycles",
+    ],
+    attribution:
+      "Contains Environment Agency information licensed under the Open Government Licence v3.0.",
+  },
   "pvgis": {
     id: "pvgis",
     name: "PVGIS (Photovoltaic Geographical Information System)",
@@ -183,6 +202,23 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
   {
     source_id: "natural-england-alc",
     url: "https://services.arcgis.com/JJzESW51TqeY9uat/arcgis/rest/services/Agricultural_Land_Classification_Post_1988/FeatureServer/0/query?where=1%3D1&resultRecordCount=1&outFields=ALC_GRADE&returnGeometry=false&f=json",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.error) return `ArcGIS error: ${json.error.message ?? "unknown"}`;
+        if (!Array.isArray(json.features)) return "Response missing features array";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "ea-flood-map",
+    url: "https://environment.data.gov.uk/KB6uNVj5ZcJr7jUP/ArcGIS/rest/services/Flood_Map_for_Planning/FeatureServer/1/query?where=1%3D1&resultRecordCount=1&outFields=layer,type&returnGeometry=false&f=json",
     method: "GET",
     timeout_ms: 15_000,
     validate: (status, body) => {
