@@ -65,6 +65,11 @@ import { reeEsiosSchema, getReeEsios } from "./tools/ree-esios.js";
 import { stormglassSchema, getStormglass } from "./tools/stormglass.js";
 import { terrainAnalysisSchema, getTerrainAnalysis } from "./tools/terrain-analysis.js";
 import { gridProximitySchema, getGridProximity } from "./tools/grid-proximity.js";
+import { landConstraintsSchema, getLandConstraints } from "./tools/land-constraints.js";
+import { agriculturalLandSchema, getAgriculturalLand } from "./tools/agricultural-land.js";
+import { screenSiteSchema, screenSite } from "./tools/screen-site.js";
+import { verifyGisSourcesSchema, verifyGisSources } from "./tools/verify-gis-sources.js";
+import { compareSitesSchema, compareSites } from "./tools/compare-sites.js";
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -667,6 +672,56 @@ if (shouldRegister("get_grid_proximity")) {
     "Nearest grid infrastructure (substations, HV lines) within a radius. Distance, voltage, operator. Uses OSM Overpass. No API key.",
     gridProximitySchema.shape,
     auditedToolHandler("get_grid_proximity", gridProximitySchema, getGridProximity),
+  );
+}
+
+if (shouldRegister("get_land_constraints")) {
+  registeredToolNames.push("get_land_constraints");
+  server.tool(
+    "get_land_constraints",
+    "GB land constraints: SSSIs, SACs, SPAs, Ramsar, National Parks, AONBs within a radius. Hard exclusion check for PV/BESS siting. Natural England data, OGL v3. No API key.",
+    landConstraintsSchema.shape,
+    auditedToolHandler("get_land_constraints", landConstraintsSchema, getLandConstraints),
+  );
+}
+
+if (shouldRegister("get_agricultural_land")) {
+  registeredToolNames.push("get_agricultural_land");
+  server.tool(
+    "get_agricultural_land",
+    "Agricultural Land Classification for an English site. Prefers detailed post-1988 Natural England surveys, falls back to provisional ALC, and flags Best and Most Versatile land risk. GB input, England coverage only. No API key.",
+    agriculturalLandSchema.shape,
+    auditedToolHandler("get_agricultural_land", agriculturalLandSchema, getAgriculturalLand),
+  );
+}
+
+if (shouldRegister("screen_site")) {
+  registeredToolNames.push("screen_site");
+  server.tool(
+    "screen_site",
+    "Composite PV/BESS site screening for a UK location. Combines terrain, grid proximity, solar resource, land constraints, and agricultural land classification into a single pass/warn/fail verdict. GB only. No API key.",
+    screenSiteSchema.shape,
+    auditedToolHandler("screen_site", screenSiteSchema, screenSite),
+  );
+}
+
+if (shouldRegister("verify_gis_sources")) {
+  registeredToolNames.push("verify_gis_sources");
+  server.tool(
+    "verify_gis_sources",
+    "Health check for GIS data sources. Pings each upstream provider or dataset endpoint (Open-Meteo, Overpass, Natural England protected areas, Natural England ALC, PVGIS) and reports status, response time, and source metadata. Use before relying on GIS tool results.",
+    verifyGisSourcesSchema.shape,
+    auditedToolHandler("verify_gis_sources", verifyGisSourcesSchema, verifyGisSources),
+  );
+}
+
+if (shouldRegister("compare_sites")) {
+  registeredToolNames.push("compare_sites");
+  server.tool(
+    "compare_sites",
+    "Compare and rank 2-10 candidate PV/BESS sites. Runs screen_site on each point, then scores and ranks by verdict, solar resource, grid proximity, and terrain. Returns transparent heuristic reasoning. GB only. No API key.",
+    compareSitesSchema.shape,
+    auditedToolHandler("compare_sites", compareSitesSchema, compareSites),
   );
 }
 

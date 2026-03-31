@@ -3,7 +3,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Real-time European & UK electricity grid data via MCP. 50 tools, all free.
+Real-time European & UK electricity grid data via MCP. 53 tools, all free.
 
 ## Tools
 
@@ -107,6 +107,11 @@ Real-time European & UK electricity grid data via MCP. 50 tools, all free.
 |------|--------|-------------|
 | `get_terrain_analysis` | Open-Meteo Elevation | Elevation, slope, aspect, and flatness score for a location |
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
+| `get_land_constraints` | Natural England | GB protected areas (SSSIs, SACs, SPAs, Ramsar, National Parks, AONBs) within a radius |
+| `get_agricultural_land` | Natural England ALC | Best and Most Versatile agricultural land screening. Prefers detailed post-1988 surveys, falls back to provisional ALC |
+| `screen_site` | Composite | PV/BESS site screening: terrain + grid + solar + constraints + agricultural land in one pass/warn/fail verdict (GB only) |
+| `compare_sites` | Composite | Compare and rank 2-10 candidate PV/BESS sites by verdict, solar resource, grid proximity, and terrain (GB only) |
+| `verify_gis_sources` | All GIS providers | Health check for upstream GIS data sources. Reports status, response time, and provenance metadata |
 
 ### Weather & Climate
 
@@ -160,7 +165,7 @@ Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RT
 
 ### Profiles
 
-By default all 50 tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
+By default all 53 tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
@@ -172,8 +177,8 @@ npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
 npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
 npx luminus-mcp --profile regional   # 9 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
-npx luminus-mcp --profile gis        # 4 tools: solar, terrain, grid proximity
-npx luminus-mcp --profile full       # all 50 tools (default)
+npx luminus-mcp --profile gis        # 8 tools: solar, terrain, grid proximity, constraints, agricultural land, site screening, verification
+npx luminus-mcp --profile full       # all 53 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:
@@ -366,3 +371,52 @@ Data freshness depends on each source. Most update every 15-60 minutes. Check th
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
+
+## UK/EU GIS data sources, API keys, and registration
+
+The current GIS tranche is built to favour keyless or low-friction public sources for a UK/EU MVP.
+
+| Source | What we use it for | API key needed? | Registration needed? | Notes |
+|---|---|---:|---:|---|
+| PVGIS | solar resource / yield context | No | No | Public HTTP access, good fit for UK/EU MVP |
+| Open-Meteo elevation | terrain and elevation context | No | No | Public HTTP access, lightweight for point lookups |
+| OpenStreetMap / Overpass / OpenInfraMap-derived queries | substations, lines, coarse grid proximity | No | No | Keyless but public endpoints can be slow or flaky, so fallback logic matters |
+| Natural England / UK open GIS services | protected areas / constraint screening | Usually no | Usually no | Public access, but service quality and endpoint shape can be inconsistent |
+| CORINE / Copernicus-style open data | land-cover and broader EU layers | No | Usually no for basic access/downloads | Better suited to staged ingestion or pre-processing than naive live API calls |
+
+### What this means in practice
+
+- Most of the MVP stack is **keyless**.
+- You do **not** need to register just to use the current sprint-1 GIS tools.
+- Public GIS endpoints are still not the same thing as production-grade infrastructure.
+- For the first version, we should prove usefulness with public sources first, then decide later whether to cache, mirror, or formalise any upstream dependencies.
+
+### How we check a source is really working
+
+We do not treat docs as proof. We check sources by:
+
+1. live sample calls from the code
+2. tests around parsing and failure handling
+3. clean upstream-specific error messages
+4. fallback logic for brittle public services where it is worth it
+5. build + audit + real tool proofs before locking a sprint
+6. `verify_gis_sources` tool — pings each upstream provider and reports ok/degraded/unreachable with response times
+
+### Source metadata and provenance
+
+Every GIS tool response includes a `source_metadata` block with:
+- **provider** and **licence** — where the data comes from and under what terms
+- **coverage** — geographic and temporal scope
+- **reliability** — high/medium/low, based on observed uptime and endpoint quality
+- **caveats** — known limitations specific to that source
+- **attribution** — required credit line
+
+This metadata is not marketing. It is there so callers can judge how much to trust a response, especially when making decisions that matter (site acquisition, planning applications, grid connection quotes).
+
+### Registration stance
+
+Right now the right approach is:
+
+- use keyless public sources where possible
+- avoid signing up for unnecessary services too early
+- only add registration-based or commercial sources later if reliability or coverage genuinely demands it

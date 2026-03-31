@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
+import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 
 const ELEVATION_URL = "https://api.open-meteo.com/v1/elevation";
 const cache = new TtlCache();
@@ -25,6 +26,7 @@ interface TerrainResult {
   aspect_cardinal: string;
   flatness_score: number;
   source: string;
+  source_metadata: GisSourceMetadata;
 }
 
 /**
@@ -146,6 +148,7 @@ export async function getTerrainAnalysis(
     aspect_cardinal,
     flatness_score,
     source: "open-meteo-elevation",
+    source_metadata: GIS_SOURCES["open-meteo-elevation"],
   };
 
   cache.set(cacheKey, result, TTL.STATIC_DATA);

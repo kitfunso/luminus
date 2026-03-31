@@ -1,0 +1,243 @@
+import { z } from "zod";
+import { getTerrainAnalysis } from "./terrain-analysis.js";
+import { getGridProximity } from "./grid-proximity.js";
+import { getSolarIrradiance } from "./solar.js";
+import { getLandConstraints } from "./land-constraints.js";
+import { getAgriculturalLand } from "./agricultural-land.js";
+import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
+
+export const screenSiteSchema = z.object({
+  lat: z.number().describe("Latitude (-90 to 90). WGS84."),
+  lon: z.number().describe("Longitude (-180 to 180). WGS84."),
+  radius_km: z
+    .number()
+    .optional()
+    .describe("Search radius in km for grid and constraints (default 2, max 10)."),
+  country: z
+    .string()
+    .describe('ISO 3166-1 alpha-2 country code. Only "GB" is supported in this version.'),
+});
+
+// --- Heuristic thresholds ---
+
+/** Slope above this is flagged as a terrain warning (degrees). */
+const SLOPE_WARN_DEG = 10;
+
+/** Annual irradiance below this is flagged as a solar warning (kWh/m2). */
+const IRRADIANCE_WARN_KWH = 900;
+
+// --- Types ---
+
+type Verdict = "pass" | "warn" | "fail";
+
+interface VerdictFlag {
+  category: "terrain" | "grid" | "solar" | "constraints" | "agricultural_land";
+  level: "warn" | "fail";
+  reason: string;
+}
+
+interface ScreenSiteVerdict {
+  overall: Verdict;
+  flags: VerdictFlag[];
+}
+
+interface ScreenSiteSourceMetadata {
+  terrain: GisSourceMetadata;
+  grid: GisSourceMetadata;
+  solar: GisSourceMetadata;
+  constraints: GisSourceMetadata;
+  agricultural_land: GisSourceMetadata;
+}
+
+interface ScreenSiteResult {
+  lat: number;
+  lon: number;
+  radius_km: number;
+  country: string;
+  terrain: any | null;
+  grid: any | null;
+  solar: any | null;
+  constraints: any | null;
+  agricultural_land: any | null;
+  verdict: ScreenSiteVerdict;
+  source_metadata: ScreenSiteSourceMetadata;
+  warnings?: string[];
+  disclaimer: string;
+}
+
+const DISCLAIMER =
+  "This is an automated screening summary using public data. " +
+  "It is not investment advice, planning consent, or a final site feasibility assessment. " +
+  "Professional due diligence is required before any development decision.";
+
+// --- Heuristic evaluation ---
+
+function evaluateVerdict(
+  terrain: any | null,
+  grid: any | null,
+  solar: any | null,
+  constraints: any | null,
+  agriculturalLand: any | null,
+): { flags: VerdictFlag[]; overall: Verdict } {
+  const flags: VerdictFlag[] = [];
+
+  // Constraints: hard constraint = fail
+  if (constraints?.summary?.has_hard_constraint) {
+    flags.push({
+      category: "constraints",
+      level: "fail",
+      reason: `${constraints.summary.constraint_count} protected area(s) found within search radius`,
+    });
+  }
+
+  // Terrain: steep slope = warn
+  if (terrain && terrain.slope_deg > SLOPE_WARN_DEG) {
+    flags.push({
+      category: "terrain",
+      level: "warn",
+      reason: `Slope is ${terrain.slope_deg} deg (threshold: ${SLOPE_WARN_DEG} deg)`,
+    });
+  }
+
+  // Grid: no substations and no lines = warn
+  if (grid && grid.summary.nearest_substation_km === null && grid.summary.nearest_line_km === null) {
+    flags.push({
+      category: "grid",
+      level: "warn",
+      reason: "No substations or HV lines found within search radius",
+    });
+  }
+
+  // Solar: low irradiance = warn
+  if (solar && solar.annual_irradiance_kwh_m2 < IRRADIANCE_WARN_KWH) {
+    flags.push({
+      category: "solar",
+      level: "warn",
+      reason: `Annual irradiance is ${solar.annual_irradiance_kwh_m2} kWh/m2 (threshold: ${IRRADIANCE_WARN_KWH} kWh/m2)`,
+    });
+  }
+
+  // Agricultural land: BMV is a planning-risk warning, not a hard exclusion.
+  if (agriculturalLand?.bmv_status === "yes") {
+    flags.push({
+      category: "agricultural_land",
+      level: "warn",
+      reason: `Best and Most Versatile agricultural land flagged (${agriculturalLand.effective_grade ?? "unknown grade"})`,
+    });
+  } else if (agriculturalLand?.bmv_status === "uncertain") {
+    flags.push({
+      category: "agricultural_land",
+      level: "warn",
+      reason: `Agricultural land classification is uncertain (${agriculturalLand.effective_grade ?? "unknown grade"}); Grade 3 may split into 3a or 3b`,
+    });
+  }
+
+  // Overall: fail > warn > pass
+  let overall: Verdict = "pass";
+  if (flags.some((f) => f.level === "warn")) overall = "warn";
+  if (flags.some((f) => f.level === "fail")) overall = "fail";
+
+  return { flags, overall };
+}
+
+// --- Main tool function ---
+
+export async function screenSite(
+  params: z.infer<typeof screenSiteSchema>,
+): Promise<ScreenSiteResult> {
+  const { lat, lon } = params;
+  const country = params.country.toUpperCase();
+  const radiusKm = params.radius_km ?? 2;
+
+  // Validation
+  if (country !== "GB") {
+    throw new Error(
+      `Country "${params.country}" is not supported. Only "GB" (Great Britain) is available in this version.`,
+    );
+  }
+  if (lat < -90 || lat > 90) {
+    throw new Error("Latitude must be between -90 and 90.");
+  }
+  if (lon < -180 || lon > 180) {
+    throw new Error("Longitude must be between -180 and 180.");
+  }
+  if (radiusKm <= 0 || radiusKm > 10) {
+    throw new Error("radius_km must be between 0 and 10.");
+  }
+
+  // Run all sub-tools in parallel with allSettled for resilience
+  const [terrainResult, gridResult, solarResult, constraintsResult, agriculturalLandResult] =
+    await Promise.allSettled([
+      getTerrainAnalysis({ lat, lon }),
+      getGridProximity({ lat, lon, radius_km: radiusKm }),
+      getSolarIrradiance({ lat, lon }),
+      getLandConstraints({ lat, lon, radius_km: radiusKm, country: "GB" }),
+      getAgriculturalLand({ lat, lon, country: "GB" }),
+    ]);
+
+  const warnings: string[] = [];
+
+  const terrain =
+    terrainResult.status === "fulfilled" ? terrainResult.value : null;
+  if (terrainResult.status === "rejected") {
+    warnings.push(`terrain: ${terrainResult.reason instanceof Error ? terrainResult.reason.message : String(terrainResult.reason)}`);
+  }
+
+  const grid =
+    gridResult.status === "fulfilled" ? gridResult.value : null;
+  if (gridResult.status === "rejected") {
+    warnings.push(`grid: ${gridResult.reason instanceof Error ? gridResult.reason.message : String(gridResult.reason)}`);
+  }
+
+  const solar =
+    solarResult.status === "fulfilled" ? solarResult.value : null;
+  if (solarResult.status === "rejected") {
+    warnings.push(`solar: ${solarResult.reason instanceof Error ? solarResult.reason.message : String(solarResult.reason)}`);
+  }
+
+  const constraints =
+    constraintsResult.status === "fulfilled" ? constraintsResult.value : null;
+  if (constraintsResult.status === "rejected") {
+    warnings.push(`constraints: ${constraintsResult.reason instanceof Error ? constraintsResult.reason.message : String(constraintsResult.reason)}`);
+  }
+
+  const agriculturalLand =
+    agriculturalLandResult.status === "fulfilled" ? agriculturalLandResult.value : null;
+  if (agriculturalLandResult.status === "rejected") {
+    warnings.push(`agricultural_land: ${agriculturalLandResult.reason instanceof Error ? agriculturalLandResult.reason.message : String(agriculturalLandResult.reason)}`);
+  }
+
+  // If all sub-queries failed, throw
+  if (terrain === null && grid === null && solar === null && constraints === null && agriculturalLand === null) {
+    throw new Error(`All sub-queries failed for screen_site: ${warnings.join("; ")}`);
+  }
+
+  const { flags, overall } = evaluateVerdict(terrain, grid, solar, constraints, agriculturalLand);
+
+  const result: ScreenSiteResult = {
+    lat,
+    lon,
+    radius_km: radiusKm,
+    country: "GB",
+    terrain,
+    grid,
+    solar,
+    constraints,
+    agricultural_land: agriculturalLand,
+    verdict: { overall, flags },
+    source_metadata: {
+      terrain: GIS_SOURCES["open-meteo-elevation"],
+      grid: GIS_SOURCES["overpass-osm"],
+      solar: GIS_SOURCES["pvgis"],
+      constraints: GIS_SOURCES["natural-england"],
+      agricultural_land: GIS_SOURCES["natural-england-alc"],
+    },
+    disclaimer: DISCLAIMER,
+  };
+
+  if (warnings.length > 0) {
+    result.warnings = warnings;
+  }
+
+  return result;
+}

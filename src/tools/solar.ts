@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
+import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 
 const BASE_URL = "https://re.jrc.ec.europa.eu/api/v5_3";
 const cache = new TtlCache();
@@ -30,6 +31,7 @@ interface SolarResult {
   annual_irradiance_kwh_m2: number;
   annual_yield_kwh: number;
   monthly: MonthlyIrradiance[];
+  source_metadata: GisSourceMetadata;
 }
 
 export async function getSolarIrradiance(
@@ -88,6 +90,7 @@ export async function getSolarIrradiance(
     annual_irradiance_kwh_m2: Number(totals["H(i)_y"] ?? 0),
     annual_yield_kwh: Number(totals.E_y ?? 0),
     monthly,
+    source_metadata: GIS_SOURCES["pvgis"],
   };
 
   cache.set(cacheKey, result, TTL.STATIC_DATA);

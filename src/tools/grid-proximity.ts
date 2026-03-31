@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
 import { fetchOverpassJson } from "../lib/overpass.js";
+import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 
 const cache = new TtlCache();
 
@@ -50,6 +51,7 @@ interface GridProximityResult {
   substations: Substation[];
   lines: Line[];
   summary: GridProximitySummary;
+  source_metadata: GisSourceMetadata;
 }
 
 function haversineKm(
@@ -168,6 +170,7 @@ export async function getGridProximity(
     substations,
     lines,
     summary,
+    source_metadata: GIS_SOURCES["overpass-osm"],
   };
 
   cache.set(cacheKey, result, TTL.STATIC_DATA);
