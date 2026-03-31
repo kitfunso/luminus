@@ -43,6 +43,9 @@ describe("verifyGisSources", () => {
       if (url.includes("overpass-api.de")) {
         return makeOkResponse({ elements: [] });
       }
+      if (url.includes("api.neso.energy")) {
+        return makeOkResponse({ success: true, result: { records: [{}] } });
+      }
       if (url.includes("arcgis.com") || url.includes("environment.data.gov.uk") || url.includes("bio.discomap.eea.europa.eu")) {
         return makeOkResponse({ features: [{ attributes: { NAME: "Test" } }] });
       }
@@ -58,9 +61,9 @@ describe("verifyGisSources", () => {
     const result = await verifyGisSources({});
 
     expect(result.checked_at).toBeDefined();
-    expect(result.sources.length).toBe(8);
-    expect(result.summary.total).toBe(8);
-    expect(result.summary.ok).toBe(8);
+    expect(result.sources.length).toBe(9);
+    expect(result.summary.total).toBe(9);
+    expect(result.summary.ok).toBe(9);
     expect(result.summary.degraded).toBe(0);
     expect(result.summary.unreachable).toBe(0);
   });
@@ -154,6 +157,9 @@ describe("verifyGisSources", () => {
       if (url.includes("overpass-api.de")) {
         return makeErrorResponse(429);
       }
+      if (url.includes("api.neso.energy")) {
+        return makeOkResponse({ success: true, result: { records: [{}] } });
+      }
       if (url.includes("arcgis.com")) {
         throw new Error("Network failure");
       }
@@ -174,7 +180,7 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    expect(result.summary.ok).toBe(4);
+    expect(result.summary.ok).toBe(5);
     expect(result.summary.degraded).toBe(2);
     expect(result.summary.unreachable).toBe(2);
   });

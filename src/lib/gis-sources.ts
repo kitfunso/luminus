@@ -153,6 +153,24 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
       "Contains CORINE Land Cover 2018 data from the Copernicus Land Monitoring Service, " +
       "© European Environment Agency (EEA).",
   },
+  "neso-tec-register": {
+    id: "neso-tec-register",
+    name: "NESO Transmission Entry Capacity Register",
+    provider: "National Energy System Operator (NESO)",
+    licence: "NESO Open Data Licence",
+    url: "https://api.neso.energy/api/3/action/package_show?id=transmission-entry-capacity-tec-register",
+    api_key_required: false,
+    coverage: "Great Britain transmission-level connection register. Covers TEC-holding projects, not the full DNO queue.",
+    update_frequency: "Twice weekly",
+    reliability: "high",
+    caveats: [
+      "Transmission-level signal only — it is not a GB-wide DNO headroom or flexibility map",
+      "Register entries reflect contracted TEC positions and project statuses, not guaranteed connection availability",
+      "Connection site names in the register may not match local substation naming exactly",
+      "Projects can appear multiple times because staged or technology-split agreements are still being refined by NESO",
+    ],
+    attribution: "Contains data from the National Energy System Operator (NESO) TEC register.",
+  },
   "pvgis": {
     id: "pvgis",
     name: "PVGIS (Photovoltaic Geographical Information System)",
@@ -302,6 +320,23 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
         const json = JSON.parse(body);
         if (json.error) return `ArcGIS error: ${json.error.message ?? "unknown"}`;
         if (!Array.isArray(json.features)) return "Response missing features array";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "neso-tec-register",
+    url: "https://api.neso.energy/api/3/action/datastore_search?resource_id=17becbab-e3e8-473f-b303-3806f43a6a10&limit=1",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (!json.success) return json.error?.message ?? "NESO API reported failure";
+        if (!Array.isArray(json.result?.records)) return "Response missing records array";
         return null;
       } catch {
         return "Response is not valid JSON";

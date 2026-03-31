@@ -121,6 +121,8 @@ voltage_min_kv: number  // Minimum voltage filter (default 33)
 
 **Note:** This tool reuses the same Overpass API pattern from `src/tools/transmission.ts`. Consider extracting shared Overpass query logic into `src/lib/overpass-client.ts` if the duplication is non-trivial.
 
+**Implemented note (2026-03-31, sprint 10):** A separate `get_grid_connection_queue` tool now adds a real GB transmission connection signal from NESO's public TEC register. It is deliberately kept separate from `get_grid_proximity` because the current public data supports honest register search and MW aggregation by connection site, but not a clean enough spatial join to claim local connection availability for an arbitrary lat/lon site.
+
 ---
 
 ### 3. `get_terrain_analysis`

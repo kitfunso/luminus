@@ -176,6 +176,7 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   get_eu_gas_price: [],
   get_terrain_analysis: [],
   get_grid_proximity: [],
+  get_grid_connection_queue: [],
   get_land_constraints: [],
   get_agricultural_land: [],
   get_flood_risk: [],

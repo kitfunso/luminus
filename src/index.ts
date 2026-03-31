@@ -65,6 +65,7 @@ import { reeEsiosSchema, getReeEsios } from "./tools/ree-esios.js";
 import { stormglassSchema, getStormglass } from "./tools/stormglass.js";
 import { terrainAnalysisSchema, getTerrainAnalysis } from "./tools/terrain-analysis.js";
 import { gridProximitySchema, getGridProximity } from "./tools/grid-proximity.js";
+import { gridConnectionQueueSchema, getGridConnectionQueue } from "./tools/grid-connection-queue.js";
 import { landConstraintsSchema, getLandConstraints } from "./tools/land-constraints.js";
 import { landCoverSchema, getLandCover } from "./tools/land-cover.js";
 import { agriculturalLandSchema, getAgriculturalLand } from "./tools/agricultural-land.js";
@@ -677,6 +678,16 @@ if (shouldRegister("get_grid_proximity")) {
   );
 }
 
+if (shouldRegister("get_grid_connection_queue")) {
+  registeredToolNames.push("get_grid_connection_queue");
+  server.tool(
+    "get_grid_connection_queue",
+    "GB transmission connection-register signal from NESO's public TEC register. Search by connection site, project, host TO, technology, status, or agreement type and get matched projects plus aggregated MW by connection site. This is not a DNO headroom map or a guaranteed connection offer. No API key.",
+    gridConnectionQueueSchema.shape,
+    auditedToolHandler("get_grid_connection_queue", gridConnectionQueueSchema, getGridConnectionQueue),
+  );
+}
+
 if (shouldRegister("get_land_constraints")) {
   registeredToolNames.push("get_land_constraints");
   server.tool(
@@ -731,7 +742,7 @@ if (shouldRegister("verify_gis_sources")) {
   registeredToolNames.push("verify_gis_sources");
   server.tool(
     "verify_gis_sources",
-    "Health check for GIS data sources. Pings each upstream provider or dataset endpoint (Open-Meteo, Overpass, Natural England protected areas, EEA Natura 2000, CORINE Land Cover, Natural England ALC, Environment Agency Flood Map, PVGIS) and reports status, response time, and source metadata. Use before relying on GIS tool results.",
+    "Health check for GIS data sources. Pings each upstream provider or dataset endpoint (Open-Meteo, Overpass, NESO TEC register, Natural England protected areas, EEA Natura 2000, CORINE Land Cover, Natural England ALC, Environment Agency Flood Map, PVGIS) and reports status, response time, and source metadata. Use before relying on GIS tool results.",
     verifyGisSourcesSchema.shape,
     auditedToolHandler("verify_gis_sources", verifyGisSourcesSchema, verifyGisSources),
   );
