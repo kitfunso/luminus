@@ -75,7 +75,7 @@ export async function getRegelleistung(
       source: "Regelleistung.net (Balancing Market Data Center)",
       product,
       date,
-      description: descriptions[product] ?? `${product} balancing reserve data.`,
+      description: descriptions[product] ?? `${product} balancing reserve data. No tender results available from the API for this date.`,
       tenders: [],
     };
   }

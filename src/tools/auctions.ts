@@ -67,7 +67,10 @@ export async function getAuctionResults(
   const cached = cache.get<AuctionResult>(cacheKey);
   if (cached) return cached;
 
-  const url = `${BASE_URL}/finalComputation?date=${params.date}&corridor=${corridor}`;
+  // JAO API requires FromUtc and ToUtc as ISO datetime range
+  const fromUtc = `${params.date}T00:00:00.000Z`;
+  const toUtc = `${params.date}T23:59:59.999Z`;
+  const url = `${BASE_URL}/finalComputation?FromUtc=${fromUtc}&ToUtc=${toUtc}&corridor=${corridor}`;
   const response = await fetchWithRetry(url);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -44,7 +44,6 @@ interface DailyInflow {
   precipitation_mm: number;
   snowfall_mm: number;
   temperature_max_c: number;
-  snow_depth_m: number;
   rain_mm: number;
   inflow_proxy_index: number;
 }
@@ -90,7 +89,7 @@ export async function getHydroInflows(
   const url =
     `${HYDRO_API}?latitude=${basin.lat}&longitude=${basin.lon}` +
     `&start_date=${start}&end_date=${end}` +
-    `&daily=precipitation_sum,snowfall_sum,temperature_2m_max,snow_depth,rain_sum` +
+    `&daily=precipitation_sum,snowfall_sum,temperature_2m_max,rain_sum` +
     `&timezone=UTC`;
 
   const cached = cache.get<HydroInflowResult>(url);
@@ -120,11 +119,10 @@ export async function getHydroInflows(
     const precip = Number(dailyData.precipitation_sum?.[i] ?? 0);
     const snow = Number(dailyData.snowfall_sum?.[i] ?? 0);
     const tempMax = Number(dailyData.temperature_2m_max?.[i] ?? 0);
-    const snowDepth = Number(dailyData.snow_depth?.[i] ?? 0);
     const rain = Number(dailyData.rain_sum?.[i] ?? 0);
 
-    // Inflow proxy: rain + snowmelt contribution (positive temps melt snow)
-    const snowmeltContrib = tempMax > 2 && snowDepth > 0 ? Math.min(snowDepth * 10, tempMax * 2) : 0;
+    // Inflow proxy: rain + snowmelt contribution (positive temps melt accumulated snow)
+    const snowmeltContrib = tempMax > 2 && snow > 0 ? Math.min(snow * 5, tempMax * 2) : 0;
     const inflowProxy = Math.round((rain + snowmeltContrib) * 10) / 10;
 
     daily.push({
@@ -132,7 +130,6 @@ export async function getHydroInflows(
       precipitation_mm: Math.round(precip * 10) / 10,
       snowfall_mm: Math.round(snow * 10) / 10,
       temperature_max_c: Math.round(tempMax * 10) / 10,
-      snow_depth_m: Math.round(snowDepth * 100) / 100,
       rain_mm: Math.round(rain * 10) / 10,
       inflow_proxy_index: inflowProxy,
     });
