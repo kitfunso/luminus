@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
 import { COUNTRY_BBOXES } from "../lib/zone-codes.js";
+import { fetchOverpassJson } from "../lib/overpass.js";
 
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const cache = new TtlCache();
 
 export const transmissionSchema = z.object({
@@ -71,30 +71,16 @@ export async function getTransmissionLines(
   const cached = cache.get<{ bbox: [number, number, number, number]; line_count: number; lines: TransmissionLine[] }>(cacheKey);
   if (cached) return cached;
 
-  // Overpass bbox format: south, west, north, east
   const bboxStr = `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`;
   const query = `[out:json][timeout:30];way["power"="line"]["voltage"](${bboxStr});out geom;`;
 
-  const response = await fetch(OVERPASS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `data=${encodeURIComponent(query)}`,
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Overpass API returned ${response.status}: ${body.slice(0, 300)}`);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const json: any = await response.json();
+  const json = await fetchOverpassJson<{ elements?: unknown[] }>(query);
   const elements = Array.isArray(json.elements) ? json.elements : [];
 
   let lines: TransmissionLine[] = [];
 
-  for (const el of elements) {
+  for (const el of elements as Array<any>) {
     const voltageStr = el.tags?.voltage ?? "0";
-    // Voltage can be semicolon-separated for multi-circuit lines (e.g. "380000;220000")
     const voltageV = Number(voltageStr.split(";")[0]);
     if (voltageV < minVoltageV) continue;
 
@@ -111,7 +97,6 @@ export async function getTransmissionLines(
     });
   }
 
-  // Sort by voltage descending, then limit
   lines.sort((a, b) => b.voltage_kv - a.voltage_kv);
   lines = lines.slice(0, maxResults);
 

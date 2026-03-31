@@ -3,7 +3,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Real-time European & UK electricity grid data via MCP. 48 tools, all free.
+Real-time European & UK electricity grid data via MCP. 50 tools, all free.
 
 ## Tools
 
@@ -101,6 +101,13 @@ Real-time European & UK electricity grid data via MCP. 48 tools, all free.
 |------|--------|-------------|
 | `get_hydro_inflows` | ERA5-Land (Open-Meteo) | Hydro inflow proxy for 10 European basins (precipitation, snowmelt) |
 
+### GIS Site Prospecting
+
+| Tool | Source | Description |
+|------|--------|-------------|
+| `get_terrain_analysis` | Open-Meteo Elevation | Elevation, slope, aspect, and flatness score for a location |
+| `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
+
 ### Weather & Climate
 
 | Tool | Source | Description |
@@ -153,7 +160,7 @@ Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RT
 
 ### Profiles
 
-By default all 48 tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
+By default all 50 tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
@@ -165,7 +172,8 @@ npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
 npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
 npx luminus-mcp --profile regional   # 9 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
-npx luminus-mcp --profile full       # all 48 tools (default)
+npx luminus-mcp --profile gis        # 4 tools: solar, terrain, grid proximity
+npx luminus-mcp --profile full       # all 50 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:
@@ -247,7 +255,8 @@ Ask your AI agent:
 | Storm Glass | [stormglass.io](https://stormglass.io/) | Marine/offshore weather |
 | Open Power System Data | [open-power-system-data.org](https://open-power-system-data.org/) | European power plants |
 | JAO | [jao.eu](https://www.jao.eu/) | Cross-border auctions |
-| OpenStreetMap | [openstreetmap.org](https://www.openstreetmap.org/) | Transmission lines |
+| OpenStreetMap | [openstreetmap.org](https://www.openstreetmap.org/) | Transmission lines, substations |
+| Open-Meteo Elevation | [open-meteo.com](https://open-meteo.com/) | Terrain elevation (Copernicus EU-DEM) |
 | mainsfrequency.com | [mainsfrequency.com](https://www.mainsfrequency.com/) | European grid frequency |
 
 ## Quality and safety guardrails

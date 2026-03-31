@@ -63,6 +63,8 @@ import { acerRemitSchema, getAcerRemit } from "./tools/acer-remit.js";
 import { ternaSchema, getTernaData } from "./tools/terna.js";
 import { reeEsiosSchema, getReeEsios } from "./tools/ree-esios.js";
 import { stormglassSchema, getStormglass } from "./tools/stormglass.js";
+import { terrainAnalysisSchema, getTerrainAnalysis } from "./tools/terrain-analysis.js";
+import { gridProximitySchema, getGridProximity } from "./tools/grid-proximity.js";
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -643,6 +645,28 @@ if (shouldRegister("get_stormglass")) {
     "Marine/offshore weather from Storm Glass: wind, waves, swell, SST, visibility. 48h forecast. Requires STORMGLASS_API_KEY. 10 req/day free.",
     stormglassSchema.shape,
     auditedToolHandler("get_stormglass", stormglassSchema, getStormglass),
+  );
+}
+
+// --- GIS Site Prospecting ---
+
+if (shouldRegister("get_terrain_analysis")) {
+  registeredToolNames.push("get_terrain_analysis");
+  server.tool(
+    "get_terrain_analysis",
+    "Terrain analysis for a location: elevation (m), slope (degrees), aspect (cardinal), flatness score. Uses Open-Meteo elevation API (Copernicus EU-DEM). No API key.",
+    terrainAnalysisSchema.shape,
+    auditedToolHandler("get_terrain_analysis", terrainAnalysisSchema, getTerrainAnalysis),
+  );
+}
+
+if (shouldRegister("get_grid_proximity")) {
+  registeredToolNames.push("get_grid_proximity");
+  server.tool(
+    "get_grid_proximity",
+    "Nearest grid infrastructure (substations, HV lines) within a radius. Distance, voltage, operator. Uses OSM Overpass. No API key.",
+    gridProximitySchema.shape,
+    auditedToolHandler("get_grid_proximity", gridProximitySchema, getGridProximity),
   );
 }
 

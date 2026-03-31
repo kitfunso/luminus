@@ -82,6 +82,12 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_stormglass',
     'get_hydro_inflows',
   ],
+  gis: [
+    'get_solar_irradiance',
+    'get_transmission_lines',
+    'get_terrain_analysis',
+    'get_grid_proximity',
+  ],
 } as const;
 
 /** Short descriptions for each profile, used by the discovery tool. */
@@ -95,7 +101,8 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   bess: 'Battery storage arbitrage: spreads, ancillary prices, and balancing actions',
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
-  full: 'All 48 tools registered (default)',
+  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, and land constraints',
+  full: 'All 50 tools registered (default)',
 };
 
 /**

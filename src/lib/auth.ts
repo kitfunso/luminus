@@ -174,6 +174,8 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   get_acer_remit: [],
   get_terna_data: [],
   get_eu_gas_price: [],
+  get_terrain_analysis: [],
+  get_grid_proximity: [],
 } as const;
 
 /**
