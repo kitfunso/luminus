@@ -9,13 +9,12 @@ description = "Notebook-friendly Python client for luminus-mcp"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Keith So" }]
-license = { text = "MIT" }
+license = "MIT"
 keywords = ["mcp", "jupyter", "notebook", "energy", "electricity", "gis"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Intended Audience :: Financial and Insurance Industry",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
