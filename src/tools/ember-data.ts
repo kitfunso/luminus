@@ -102,7 +102,10 @@ export async function getEmberData(
   const cached = cache.get<EmberResult>(cacheKey);
   if (cached) return cached;
 
-  // Try primary EMBER API endpoint
+  // EMBER retired their public JSON API in late 2025.
+  // Their endpoints now return HTML pages instead of JSON data.
+  // Until a replacement data source is identified, this tool returns
+  // a clear error rather than silently failing.
   const encodedCountry = encodeURIComponent(country);
   const url =
     `https://ember-climate.org/api/v1/electricity-generation/monthly` +
@@ -113,12 +116,22 @@ export async function getEmberData(
 
   try {
     const response = await fetch(url, {
-      headers: { "User-Agent": "luminus-mcp/0.1" },
+      headers: { "User-Agent": "luminus-mcp/0.1", Accept: "application/json" },
     });
 
     if (response.ok) {
-      const data = await response.json();
-      records = parseEmberResponse(country, data);
+      const text = await response.text();
+      // EMBER now returns HTML instead of JSON — detect this
+      if (text.trimStart().startsWith("<!doctype") || text.trimStart().startsWith("<html")) {
+        fetchError = "EMBER API has been retired and now returns HTML instead of JSON data";
+      } else {
+        try {
+          const data = JSON.parse(text);
+          records = parseEmberResponse(country, data);
+        } catch {
+          fetchError = "EMBER API returned non-JSON response";
+        }
+      }
     } else {
       fetchError = `EMBER API returned ${response.status}`;
     }
@@ -126,32 +139,12 @@ export async function getEmberData(
     fetchError = (e as Error).message;
   }
 
-  // Fallback: try the data-explorer endpoint
-  if (records.length === 0 && fetchError) {
-    try {
-      const fallbackUrl =
-        `https://ember-climate.org/api/v1/electricity-data/monthly` +
-        `?entity=${encodedCountry}&start_date=${startYear}-01`;
-
-      const response = await fetch(fallbackUrl, {
-        headers: { "User-Agent": "luminus-mcp/0.1" },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        records = parseEmberResponse(country, data);
-        fetchError = null;
-      }
-    } catch {
-      // fallback also failed
-    }
-  }
-
   if (records.length === 0) {
     throw new Error(
       `No data returned from EMBER for "${country}" (from ${startYear}). ` +
-        (fetchError ? `API error: ${fetchError}. ` : "") +
-        "Check that the country name matches EMBER's format (e.g. 'Germany', not 'DE')."
+        (fetchError ? `${fetchError}. ` : "") +
+        "EMBER retired their public JSON API in late 2025. " +
+        "Use get_energy_charts or get_smard_data for European electricity generation data instead."
     );
   }
 

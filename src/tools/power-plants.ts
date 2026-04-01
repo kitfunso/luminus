@@ -6,6 +6,14 @@ const CONVENTIONAL_URL =
 const RENEWABLE_URL =
   "https://data.open-power-system-data.org/renewable_power_plants/latest/renewable_power_plants_EU_DE.csv";
 
+// NESO publishes GB generation projects via two registers:
+// - TEC Register: transmission-connected (large) plants
+// - Embedded Register: distribution-connected (smaller/medium) plants
+const NESO_TEC_URL =
+  "https://api.neso.energy/api/3/action/datastore_search?resource_id=17becbab-e3e8-473f-b303-3806f43a6a10&limit=5000";
+const NESO_EMBEDDED_URL =
+  "https://api.neso.energy/api/3/action/package_show?id=embedded-register";
+
 const cache = new TtlCache();
 
 export const powerPlantsSchema = z.object({
@@ -124,6 +132,82 @@ async function fetchAndParsePlants(url: string, type: "conventional" | "renewabl
   return plants;
 }
 
+async function fetchGbPlantsFromNeso(): Promise<PowerPlant[]> {
+  const cacheKey = "neso:gb-plants";
+  const cached = cache.get<PowerPlant[]>(cacheKey);
+  if (cached) return cached;
+
+  const plants: PowerPlant[] = [];
+
+  // Fetch TEC register (transmission-connected)
+  try {
+    const tecResponse = await fetch(NESO_TEC_URL);
+    if (tecResponse.ok) {
+      const json: any = await tecResponse.json();
+      const records: any[] = json.result?.records ?? [];
+      for (const r of records) {
+        const mw = parseFloat(r["MW Connected"] ?? r["Cumulative Total Capacity (MW)"] ?? "0");
+        if (isNaN(mw) || mw <= 0) continue;
+        plants.push({
+          name: r["Project Name"] ?? "Unknown",
+          country: "GB",
+          capacity_mw: Math.round(mw * 10) / 10,
+          fuel: r["Plant Type"] ?? "Unknown",
+          lat: null,
+          lon: null,
+          commissioned_year: null,
+        });
+      }
+    }
+  } catch {
+    // TEC fetch failed, continue with embedded
+  }
+
+  // Fetch Embedded register (distribution-connected)
+  try {
+    const pkgResponse = await fetch(NESO_EMBEDDED_URL);
+    if (pkgResponse.ok) {
+      const pkgJson: any = await pkgResponse.json();
+      const resources: any[] = pkgJson.result?.resources ?? [];
+      const csvResource = resources.find((r: any) => r.format === "CSV");
+      if (csvResource?.url) {
+        const csvResponse = await fetch(csvResource.url);
+        if (csvResponse.ok) {
+          const csv = await csvResponse.text();
+          const rows = parseCsvRows(csv);
+          for (const row of rows) {
+            const mw = parseFloat(row["MW Connected"] ?? row["Cumulative Total Capacity (MW)"] ?? "0");
+            if (isNaN(mw) || mw <= 0) continue;
+            plants.push({
+              name: row["Project Name"] ?? "Unknown",
+              country: "GB",
+              capacity_mw: Math.round(mw * 10) / 10,
+              fuel: row["Plant Type"] ?? "Unknown",
+              lat: null,
+              lon: null,
+              commissioned_year: null,
+            });
+          }
+        }
+      }
+    }
+  } catch {
+    // Embedded fetch failed
+  }
+
+  // Deduplicate by project name
+  const seen = new Set<string>();
+  const deduped = plants.filter((p) => {
+    const key = `${p.name}:${p.capacity_mw}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  cache.set(cacheKey, deduped, TTL.STATIC_DATA);
+  return deduped;
+}
+
 export async function getPowerPlants(
   params: z.infer<typeof powerPlantsSchema>
 ): Promise<{
@@ -146,6 +230,12 @@ export async function getPowerPlants(
   if (params.country) {
     const countryUpper = params.country.toUpperCase();
     plants = plants.filter((p) => p.country === countryUpper);
+
+    // OPSD has no GB data — fall back to NESO registers
+    if (countryUpper === "GB" && plants.length === 0) {
+      const gbPlants = await fetchGbPlantsFromNeso();
+      plants = gbPlants;
+    }
   }
 
   if (params.fuel_type) {
