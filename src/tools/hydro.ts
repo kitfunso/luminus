@@ -26,6 +26,24 @@ interface ReservoirPoint {
   stored_energy_mwh: number;
 }
 
+function parsePeriodStepDays(resolution: string | undefined): number {
+  if (!resolution) return 7;
+
+  const weekMatch = /^P(\d+)W$/i.exec(resolution);
+  if (weekMatch) return Number(weekMatch[1]) * 7;
+
+  const dayMatch = /^P(\d+)D$/i.exec(resolution);
+  if (dayMatch) return Number(dayMatch[1]);
+
+  return 7;
+}
+
+function addDays(isoStart: string, dayOffset: number): string {
+  const date = new Date(isoStart);
+  date.setUTCDate(date.getUTCDate() + dayOffset);
+  return date.toISOString().slice(0, 10);
+}
+
 export async function getHydroReservoir(
   params: z.infer<typeof hydroSchema>
 ): Promise<{
@@ -66,13 +84,15 @@ export async function getHydroReservoir(
     const periods = ensureArray(ts.Period);
     for (const period of periods) {
       const start = period.timeInterval?.start ?? "";
-      const weekStart = typeof start === "string" ? start.slice(0, 10) : "";
+      const startIso = typeof start === "string" ? start : "";
+      const stepDays = parsePeriodStepDays(period.resolution);
 
       const points = ensureArray(period.Point);
       for (const point of points) {
         const storedMwh = Number(point.quantity ?? 0);
+        const position = Math.max(1, Number(point.position ?? 1));
         reservoir.push({
-          week_start: weekStart,
+          week_start: addDays(startIso, (position - 1) * stepDays),
           stored_energy_mwh: storedMwh,
         });
       }

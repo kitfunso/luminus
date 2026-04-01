@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
+import { resolveApiKey } from "../lib/auth.js";
 
 const BASE_URL = "https://agsi.gie.eu/api";
 const cache = new TtlCache();
@@ -23,15 +24,15 @@ export const gasStorageSchema = z.object({
     .describe("Date in YYYY-MM-DD format. Defaults to today."),
 });
 
-function getApiKey(): string {
-  const key = process.env.GIE_API_KEY;
-  if (!key) {
+async function getApiKey(): Promise<string> {
+  try {
+    return await resolveApiKey("GIE_API_KEY");
+  } catch {
     throw new Error(
-      "GIE_API_KEY environment variable is required. " +
+      "GIE_API_KEY is required. Set it as an environment variable or in ~/.luminus/keys.json. " +
         "Get one at https://agsi.gie.eu/ (register for API access)."
     );
   }
-  return key;
 }
 
 function validateCountry(code: string): GieCountry {
@@ -68,7 +69,7 @@ export async function getGasStorage(
 
   const url = `${BASE_URL}/data/${country}?date=${date}`;
   const response = await fetch(url, {
-    headers: { "x-key": getApiKey() },
+    headers: { "x-key": await getApiKey() },
   });
 
   if (!response.ok) {

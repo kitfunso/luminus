@@ -1,19 +1,20 @@
 import { parseXml } from "./xml-parser.js";
 import { TtlCache, TTL } from "./cache.js";
+import { resolveApiKey } from "./auth.js";
 
 const BASE_URL = "https://web-api.tp.entsoe.eu/api";
 
 const cache = new TtlCache();
 
-function getApiKey(): string {
-  const key = process.env.ENTSOE_API_KEY;
-  if (!key) {
+async function getApiKey(): Promise<string> {
+  try {
+    return await resolveApiKey("ENTSOE_API_KEY");
+  } catch {
     throw new Error(
-      "ENTSOE_API_KEY environment variable is required. " +
+      "ENTSOE_API_KEY is required. Set it as an environment variable or in ~/.luminus/keys.json. " +
         "Get one at https://transparency.entsoe.eu/ (register → email token)."
     );
   }
-  return key;
 }
 
 export interface EntsoeParams {
@@ -62,7 +63,7 @@ export async function queryEntsoe(
   ttlMs: number = TTL.REALTIME
 ): Promise<Record<string, unknown>> {
   const url = new URL(BASE_URL);
-  url.searchParams.set("securityToken", getApiKey());
+  url.searchParams.set("securityToken", await getApiKey());
 
   for (const [key, value] of Object.entries(params)) {
     if (value != null) {

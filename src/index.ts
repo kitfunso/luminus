@@ -6,6 +6,7 @@ import { z } from "zod";
 import { toolHandler } from "./lib/tool-handler.js";
 import { hasRequiredKeys, isKeyConfigured, preloadKeyFile, TOOL_KEY_REQUIREMENTS } from "./lib/auth.js";
 import { logToolCall } from "./lib/audit.js";
+import { parseProfileArg } from "./lib/cli.js";
 import {
   resolveProfile,
   getProfileNames,
@@ -77,21 +78,21 @@ import { compareSitesSchema, compareSites } from "./tools/compare-sites.js";
 import { siteRevenueSchema, estimateSiteRevenue } from "./tools/site-revenue.js";
 
 // ---------------------------------------------------------------------------
-// CLI argument parsing
-// ---------------------------------------------------------------------------
-
-function parseArgs(): { profile: string } {
-  const idx = process.argv.indexOf("--profile");
-  return { profile: idx !== -1 ? process.argv[idx + 1] ?? "full" : "full" };
-}
-
-// ---------------------------------------------------------------------------
 // Startup configuration
 // ---------------------------------------------------------------------------
 
 dotenv.config();
 
-const { profile } = parseArgs();
+let profile = "full";
+try {
+  profile = parseProfileArg(process.argv);
+} catch (err) {
+  process.stderr.write(
+    `[luminus] ${err instanceof Error ? err.message : String(err)} ` +
+      `Valid profiles: full, ${getProfileNames().join(", ")}\n`,
+  );
+  process.exit(1);
+}
 
 if (!isValidProfile(profile)) {
   process.stderr.write(

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
+import { resolveApiKey } from "../lib/auth.js";
 
 const API_BASE = "https://api.esios.ree.es";
 const REE_PUBLIC = "https://www.ree.es/en/datos/apidatos";
@@ -41,16 +42,16 @@ export const reeEsiosSchema = z.object({
     .describe("Date in YYYY-MM-DD format. Defaults to today."),
 });
 
-function getApiToken(): string {
-  const token = process.env.ESIOS_API_TOKEN;
-  if (!token) {
+async function getApiToken(): Promise<string> {
+  try {
+    return await resolveApiKey("ESIOS_API_TOKEN");
+  } catch {
     throw new Error(
-      "ESIOS_API_TOKEN environment variable is required. " +
+      "ESIOS_API_TOKEN is required. Set it as an environment variable or in ~/.luminus/keys.json. " +
         "Request a free token by emailing consultasios@ree.es or via " +
         REE_PUBLIC
     );
   }
-  return token;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,7 +67,7 @@ async function fetchEsios(indicatorId: number, startDate: string, endDate: strin
   const response = await fetch(url, {
     headers: {
       Accept: "application/json; application/vnd.esios-api-v1+json",
-      Authorization: `Token token="${getApiToken()}"`,
+      Authorization: `Token token="${await getApiToken()}"`,
       "User-Agent": "luminus-mcp/0.1",
     },
   });

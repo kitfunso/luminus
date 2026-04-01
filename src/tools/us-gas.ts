@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
+import { resolveApiKey } from "../lib/auth.js";
 
 const BASE_URL = "https://api.eia.gov/v2";
 const cache = new TtlCache();
@@ -17,15 +18,15 @@ export const usGasSchema = z.object({
     .describe("Number of records to return. Defaults to 10."),
 });
 
-function getApiKey(): string {
-  const key = process.env.EIA_API_KEY;
-  if (!key) {
+async function getApiKey(): Promise<string> {
+  try {
+    return await resolveApiKey("EIA_API_KEY");
+  } catch {
     throw new Error(
-      "EIA_API_KEY environment variable is required. " +
+      "EIA_API_KEY is required. Set it as an environment variable or in ~/.luminus/keys.json. " +
         "Get one at https://www.eia.gov/opendata/register.php"
     );
   }
-  return key;
 }
 
 interface StorageRecord {
@@ -60,7 +61,7 @@ async function fetchEia(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const url = new URL(`${BASE_URL}${path}`);
-  url.searchParams.set("api_key", getApiKey());
+  url.searchParams.set("api_key", await getApiKey());
 
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);

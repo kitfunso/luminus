@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
+import { resolveApiKey } from "../lib/auth.js";
 
 const API_BASE = "https://api.stormglass.io/v2";
 const cache = new TtlCache();
+const FORECAST_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 export const stormglassSchema = z.object({
   latitude: z.number().describe("Latitude (-90 to 90)."),
@@ -16,15 +18,15 @@ export const stormglassSchema = z.object({
     ),
 });
 
-function getApiKey(): string {
-  const key = process.env.STORMGLASS_API_KEY;
-  if (!key) {
+async function getApiKey(): Promise<string> {
+  try {
+    return await resolveApiKey("STORMGLASS_API_KEY");
+  } catch {
     throw new Error(
-      "STORMGLASS_API_KEY environment variable is required. " +
+      "STORMGLASS_API_KEY is required. Set it as an environment variable or in ~/.luminus/keys.json. " +
         "Get a free key at https://stormglass.io/ (10 requests/day on free tier)."
     );
   }
-  return key;
 }
 
 interface WeatherHour {
@@ -77,6 +79,10 @@ interface TideResult {
 
 type StormglassResult = WeatherResult | TideResult;
 
+function alignToBucket(date: Date, bucketMs: number): Date {
+  return new Date(Math.floor(date.getTime() / bucketMs) * bucketMs);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function pickSource(obj: any): number {
   // Storm Glass returns data from multiple sources; pick the best available
@@ -89,7 +95,7 @@ function pickSource(obj: any): number {
   return vals.length > 0 ? vals[0] : 0;
 }
 
-async function fetchWeather(lat: number, lon: number): Promise<WeatherResult> {
+function buildWeatherUrl(lat: number, lon: number): string {
   const params = [
     "windSpeed",
     "windDirection",
@@ -106,19 +112,24 @@ async function fetchWeather(lat: number, lon: number): Promise<WeatherResult> {
     "cloudCover",
   ].join(",");
 
-  const now = new Date();
-  const end = new Date(now.getTime() + 48 * 60 * 60 * 1000); // +48h forecast
+  const start = alignToBucket(new Date(), TTL.WEATHER);
+  const end = new Date(start.getTime() + FORECAST_WINDOW_MS);
 
-  const url =
+  return (
     `${API_BASE}/weather/point?lat=${lat}&lng=${lon}` +
     `&params=${params}` +
-    `&start=${now.toISOString()}&end=${end.toISOString()}`;
+    `&start=${start.toISOString()}&end=${end.toISOString()}`
+  );
+}
+
+async function fetchWeather(lat: number, lon: number): Promise<WeatherResult> {
+  const url = buildWeatherUrl(lat, lon);
 
   const cached = cache.get<WeatherResult>(url);
   if (cached) return cached;
 
   const response = await fetch(url, {
-    headers: { Authorization: getApiKey() },
+    headers: { Authorization: await getApiKey() },
   });
 
   if (!response.ok) {
@@ -194,7 +205,7 @@ async function fetchTide(lat: number, lon: number): Promise<TideResult> {
   if (cached) return cached;
 
   const response = await fetch(url, {
-    headers: { Authorization: getApiKey() },
+    headers: { Authorization: await getApiKey() },
   });
 
   if (!response.ok) {

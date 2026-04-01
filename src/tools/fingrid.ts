@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
+import { resolveApiKey } from "../lib/auth.js";
 
 const API_BASE = "https://data.fingrid.fi/api/datasets";
 const cache = new TtlCache();
+const DEFAULT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const PAGE_SIZE = 200;
 
 /** Fingrid dataset IDs */
 const DATASET_IDS: Record<string, number> = {
@@ -54,15 +57,15 @@ export const fingridSchema = z.object({
     .describe("End datetime ISO-8601. Defaults to now."),
 });
 
-function getApiKey(): string {
-  const key = process.env.FINGRID_API_KEY;
-  if (!key) {
+async function getApiKey(): Promise<string> {
+  try {
+    return await resolveApiKey("FINGRID_API_KEY");
+  } catch {
     throw new Error(
-      "FINGRID_API_KEY environment variable is required. " +
+      "FINGRID_API_KEY is required. Set it as an environment variable or in ~/.luminus/keys.json. " +
         "Get one free at https://data.fingrid.fi/ (register for API access)."
     );
   }
-  return key;
 }
 
 interface DataPoint {
@@ -96,50 +99,93 @@ const UNITS: Record<string, string> = {
   reserve_prices: "EUR/MW",
 };
 
+function alignToBucket(date: Date, bucketMs: number): Date {
+  return new Date(Math.floor(date.getTime() / bucketMs) * bucketMs);
+}
+
+function getEffectiveWindow(params: z.infer<typeof fingridSchema>): { startDate: string; endDate: string } {
+  if (params.start_date && params.end_date) {
+    return { startDate: params.start_date, endDate: params.end_date };
+  }
+
+  const alignedNow = alignToBucket(new Date(), TTL.REALTIME);
+  const alignedDayAgo = new Date(alignedNow.getTime() - DEFAULT_WINDOW_MS);
+
+  return {
+    startDate: params.start_date ?? alignedDayAgo.toISOString(),
+    endDate: params.end_date ?? alignedNow.toISOString(),
+  };
+}
+
+function buildPageUrl(datasetId: number, startDate: string, endDate: string, page: number): string {
+  return (
+    `${API_BASE}/${datasetId}/data?startTime=${encodeURIComponent(startDate)}` +
+    `&endTime=${encodeURIComponent(endDate)}&format=json&pageSize=${PAGE_SIZE}&page=${page}`
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractRows(json: any): any[] {
+  return Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
+}
+
+async function fetchAllRows(
+  datasetId: number,
+  startDate: string,
+  endDate: string,
+  apiKey: string,
+): Promise<DataPoint[]> {
+  const rows: DataPoint[] = [];
+
+  for (let page = 1; page <= 50; page++) {
+    const url = buildPageUrl(datasetId, startDate, endDate, page);
+    const response = await fetch(url, {
+      headers: {
+        "x-api-key": apiKey,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Fingrid API returned ${response.status}: ${body.slice(0, 300)}`);
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const json: any = await response.json();
+    const pageRows = extractRows(json);
+
+    rows.push(
+      ...pageRows.map((r) => ({
+        timestamp: r.startTime ?? r.start_time ?? r.timestamp ?? "",
+        value: Math.round(Number(r.value ?? 0) * 100) / 100,
+      })),
+    );
+
+    if (pageRows.length < PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return rows
+    .filter((row) => row.timestamp)
+    .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+}
+
 export async function getFingridData(
   params: z.infer<typeof fingridSchema>
 ): Promise<FingridResult> {
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
   const datasetId = DATASET_IDS[params.dataset];
   const unit = UNITS[params.dataset] ?? "MW";
+  const { startDate, endDate } = getEffectiveWindow(params);
 
-  const now = new Date();
-  const dayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const startDate = params.start_date ?? dayAgo.toISOString();
-  const endDate = params.end_date ?? now.toISOString();
-
-  const url =
-    `${API_BASE}/${datasetId}/data?startTime=${encodeURIComponent(startDate)}` +
-    `&endTime=${encodeURIComponent(endDate)}&format=json&pageSize=200&page=1`;
-
-  const cached = cache.get<FingridResult>(url);
+  const cacheKey = `fingrid:${datasetId}:${startDate}:${endDate}`;
+  const cached = cache.get<FingridResult>(cacheKey);
   if (cached) return cached;
 
-  const response = await fetch(url, {
-    headers: {
-      "x-api-key": apiKey,
-      Accept: "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Fingrid API returned ${response.status}: ${body.slice(0, 300)}`);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const json: any = await response.json();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rows: any[] = Array.isArray(json?.data) ? json.data : Array.isArray(json) ? json : [];
-
-  const data: DataPoint[] = rows.map((r) => ({
-    timestamp: r.startTime ?? r.start_time ?? r.timestamp ?? "",
-    value: Math.round((Number(r.value ?? 0)) * 100) / 100,
-  }));
-
-  // Cap output to last 96 points (8 hours at 5-min resolution)
-  const trimmed = data.slice(-96);
-  const values = trimmed.map((d) => d.value);
+  const data = await fetchAllRows(datasetId, startDate, endDate, apiKey);
+  const values = data.map((d) => d.value);
 
   const stats =
     values.length > 0
@@ -157,12 +203,12 @@ export async function getFingridData(
     unit,
     start_date: startDate,
     end_date: endDate,
-    count: trimmed.length,
-    latest: trimmed.length > 0 ? trimmed[trimmed.length - 1] : null,
-    data: trimmed,
+    count: data.length,
+    latest: data.length > 0 ? data[data.length - 1] : null,
+    data,
     stats,
   };
 
-  cache.set(url, result, TTL.REALTIME);
+  cache.set(cacheKey, result, TTL.REALTIME);
   return result;
 }
