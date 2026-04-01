@@ -10,3 +10,7 @@ python/.pytest_cache/
 python/.venv/
 python/**/__pycache__/
 python/**/*.pyc
+python/build/
+python/dist/
+python/*.egg-info/
+python/**/*.egg-info/

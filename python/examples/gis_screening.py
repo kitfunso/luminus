@@ -16,7 +16,17 @@ comparison = lum.compare_sites(
         {"name": "B", "lat": 52.08, "lon": 0.22},
     ],
 )
-comparison.to_pandas()
+comparison.to_pandas(data_key="rankings")
+
+# %%
+rankings = lum.compare_sites_rankings(
+    country="GB",
+    sites=[
+        {"name": "A", "lat": 52.12, "lon": 0.18},
+        {"name": "B", "lat": 52.08, "lon": 0.22},
+    ],
+)
+rankings
 
 # %%
 lum.close()

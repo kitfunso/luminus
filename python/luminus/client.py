@@ -227,6 +227,30 @@ class Luminus:
             return pd.DataFrame()
         return pd.concat(frames, ignore_index=True)
 
+    def get_day_ahead_prices_many(self, zones: Iterable[str], **arguments: Any):
+        return self.call_many_to_pandas(
+            "get_day_ahead_prices",
+            [{**arguments, "zone": zone} for zone in zones],
+            request_prefix="request_",
+        )
+
+    def get_generation_mix_many(self, zones: Iterable[str], **arguments: Any):
+        return self.call_many_to_pandas(
+            "get_generation_mix",
+            [{**arguments, "zone": zone} for zone in zones],
+            data_key="generation",
+            request_prefix="request_",
+        )
+
+    def compare_sites_rankings(self, **arguments: Any):
+        return self.call_tool_to_pandas("compare_sites", arguments, data_key="rankings")
+
+    def compare_sites_rankings_geojson(self, **arguments: Any) -> dict[str, Any]:
+        return self.call_tool_to_geojson("compare_sites", arguments, data_key="rankings")
+
+    def compare_sites_rankings_geodataframe(self, **arguments: Any):
+        return self.call_tool_to_geodataframe("compare_sites", arguments, data_key="rankings")
+
     def __getattr__(self, name: str):
         if name.startswith("_"):
             raise AttributeError(name)

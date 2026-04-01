@@ -11,9 +11,13 @@ prices_df = prices.to_pandas()
 prices_df.head()
 
 # %%
-# Pull live generation mix for the same zone.
-generation = lum.get_generation_mix(zone="DE")
-generation_df = generation.to_pandas()
+# Pull the same dataset across several zones in one shot.
+multi_zone_prices = lum.get_day_ahead_prices_many(["DE", "FR", "NL"])
+multi_zone_prices.head()
+
+# %%
+# Pull live generation mix for the same zones.
+generation_df = lum.get_generation_mix_many(["DE", "FR"])
 generation_df.head()
 
 # %%

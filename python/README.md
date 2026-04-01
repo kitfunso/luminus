@@ -8,6 +8,18 @@ Any MCP tool exposed by `luminus-mcp` is callable directly as a Python method, s
 
 The SDK also includes geospatial helpers for notebook workflows: `to_geojson()` for lightweight mapping and `to_geodataframe()` for GeoPandas users.
 
+## Install
+
+```bash
+pip install luminus-py[notebook]
+```
+
+For GIS notebook work:
+
+```bash
+pip install luminus-py[all]
+```
+
 ## Quick start
 
 ```python
@@ -48,7 +60,9 @@ rankings_geojson = lum.call_tool_to_geojson("compare_sites", {
 
 - Use `lum.list_tools()` to see the live tool surface for the active profile.
 - Use `lum.describe_tool("tool_name")` to inspect the MCP description/schema metadata.
-- Use `lum.call_many()` / `lum.call_many_to_pandas()` for multi-zone or multi-site notebook pulls.
+- Use `lum.call_many()` / `lum.call_many_to_pandas()` for generic multi-zone or multi-site notebook pulls.
+- Use `lum.get_day_ahead_prices_many()` and `lum.get_generation_mix_many()` for common analyst workflows.
+- Use `lum.compare_sites_rankings()` and its geo helpers for ranked siting output.
 - Notebook-style examples live in [`examples/`](examples/).
 - Use `to_geojson()` for lightweight mapping and `to_geodataframe()` when GeoPandas is installed.
 

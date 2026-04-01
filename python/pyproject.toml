@@ -10,12 +10,32 @@ readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Keith So" }]
 license = { text = "MIT" }
+keywords = ["mcp", "jupyter", "notebook", "energy", "electricity", "gis"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Financial and Insurance Industry",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = []
 
 [project.optional-dependencies]
 notebook = ["pandas>=2.0"]
 gis = ["geopandas>=0.14"]
 all = ["pandas>=2.0", "geopandas>=0.14"]
+
+[project.urls]
+Homepage = "https://github.com/kitfunso/luminus"
+Repository = "https://github.com/kitfunso/luminus"
+Issues = "https://github.com/kitfunso/luminus/issues"
+Changelog = "https://github.com/kitfunso/luminus/blob/master/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["luminus*"]

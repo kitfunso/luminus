@@ -80,6 +80,19 @@ def test_batch_helpers():
         )
         assert frame["request_zone"].tolist() == ["DE", "DE", "FR", "FR"]
         assert frame["zone"].tolist() == ["DE", "DE", "FR", "FR"]
+
+        prices_many = client.get_day_ahead_prices_many(["DE", "FR"])
+        assert prices_many["zone"].tolist() == ["DE", "DE", "FR", "FR"]
+
+        generation_many = client.get_generation_mix_many(["DE", "FR"])
+        assert generation_many["request_zone"].tolist() == ["DE", "DE", "FR", "FR"]
+        assert generation_many["mw"].sum() == 4000
+
+        rankings = client.compare_sites_rankings(country="GB")
+        assert rankings["rank"].tolist() == [1, 2]
+
+        rankings_geojson = client.compare_sites_rankings_geojson(country="GB")
+        assert rankings_geojson["features"][1]["properties"]["rank"] == 2
     finally:
         client.close()
 

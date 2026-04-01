@@ -141,6 +141,7 @@ npm install luminus-mcp
 
 A notebook-friendly Python client now lives under [`python/`](python/README.md).
 It wraps `luminus-mcp` over stdio and exposes plain Python methods like `get_day_ahead_prices()`, `get_generation_mix()`, and `screen_site()`.
+The package name is `luminus-py`.
 
 ```python
 from luminus import Luminus
