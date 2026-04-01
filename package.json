@@ -17,6 +17,7 @@
     "build": "tsc",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
+    "test:python": "python -m pytest python/tests -q",
     "verify": "npm test && npm run build && npm audit --omit=dev && npm pack --dry-run",
     "prepublishOnly": "npm run verify"
   },

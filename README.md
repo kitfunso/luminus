@@ -135,6 +135,19 @@ Roadmap: see [`docs/gis-roadmap.md`](docs/gis-roadmap.md).
 npm install luminus-mcp
 ```
 
+## Python SDK Preview
+
+A notebook-friendly Python client now lives under [`python/`](python/README.md).
+It wraps `luminus-mcp` over stdio and exposes plain Python methods like `get_day_ahead_prices()`, `get_generation_mix()`, and `screen_site()`.
+
+```python
+from luminus import Luminus
+
+lum = Luminus(profile="trader")
+prices = lum.get_day_ahead_prices(zone="DE")
+df = prices.to_pandas()
+```
+
 ### API Keys
 
 Set keys via environment variables or `~/.luminus/keys.json`:

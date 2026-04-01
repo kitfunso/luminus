@@ -4,3 +4,9 @@ dist/
 *.log
 web/
 tmp-*
+
+# Python SDK
+python/.pytest_cache/
+python/.venv/
+python/**/__pycache__/
+python/**/*.pyc
