@@ -8,6 +8,8 @@ Any MCP tool exposed by `luminus-mcp` is callable directly as a Python method, s
 
 The SDK also includes geospatial helpers for notebook workflows: `to_geojson()` for lightweight mapping and `to_geodataframe()` for GeoPandas users.
 
+Roadmap: see [`../docs/python-sdk-roadmap.md`](../docs/python-sdk-roadmap.md).
+
 ## Install
 
 ```bash
