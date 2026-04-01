@@ -2,10 +2,12 @@ import json
 import sys
 
 TOOLS = [
-    {"name": "get_day_ahead_prices", "description": "fake", "inputSchema": {}},
-    {"name": "get_generation_mix", "description": "fake", "inputSchema": {}},
-    {"name": "screen_site", "description": "fake", "inputSchema": {}},
-    {"name": "get_server_status", "description": "fake", "inputSchema": {}},
+    {"name": "get_day_ahead_prices", "description": "fake day-ahead prices", "inputSchema": {}},
+    {"name": "get_generation_mix", "description": "fake generation mix", "inputSchema": {}},
+    {"name": "get_cross_border_flows", "description": "fake flows", "inputSchema": {}},
+    {"name": "compare_sites", "description": "fake site comparison", "inputSchema": {}},
+    {"name": "screen_site", "description": "fake site screen", "inputSchema": {}},
+    {"name": "get_server_status", "description": "fake server status", "inputSchema": {}},
 ]
 
 
@@ -60,6 +62,23 @@ for line in sys.stdin:
                 ],
                 "total_mw": 2000,
             }
+        elif name == "get_cross_border_flows":
+            payload = {
+                "from_zone": args.get("from_zone", "DE"),
+                "to_zone": args.get("to_zone", "NL"),
+                "flows": [
+                    {"hour": 0, "flow_mw": 1200},
+                    {"hour": 1, "flow_mw": 1150},
+                ],
+            }
+        elif name == "compare_sites":
+            payload = {
+                "country": args.get("country", "GB"),
+                "sites": [
+                    {"name": "A", "rank": 1, "overall": "pass"},
+                    {"name": "B", "rank": 2, "overall": "warn"},
+                ],
+            }
         elif name == "screen_site":
             payload = {
                 "lat": args.get("lat", 52.0),
@@ -68,7 +87,7 @@ for line in sys.stdin:
                 "verdict": {"overall": "pass", "flags": []},
             }
         elif name == "get_server_status":
-            payload = {"activeProfile": "full", "registeredTools": 4}
+            payload = {"activeProfile": "full", "registeredTools": len(TOOLS)}
         else:
             send(
                 {

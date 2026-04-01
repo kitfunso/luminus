@@ -4,6 +4,8 @@ A notebook-friendly Python client for `luminus-mcp`.
 
 This package starts the existing Node MCP server under the hood, calls tools over stdio, and returns Python-native result objects with optional pandas helpers.
 
+Any MCP tool exposed by `luminus-mcp` is callable directly as a Python method, so the SDK does not need a hand-written wrapper for every tool.
+
 ## Quick start
 
 ```python
@@ -12,9 +14,20 @@ from luminus import Luminus
 lum = Luminus(profile="trader")
 prices = lum.get_day_ahead_prices(zone="DE")
 df = prices.to_pandas()
+
+# Any MCP tool can be called directly
+flows = lum.get_cross_border_flows(from_zone="DE", to_zone="NL")
+site = lum.compare_sites(sites=[
+    {"name": "A", "lat": 52.1, "lon": 0.1},
+    {"name": "B", "lat": 52.2, "lon": 0.2},
+], country="GB")
 ```
 
 ## Notes
+
+- Use `lum.list_tools()` to see the live tool surface for the active profile.
+- Use `lum.describe_tool("tool_name")` to inspect the MCP description/schema metadata.
+- Notebook-style examples live in [`examples/`](examples/).
 
 - Requires `luminus-mcp` to be available on `PATH`, unless you pass an explicit command.
 - By default the client starts `luminus-mcp --profile <profile>`.

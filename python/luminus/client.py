@@ -53,6 +53,7 @@ class Luminus:
         self._noise_lines: list[str] = []
         self._lock = threading.Lock()
         self._closed = False
+        self._tool_cache: dict[str, dict[str, Any]] = {}
 
         resolved_command = self._resolve_command(command, profile)
         merged_env = os.environ.copy()
@@ -117,9 +118,28 @@ class Luminus:
                 self._process.kill()
                 self._process.wait(timeout=5)
 
-    def list_tools(self) -> list[str]:
+    def refresh_tools(self) -> dict[str, dict[str, Any]]:
         result = self._request("tools/list", {})
-        return [tool["name"] for tool in result.get("tools", [])]
+        self._tool_cache = {
+            tool["name"]: tool
+            for tool in result.get("tools", [])
+            if isinstance(tool, dict) and "name" in tool
+        }
+        return dict(self._tool_cache)
+
+    def list_tools(self) -> list[str]:
+        return list(self.refresh_tools().keys())
+
+    def tool_specs(self) -> dict[str, dict[str, Any]]:
+        if not self._tool_cache:
+            self.refresh_tools()
+        return dict(self._tool_cache)
+
+    def describe_tool(self, name: str) -> dict[str, Any]:
+        specs = self.tool_specs()
+        if name not in specs:
+            raise KeyError(f"Tool {name!r} is not available from this Luminus server")
+        return dict(specs[name])
 
     def call_tool(self, name: str, arguments: Mapping[str, Any] | None = None) -> LuminusResult:
         result = self._request(
@@ -141,6 +161,31 @@ class Luminus:
 
     def get_server_status(self) -> LuminusResult:
         return self.call_tool("get_server_status", {})
+
+    def __getattr__(self, name: str):
+        if name.startswith("_"):
+            raise AttributeError(name)
+
+        try:
+            tool = self.describe_tool(name)
+        except (KeyError, LuminusError) as exc:
+            raise AttributeError(name) from exc
+
+        def _dynamic_tool(**arguments: Any) -> LuminusResult:
+            return self.call_tool(name, arguments)
+
+        _dynamic_tool.__name__ = name
+        _dynamic_tool.__qualname__ = f"{self.__class__.__name__}.{name}"
+        _dynamic_tool.__doc__ = tool.get("description") or f"Call the {name} MCP tool."
+        return _dynamic_tool
+
+    def __dir__(self) -> list[str]:
+        names = set(super().__dir__())
+        try:
+            names.update(self.tool_specs().keys())
+        except LuminusError:
+            pass
+        return sorted(names)
 
     def _resolve_command(self, command: Sequence[str] | str | None, profile: str) -> list[str]:
         if command is None:

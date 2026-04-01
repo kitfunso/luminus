@@ -39,6 +39,26 @@ def test_convenience_methods_and_dataframe_helpers():
         client.close()
 
 
+def test_dynamic_tool_binding_and_metadata():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        assert "get_cross_border_flows" in client.list_tools()
+        assert "compare_sites" in dir(client)
+
+        spec = client.describe_tool("get_cross_border_flows")
+        assert spec["description"] == "fake flows"
+
+        flows = client.get_cross_border_flows(from_zone="DE", to_zone="NL")
+        flow_df = flows.to_pandas()
+        assert list(flow_df.columns) == ["from_zone", "to_zone", "hour", "flow_mw"]
+        assert flow_df["from_zone"].tolist() == ["DE", "DE"]
+
+        comparison = client.compare_sites(country="GB")
+        assert comparison.to_pandas()["rank"].tolist() == [1, 2]
+    finally:
+        client.close()
+
+
 def test_real_luminus_server_smoke():
     if not REAL_SERVER.exists():
         pytest.skip("dist/index.js not built")
