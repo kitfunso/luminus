@@ -3,7 +3,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Real-time European & UK electricity grid data via MCP. 57 tools, all free.
+Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 
 ## Tools
 
@@ -89,7 +89,6 @@ Real-time European & UK electricity grid data via MCP. 57 tools, all free.
 | `get_energy_charts` | energy-charts.info | European electricity prices, generation, and flows (no API key) |
 | `get_nordpool_prices` | Nordpool | Nordic and Baltic day-ahead prices at 15-min resolution |
 | `get_smard_data` | SMARD (Bundesnetzagentur) | High-resolution German generation, consumption, and market data |
-| `get_ember_data` | EMBER Climate | Yearly power sector generation, capacity, emissions, and demand |
 | `get_rte_france` | RTE France (ODRE) | French generation (nuclear, wind, solar), consumption, and exchanges |
 | `get_energi_data` | Energi Data Service | Danish real-time CO2, production, prices, and electricity balance |
 | `get_fingrid_data` | Fingrid | Finnish grid data at 3-min resolution (generation, imports, frequency) |
@@ -169,11 +168,11 @@ All keys are free:
 - **ESIOS**: Email consultasios@ree.es to request a token
 - **Storm Glass**: Register at [stormglass.io](https://stormglass.io/)
 
-Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RTE France, Energi Data Service, ERA5 weather, hydro inflows, Nordpool, SMARD, EMBER, and more.
+Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RTE France, Energi Data Service, ERA5 weather, hydro inflows, Nordpool, SMARD, and more.
 
 ### Profiles
 
-By default all 55 data tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
+By default all 54 data tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
@@ -183,10 +182,10 @@ npx luminus-mcp --profile gas        # 5 tools: storage, LNG, pipeline flows
 npx luminus-mcp --profile renewables # 5 tools: wind/solar forecasts, hydro
 npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
 npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
-npx luminus-mcp --profile regional   # 9 tools: country-specific sources
+npx luminus-mcp --profile regional   # 8 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
 npx luminus-mcp --profile gis        # 13 tools: solar, terrain, grid proximity, connection queue, connection intelligence, constraints, land cover, agricultural land, flood risk, site screening (GB+EU), comparison, verification
-npx luminus-mcp --profile full       # all 57 tools (default)
+npx luminus-mcp --profile full       # all 56 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:
@@ -262,7 +261,6 @@ Ask your AI agent:
 | Terna | [developer.terna.it](https://developer.terna.it/) | Italian electricity |
 | REE ESIOS | [esios.ree.es](https://www.esios.ree.es/) | Spanish electricity |
 | ACER REMIT | [acer-remit.eu](https://www.acer-remit.eu/) | EU market transparency |
-| EMBER Climate | [ember-climate.org](https://ember-climate.org/) | Global power sector data |
 | Yahoo Finance | [finance.yahoo.com](https://finance.yahoo.com/) | Energy commodities |
 | Open-Meteo / ERA5 | [open-meteo.com](https://open-meteo.com/) | Weather forecast + ERA5 reanalysis |
 | PVGIS | [re.jrc.ec.europa.eu](https://re.jrc.ec.europa.eu/pvg_tools/) | Global solar irradiance |
@@ -375,7 +373,7 @@ The package pins `path-to-regexp` via `overrides` to avoid the known vulnerable 
 Luminus aggregates publicly available European energy data. It is a data-access layer, not an energy trading model. It does not provide:
 - Trading recommendations or financial advice
 - Sub-second or tick-level market data
-- Historical data beyond what each upstream API offers (typically days to weeks; EMBER and ERA5 are exceptions with multi-year archives)
+- Historical data beyond what each upstream API offers (typically days to weeks; ERA5 is the main multi-year exception)
 - Guaranteed uptime — upstream APIs go down independently
 
 Data freshness depends on each source. Most update every 15-60 minutes. Check the `timestamp` or `updated_at` field in tool responses.

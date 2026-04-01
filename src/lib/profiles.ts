@@ -75,7 +75,6 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_regelleistung',
     'get_terna_data',
     'get_ree_esios',
-    'get_ember_data',
   ],
   weather: [
     'get_weather_forecast',

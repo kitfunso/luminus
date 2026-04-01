@@ -51,7 +51,6 @@ import { energyChartsSchema, getEnergyCharts } from "./tools/energy-charts.js";
 import { commodityPricesSchema, getCommodityPrices } from "./tools/commodity-prices.js";
 import { nordpoolSchema, getNordpoolPrices } from "./tools/nordpool-prices.js";
 import { smardSchema, getSmardData } from "./tools/smard-data.js";
-import { emberSchema, getEmberData } from "./tools/ember-data.js";
 import { entsogSchema, getEntsogData } from "./tools/entsog.js";
 import { elexonBmrsSchema, getElexonBmrs } from "./tools/elexon-bmrs.js";
 import { era5WeatherSchema, getEra5Weather } from "./tools/era5-weather.js";
@@ -522,16 +521,6 @@ if (shouldRegister("get_smard_data")) {
     "German electricity from SMARD (BNetzA): hourly generation, consumption, market data. No API key.",
     smardSchema.shape,
     auditedToolHandler("get_smard_data", smardSchema, getSmardData),
-  );
-}
-
-if (shouldRegister("get_ember_data")) {
-  registeredToolNames.push("get_ember_data");
-  server.tool(
-    "get_ember_data",
-    "EMBER Climate: yearly generation, capacity, emissions, demand by country. No API key.",
-    emberSchema.shape,
-    auditedToolHandler("get_ember_data", emberSchema, getEmberData),
   );
 }
 

@@ -163,7 +163,6 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   get_commodity_prices: [],
   get_nordpool_prices: [],
   get_smard_data: [],
-  get_ember_data: [],
   get_entsog_data: [],
   get_elexon_bmrs: [],
   get_era5_weather: [],
