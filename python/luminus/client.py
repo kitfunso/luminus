@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -56,10 +57,14 @@ class Luminus:
         self._tool_cache: dict[str, dict[str, Any]] = {}
 
         resolved_command = self._resolve_command(command, profile)
+        self._spawn_command = list(resolved_command)
+        self._user_env = {key: str(value) for key, value in (env or {}).items()}
+        self._startup_timeout = startup_timeout
+
         merged_env = os.environ.copy()
         merged_env.setdefault("DOTENV_CONFIG_QUIET", "true")
-        if env:
-            merged_env.update({key: str(value) for key, value in env.items()})
+        if self._user_env:
+            merged_env.update(self._user_env)
 
         try:
             self._process = subprocess.Popen(
@@ -194,8 +199,25 @@ class Luminus:
         self,
         name: str,
         argument_sets: Iterable[Mapping[str, Any]],
+        *,
+        parallel: bool = False,
+        max_workers: int | None = None,
     ) -> list[LuminusResult]:
-        return [self.call_tool(name, arguments) for arguments in argument_sets]
+        jobs = [dict(arguments) for arguments in argument_sets]
+        if not parallel or len(jobs) <= 1:
+            return [self.call_tool(name, arguments) for arguments in jobs]
+
+        worker_count = max_workers or min(4, len(jobs))
+
+        def _run(arguments: Mapping[str, Any]) -> LuminusResult:
+            child = self._spawn_child_client()
+            try:
+                return child.call_tool(name, arguments)
+            finally:
+                child.close()
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            return list(executor.map(_run, jobs))
 
     def call_many_to_pandas(
         self,
@@ -205,6 +227,8 @@ class Luminus:
         data_key: str | None = None,
         include_request_args: bool = True,
         request_prefix: str = "request_",
+        parallel: bool = False,
+        max_workers: int | None = None,
     ):
         try:
             import pandas as pd
@@ -214,9 +238,9 @@ class Luminus:
             ) from exc
 
         frames = []
-        for arguments in argument_sets:
-            args = dict(arguments)
-            result = self.call_tool(name, args)
+        jobs = [dict(arguments) for arguments in argument_sets]
+        results = self.call_many(name, jobs, parallel=parallel, max_workers=max_workers)
+        for args, result in zip(jobs, results, strict=False):
             frame = result.to_pandas(data_key=data_key)
             if include_request_args:
                 for key, value in args.items():
@@ -227,19 +251,37 @@ class Luminus:
             return pd.DataFrame()
         return pd.concat(frames, ignore_index=True)
 
-    def get_day_ahead_prices_many(self, zones: Iterable[str], **arguments: Any):
+    def get_day_ahead_prices_many(
+        self,
+        zones: Iterable[str],
+        *,
+        parallel: bool = False,
+        max_workers: int | None = None,
+        **arguments: Any,
+    ):
         return self.call_many_to_pandas(
             "get_day_ahead_prices",
             [{**arguments, "zone": zone} for zone in zones],
             request_prefix="request_",
+            parallel=parallel,
+            max_workers=max_workers,
         )
 
-    def get_generation_mix_many(self, zones: Iterable[str], **arguments: Any):
+    def get_generation_mix_many(
+        self,
+        zones: Iterable[str],
+        *,
+        parallel: bool = False,
+        max_workers: int | None = None,
+        **arguments: Any,
+    ):
         return self.call_many_to_pandas(
             "get_generation_mix",
             [{**arguments, "zone": zone} for zone in zones],
             data_key="generation",
             request_prefix="request_",
+            parallel=parallel,
+            max_workers=max_workers,
         )
 
     def compare_sites_rankings(self, **arguments: Any):
@@ -275,6 +317,16 @@ class Luminus:
         except LuminusError:
             pass
         return sorted(names)
+
+    def _spawn_child_client(self) -> "Luminus":
+        return Luminus(
+            command=list(self._spawn_command),
+            profile=self.profile,
+            cwd=self.cwd,
+            env=self._user_env,
+            request_timeout=self.request_timeout,
+            startup_timeout=self._startup_timeout,
+        )
 
     def _resolve_command(self, command: Sequence[str] | str | None, profile: str) -> list[str]:
         if command is None:

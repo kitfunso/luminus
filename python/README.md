@@ -43,6 +43,7 @@ geojson = site.to_geojson(data_key="rankings")
 multi_zone = lum.call_many_to_pandas(
     "get_day_ahead_prices",
     [{"zone": "DE"}, {"zone": "FR"}, {"zone": "NL"}],
+    parallel=True,
 )
 
 # One-shot export helpers
@@ -61,6 +62,7 @@ rankings_geojson = lum.call_tool_to_geojson("compare_sites", {
 - Use `lum.list_tools()` to see the live tool surface for the active profile.
 - Use `lum.describe_tool("tool_name")` to inspect the MCP description/schema metadata.
 - Use `lum.call_many()` / `lum.call_many_to_pandas()` for generic multi-zone or multi-site notebook pulls.
+- Use `parallel=True` on batch helpers when you want the SDK to fan out across multiple MCP subprocesses.
 - Use `lum.get_day_ahead_prices_many()` and `lum.get_generation_mix_many()` for common analyst workflows.
 - Use `lum.compare_sites_rankings()` and its geo helpers for ranked siting output.
 - Notebook-style examples live in [`examples/`](examples/).

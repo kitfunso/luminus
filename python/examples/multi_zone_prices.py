@@ -12,6 +12,7 @@ prices = lum.call_many_to_pandas(
         {"zone": "FR"},
         {"zone": "NL"},
     ],
+    parallel=True,
 )
 prices.head()
 

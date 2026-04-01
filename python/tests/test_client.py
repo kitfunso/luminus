@@ -84,9 +84,15 @@ def test_batch_helpers():
         prices_many = client.get_day_ahead_prices_many(["DE", "FR"])
         assert prices_many["zone"].tolist() == ["DE", "DE", "FR", "FR"]
 
+        parallel_prices = client.get_day_ahead_prices_many(["DE", "FR"], parallel=True, max_workers=2)
+        assert parallel_prices["request_zone"].tolist() == ["DE", "DE", "FR", "FR"]
+
         generation_many = client.get_generation_mix_many(["DE", "FR"])
         assert generation_many["request_zone"].tolist() == ["DE", "DE", "FR", "FR"]
         assert generation_many["mw"].sum() == 4000
+
+        parallel_generation = client.get_generation_mix_many(["DE", "FR"], parallel=True, max_workers=2)
+        assert parallel_generation["mw"].sum() == 4000
 
         rankings = client.compare_sites_rankings(country="GB")
         assert rankings["rank"].tolist() == [1, 2]
