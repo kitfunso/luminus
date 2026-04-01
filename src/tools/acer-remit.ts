@@ -113,7 +113,7 @@ async function fetchUmms(
 
   try {
     const response = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "luminus-mcp/0.1" },
+      headers: { Accept: "application/json", "User-Agent": "luminus-mcp/0.2" },
     });
 
     if (response.ok) {
@@ -184,7 +184,7 @@ async function fetchOutageEvents(
 
   try {
     const response = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": "luminus-mcp/0.1" },
+      headers: { Accept: "application/json", "User-Agent": "luminus-mcp/0.2" },
     });
 
     if (response.ok) {

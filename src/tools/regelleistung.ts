@@ -51,7 +51,7 @@ export async function getRegelleistung(
   if (cached) return cached;
 
   const response = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "luminus-mcp/0.1" },
+    headers: { Accept: "application/json", "User-Agent": "luminus-mcp/0.2" },
   });
 
   if (!response.ok) {

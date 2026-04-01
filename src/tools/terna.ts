@@ -35,7 +35,7 @@ async function fetchTerna(endpoint: string): Promise<any> {
   const response = await fetch(endpoint, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "luminus-mcp/0.1",
+      "User-Agent": "luminus-mcp/0.2",
     },
   });
 

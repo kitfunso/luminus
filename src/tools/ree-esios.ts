@@ -68,7 +68,7 @@ async function fetchEsios(indicatorId: number, startDate: string, endDate: strin
     headers: {
       Accept: "application/json; application/vnd.esios-api-v1+json",
       Authorization: `Token token="${await getApiToken()}"`,
-      "User-Agent": "luminus-mcp/0.1",
+      "User-Agent": "luminus-mcp/0.2",
     },
   });
 

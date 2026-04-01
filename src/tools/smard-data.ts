@@ -75,7 +75,7 @@ async function fetchSmardIndex(filterId: number): Promise<number | null> {
   try {
     const url = `${SMARD_BASE}/${filterId}/DE/index_hour.json`;
     const response = await fetch(url, {
-      headers: { "User-Agent": "luminus-mcp/0.1" },
+      headers: { "User-Agent": "luminus-mcp/0.2" },
     });
 
     if (!response.ok) return null;
@@ -102,7 +102,7 @@ async function fetchSmardSeries(
   try {
     const url = `${SMARD_BASE}/${filterId}/DE/${filterId}_DE_hour_${timestamp}.json`;
     const response = await fetch(url, {
-      headers: { "User-Agent": "luminus-mcp/0.1" },
+      headers: { "User-Agent": "luminus-mcp/0.2" },
     });
 
     if (!response.ok) return null;

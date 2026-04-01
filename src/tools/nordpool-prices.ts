@@ -79,7 +79,7 @@ export async function getNordpoolPrices(
     `?date=${date}&market=DayAhead&deliveryArea=${areasParam}&currency=${currency}`;
 
   const response = await fetch(url, {
-    headers: { "User-Agent": "luminus-mcp/0.1" },
+    headers: { "User-Agent": "luminus-mcp/0.2" },
   });
 
   if (!response.ok) {
