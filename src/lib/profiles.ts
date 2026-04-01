@@ -2,8 +2,8 @@
  * Tool profiles for conditional MCP tool registration.
  *
  * Each profile groups tools by use case so callers can register
- * only the subset they need, cutting context window cost from ~5,000
- * tokens (all 48 tools) to a few hundred.
+ * only the subset they need, cutting context window cost from a large
+ * all-tools surface to a few hundred tokens for focused profiles.
  */
 
 /** Profile name -> list of tool names that belong to it. */
@@ -113,7 +113,7 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
   gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), and source verification',
-  full: 'All 55 tools registered (default)',
+  full: 'All 54 data tools registered by default, plus 2 meta-tools',
 };
 
 /**

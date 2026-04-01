@@ -86,7 +86,7 @@ Luminus/
       carbon.ts           # get_carbon_intensity (derived)
       demand.ts           # get_demand_forecast
       forecast.ts         # get_renewable_forecast
-      ... (48 tools total)
+      ... (54 data tools total, plus 2 always-on meta-tools)
     lib/
       entsoe-client.ts    # ENTSO-E API client (handles XML, auth, rate limits)
       zone-codes.ts       # EIC code mappings
@@ -117,7 +117,7 @@ Luminus/
 
 ## Context Window Optimization
 
-48 tools registered at once consumes ~5,000-6,000 LLM context tokens. Mitigations:
+Registering the full data-tool surface at once consumes a large chunk of LLM context. Mitigations:
 
 1. **Tool profiles** (`--profile trader|grid|gas|...`) load only relevant tools (60-90% reduction)
 2. **Conditional registration** skips tools with missing API keys (never appear in context)
