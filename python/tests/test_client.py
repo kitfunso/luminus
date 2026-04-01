@@ -59,6 +59,25 @@ def test_dynamic_tool_binding_and_metadata():
         client.close()
 
 
+def test_batch_helpers():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        results = client.call_many(
+            "get_day_ahead_prices",
+            [{"zone": "DE"}, {"zone": "FR"}],
+        )
+        assert [result.to_dict()["zone"] for result in results] == ["DE", "FR"]
+
+        frame = client.call_many_to_pandas(
+            "get_day_ahead_prices",
+            [{"zone": "DE"}, {"zone": "FR"}],
+        )
+        assert frame["request_zone"].tolist() == ["DE", "DE", "FR", "FR"]
+        assert frame["zone"].tolist() == ["DE", "DE", "FR", "FR"]
+    finally:
+        client.close()
+
+
 def test_real_luminus_server_smoke():
     if not REAL_SERVER.exists():
         pytest.skip("dist/index.js not built")

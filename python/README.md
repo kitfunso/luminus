@@ -26,12 +26,19 @@ site = lum.compare_sites(sites=[
 
 # GIS-friendly exports
 geojson = site.to_geojson(data_key="rankings")
+
+# Batch several calls into one DataFrame
+multi_zone = lum.call_many_to_pandas(
+    "get_day_ahead_prices",
+    [{"zone": "DE"}, {"zone": "FR"}, {"zone": "NL"}],
+)
 ```
 
 ## Notes
 
 - Use `lum.list_tools()` to see the live tool surface for the active profile.
 - Use `lum.describe_tool("tool_name")` to inspect the MCP description/schema metadata.
+- Use `lum.call_many()` / `lum.call_many_to_pandas()` for multi-zone or multi-site notebook pulls.
 - Notebook-style examples live in [`examples/`](examples/).
 - Use `to_geojson()` for lightweight mapping and `to_geodataframe()` when GeoPandas is installed.
 

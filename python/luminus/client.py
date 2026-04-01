@@ -9,7 +9,7 @@ import threading
 import time
 from itertools import count
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from .exceptions import LuminusError, LuminusProtocolError, LuminusTransportError
 from .result import LuminusResult
@@ -161,6 +161,43 @@ class Luminus:
 
     def get_server_status(self) -> LuminusResult:
         return self.call_tool("get_server_status", {})
+
+    def call_many(
+        self,
+        name: str,
+        argument_sets: Iterable[Mapping[str, Any]],
+    ) -> list[LuminusResult]:
+        return [self.call_tool(name, arguments) for arguments in argument_sets]
+
+    def call_many_to_pandas(
+        self,
+        name: str,
+        argument_sets: Iterable[Mapping[str, Any]],
+        *,
+        data_key: str | None = None,
+        include_request_args: bool = True,
+        request_prefix: str = "request_",
+    ):
+        try:
+            import pandas as pd
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError(
+                "pandas is not installed. Install luminus-py[notebook] or add pandas manually."
+            ) from exc
+
+        frames = []
+        for arguments in argument_sets:
+            args = dict(arguments)
+            result = self.call_tool(name, args)
+            frame = result.to_pandas(data_key=data_key)
+            if include_request_args:
+                for key, value in args.items():
+                    frame[f"{request_prefix}{key}"] = value
+            frames.append(frame)
+
+        if not frames:
+            return pd.DataFrame()
+        return pd.concat(frames, ignore_index=True)
 
     def __getattr__(self, name: str):
         if name.startswith("_"):
