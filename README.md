@@ -3,6 +3,8 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
+Latest release: [v0.2.0 release notes](docs/releases/0.2.0.md) · [Changelog](CHANGELOG.md)
+
 Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 
 ## Tools
