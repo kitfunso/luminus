@@ -74,10 +74,11 @@ for line in sys.stdin:
         elif name == "compare_sites":
             payload = {
                 "country": args.get("country", "GB"),
-                "sites": [
-                    {"name": "A", "rank": 1, "overall": "pass"},
-                    {"name": "B", "rank": 2, "overall": "warn"},
+                "rankings": [
+                    {"label": "A", "lat": 52.10, "lon": 0.20, "rank": 1, "overall": "pass"},
+                    {"label": "B", "lat": 52.20, "lon": 0.30, "rank": 2, "overall": "warn"},
                 ],
+                "failed_sites": [],
             }
         elif name == "screen_site":
             payload = {

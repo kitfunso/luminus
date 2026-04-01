@@ -54,7 +54,13 @@ def test_dynamic_tool_binding_and_metadata():
         assert flow_df["from_zone"].tolist() == ["DE", "DE"]
 
         comparison = client.compare_sites(country="GB")
-        assert comparison.to_pandas()["rank"].tolist() == [1, 2]
+        assert comparison.to_pandas(data_key="rankings")["rank"].tolist() == [1, 2]
+
+        geojson = client.call_tool_to_geojson("compare_sites", {"country": "GB"}, data_key="rankings")
+        assert geojson["features"][0]["geometry"]["coordinates"] == [0.2, 52.1]
+
+        prices_df = client.call_tool_to_pandas("get_day_ahead_prices", {"zone": "DE"})
+        assert prices_df["zone"].tolist() == ["DE", "DE"]
     finally:
         client.close()
 

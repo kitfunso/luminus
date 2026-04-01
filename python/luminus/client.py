@@ -162,6 +162,34 @@ class Luminus:
     def get_server_status(self) -> LuminusResult:
         return self.call_tool("get_server_status", {})
 
+    def call_tool_to_pandas(
+        self,
+        name: str,
+        arguments: Mapping[str, Any] | None = None,
+        *,
+        data_key: str | None = None,
+    ):
+        return self.call_tool(name, arguments).to_pandas(data_key=data_key)
+
+    def call_tool_to_geojson(
+        self,
+        name: str,
+        arguments: Mapping[str, Any] | None = None,
+        *,
+        data_key: str | None = None,
+    ) -> dict[str, Any]:
+        return self.call_tool(name, arguments).to_geojson(data_key=data_key)
+
+    def call_tool_to_geodataframe(
+        self,
+        name: str,
+        arguments: Mapping[str, Any] | None = None,
+        *,
+        data_key: str | None = None,
+        crs: str = "EPSG:4326",
+    ):
+        return self.call_tool(name, arguments).to_geodataframe(data_key=data_key, crs=crs)
+
     def call_many(
         self,
         name: str,

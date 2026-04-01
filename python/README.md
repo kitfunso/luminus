@@ -32,6 +32,16 @@ multi_zone = lum.call_many_to_pandas(
     "get_day_ahead_prices",
     [{"zone": "DE"}, {"zone": "FR"}, {"zone": "NL"}],
 )
+
+# One-shot export helpers
+prices_df = lum.call_tool_to_pandas("get_day_ahead_prices", {"zone": "DE"})
+rankings_geojson = lum.call_tool_to_geojson("compare_sites", {
+    "country": "GB",
+    "sites": [
+        {"label": "A", "lat": 52.1, "lon": 0.1},
+        {"label": "B", "lat": 52.2, "lon": 0.2},
+    ],
+}, data_key="rankings")
 ```
 
 ## Notes
