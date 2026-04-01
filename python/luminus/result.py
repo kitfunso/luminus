@@ -17,12 +17,16 @@ class LuminusResult:
     def to_dict(self) -> Any:
         return self.raw
 
-    def _frame_rows(self, data_key: str | None = None) -> list[dict[str, Any]]:
+    def _resolve_value(self, data_key: str | None = None) -> Any:
         value = self.raw
         if data_key is not None:
             if not isinstance(value, dict) or data_key not in value:
                 raise KeyError(f"{data_key!r} not found in {self.tool_name} result")
             value = value[data_key]
+        return value
+
+    def _frame_rows(self, data_key: str | None = None) -> list[dict[str, Any]]:
+        value = self._resolve_value(data_key=data_key)
 
         if isinstance(value, list):
             if all(isinstance(item, dict) for item in value):
@@ -46,6 +50,27 @@ class LuminusResult:
 
         return [{"value": value}]
 
+    def _extract_lon_lat(self, row: Mapping[str, Any]) -> tuple[float, float] | None:
+        if "lon" in row and "lat" in row:
+            lon = row.get("lon")
+            lat = row.get("lat")
+            if isinstance(lon, (int, float)) and isinstance(lat, (int, float)):
+                return float(lon), float(lat)
+
+        if "longitude" in row and "latitude" in row:
+            lon = row.get("longitude")
+            lat = row.get("latitude")
+            if isinstance(lon, (int, float)) and isinstance(lat, (int, float)):
+                return float(lon), float(lat)
+
+        coords = row.get("coordinates")
+        if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+            lon, lat = coords[0], coords[1]
+            if isinstance(lon, (int, float)) and isinstance(lat, (int, float)):
+                return float(lon), float(lat)
+
+        return None
+
     def to_pandas(self, data_key: str | None = None):
         try:
             import pandas as pd
@@ -55,3 +80,65 @@ class LuminusResult:
             ) from exc
 
         return pd.DataFrame(self._frame_rows(data_key=data_key))
+
+    def to_geojson(self, data_key: str | None = None) -> dict[str, Any]:
+        features: list[dict[str, Any]] = []
+        for row in self._frame_rows(data_key=data_key):
+            lon_lat = self._extract_lon_lat(row)
+            if lon_lat is None:
+                continue
+            lon, lat = lon_lat
+            properties = {
+                key: value
+                for key, value in row.items()
+                if key not in {"lon", "lat", "longitude", "latitude", "coordinates"}
+            }
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [lon, lat]},
+                    "properties": properties,
+                }
+            )
+
+        if not features:
+            raise ValueError(
+                f"{self.tool_name} does not contain any rows with lat/lon-style coordinates. "
+                "Pass data_key=... if the geospatial rows live under a nested list."
+            )
+
+        return {"type": "FeatureCollection", "features": features}
+
+    def to_geodataframe(self, data_key: str | None = None, *, crs: str = "EPSG:4326"):
+        try:
+            import geopandas as gpd
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError(
+                "geopandas is not installed. Install luminus-py[gis] or luminus-py[all]."
+            ) from exc
+
+        rows: list[dict[str, Any]] = []
+        for row in self._frame_rows(data_key=data_key):
+            lon_lat = self._extract_lon_lat(row)
+            if lon_lat is None:
+                continue
+            lon, lat = lon_lat
+            cleaned = {
+                key: value
+                for key, value in row.items()
+                if key not in {"lon", "lat", "longitude", "latitude", "coordinates"}
+            }
+            cleaned["lon"] = lon
+            cleaned["lat"] = lat
+            rows.append(cleaned)
+
+        if not rows:
+            raise ValueError(
+                f"{self.tool_name} does not contain any rows with lat/lon-style coordinates. "
+                "Pass data_key=... if the geospatial rows live under a nested list."
+            )
+
+        frame = gpd.GeoDataFrame(rows)
+        frame["geometry"] = gpd.points_from_xy(frame["lon"], frame["lat"])
+        frame.set_crs(crs, inplace=True)
+        return frame

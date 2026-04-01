@@ -6,6 +6,8 @@ This package starts the existing Node MCP server under the hood, calls tools ove
 
 Any MCP tool exposed by `luminus-mcp` is callable directly as a Python method, so the SDK does not need a hand-written wrapper for every tool.
 
+The SDK also includes geospatial helpers for notebook workflows: `to_geojson()` for lightweight mapping and `to_geodataframe()` for GeoPandas users.
+
 ## Quick start
 
 ```python
@@ -21,6 +23,9 @@ site = lum.compare_sites(sites=[
     {"name": "A", "lat": 52.1, "lon": 0.1},
     {"name": "B", "lat": 52.2, "lon": 0.2},
 ], country="GB")
+
+# GIS-friendly exports
+geojson = site.to_geojson(data_key="rankings")
 ```
 
 ## Notes
@@ -28,6 +33,7 @@ site = lum.compare_sites(sites=[
 - Use `lum.list_tools()` to see the live tool surface for the active profile.
 - Use `lum.describe_tool("tool_name")` to inspect the MCP description/schema metadata.
 - Notebook-style examples live in [`examples/`](examples/).
+- Use `to_geojson()` for lightweight mapping and `to_geodataframe()` when GeoPandas is installed.
 
 - Requires `luminus-mcp` to be available on `PATH`, unless you pass an explicit command.
 - By default the client starts `luminus-mcp --profile <profile>`.

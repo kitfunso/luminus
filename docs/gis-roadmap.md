@@ -27,10 +27,11 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 1. [x] ~~Spatial bridge to NESO/GSP geography~~ — shipped: nearest-GSP lookup via NESO CSV + TEC register name match + OSM substations
 2. [x] ~~Evaluate a reduced EU `screen_site` mode~~ — shipped: EU countries use terrain + solar + grid + Natura 2000 + CORINE, with GB-only layers explicitly omitted and `layers_available`/`layers_unavailable` in the response
 3. [x] ~~Harden shared Overpass querying~~ — shipped: rate limiter (2 concurrent / 10 per minute), exponential backoff, AbortController timeout, query-too-expensive detection
-4. [ ] Revisit `compare_sites` scoring weights after real usage feedback
-5. [ ] Decide where larger pre-processed GIS assets should live if spatial indexing becomes necessary
-6. [ ] Upgrade GSP lookup from nearest-point to polygon containment (requires bundling ~10MB GeoJSON or simplifying boundaries)
-7. [ ] Explore DNO-level open data (UKPN, NGED, SSEN) for distribution-level capacity signals
+4. [ ] Build a ranked BESS site-screening flow that combines `screen_site` / `compare_sites` with storage-specific economics and queue signals for shortlist generation
+5. [ ] Revisit `compare_sites` scoring weights after real usage feedback
+6. [ ] Decide where larger pre-processed GIS assets should live if spatial indexing becomes necessary
+7. [ ] Upgrade GSP lookup from nearest-point to polygon containment (requires bundling ~10MB GeoJSON or simplifying boundaries)
+8. [ ] Explore DNO-level open data (UKPN, NGED, SSEN) for distribution-level capacity signals
 
 ## Key constraints and caveats
 
