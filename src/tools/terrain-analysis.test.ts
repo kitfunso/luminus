@@ -50,6 +50,18 @@ describe("getTerrainAnalysis", () => {
     expect(result.elevation_m).toBe(20); // centre point
   });
 
+  it("adjusts east-west slope for longitude spacing by latitude", async () => {
+    const eastWestGradient = [10, 20, 30, 10, 20, 30, 10, 20, 30];
+    fetchMock
+      .mockResolvedValueOnce(makeElevationResponse(eastWestGradient))
+      .mockResolvedValueOnce(makeElevationResponse(eastWestGradient));
+
+    const lowLatitude = await getTerrainAnalysis({ lat: 10.0, lon: 11.0 });
+    const highLatitude = await getTerrainAnalysis({ lat: 60.0, lon: 11.0 });
+
+    expect(highLatitude.slope_deg).toBeGreaterThan(lowLatitude.slope_deg);
+  });
+
   it("computes south-facing aspect for north-to-south slope", async () => {
     // Elevation decreases north to south: top row=30, middle=20, bottom=10
     fetchMock.mockResolvedValueOnce(

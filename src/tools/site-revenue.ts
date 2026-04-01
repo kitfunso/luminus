@@ -145,8 +145,8 @@ async function estimatePvRevenue(p: RevenueParams): Promise<SiteRevenueResult> {
       ? round2(daylightPrices.reduce((s, pp) => s + pp.price_eur_mwh, 0) / daylightPrices.length)
       : prices.stats.mean;
 
-  // Annual revenue in EUR
-  const estimated_annual_revenue_eur = round2(annual_generation_mwh * capture_price_eur_mwh / 1000);
+  // Annual revenue in EUR. annual_generation_mwh is already in MWh.
+  const estimated_annual_revenue_eur = round2(annual_generation_mwh * capture_price_eur_mwh);
 
   const price_snapshot: PriceSnapshot = {
     date: prices.start_date,

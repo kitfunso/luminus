@@ -132,6 +132,16 @@ async function fetchAndParsePlants(url: string, type: "conventional" | "renewabl
   return plants;
 }
 
+function dedupePlants(plants: PowerPlant[]): PowerPlant[] {
+  const seen = new Set<string>();
+  return plants.filter((plant) => {
+    const key = `${plant.country}:${plant.name}:${plant.capacity_mw}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function fetchGbPlantsFromNeso(): Promise<PowerPlant[]> {
   const cacheKey = "neso:gb-plants";
   const cached = cache.get<PowerPlant[]>(cacheKey);
@@ -195,14 +205,7 @@ async function fetchGbPlantsFromNeso(): Promise<PowerPlant[]> {
     // Embedded fetch failed
   }
 
-  // Deduplicate by project name
-  const seen = new Set<string>();
-  const deduped = plants.filter((p) => {
-    const key = `${p.name}:${p.capacity_mw}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const deduped = dedupePlants(plants);
 
   cache.set(cacheKey, deduped, TTL.STATIC_DATA);
   return deduped;
@@ -226,16 +229,16 @@ export async function getPowerPlants(
 
   let plants = [...conventional, ...renewable];
 
+  const shouldIncludeGb = !params.country || params.country.toUpperCase() === "GB";
+  if (shouldIncludeGb) {
+    const gbPlants = await fetchGbPlantsFromNeso();
+    plants = dedupePlants([...plants, ...gbPlants]);
+  }
+
   // Apply filters
   if (params.country) {
     const countryUpper = params.country.toUpperCase();
     plants = plants.filter((p) => p.country === countryUpper);
-
-    // OPSD has no GB data — fall back to NESO registers
-    if (countryUpper === "GB" && plants.length === 0) {
-      const gbPlants = await fetchGbPlantsFromNeso();
-      plants = gbPlants;
-    }
   }
 
   if (params.fuel_type) {

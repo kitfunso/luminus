@@ -33,6 +33,8 @@ const state: RateLimiterState = {
   queue: [],
 };
 
+let windowDrainTimer: ReturnType<typeof setTimeout> | null = null;
+
 /** Exposed for testing only. */
 export function _getOverpassState(): Readonly<{
   windowTimestamps: readonly number[];
@@ -59,6 +61,10 @@ export function _resetOverpassState(): void {
   state.windowTimestamps.length = 0;
   state.inFlight = 0;
   state.queue.length = 0;
+  if (windowDrainTimer) {
+    clearTimeout(windowDrainTimer);
+    windowDrainTimer = null;
+  }
 }
 
 function pruneWindow(now: number): void {
@@ -73,11 +79,39 @@ function canProceed(now: number): boolean {
   return state.inFlight < MAX_CONCURRENT && state.windowTimestamps.length < MAX_PER_WINDOW;
 }
 
+function scheduleWindowDrain(): void {
+  if (state.queue.length === 0 || windowDrainTimer) {
+    return;
+  }
+
+  const now = Date.now();
+  pruneWindow(now);
+
+  if (state.windowTimestamps.length < MAX_PER_WINDOW) {
+    return;
+  }
+
+  const oldest = state.windowTimestamps[0];
+  const delayMs = Math.max(1, oldest + WINDOW_MS - now);
+
+  windowDrainTimer = setTimeout(() => {
+    windowDrainTimer = null;
+    drainQueue();
+  }, delayMs);
+}
+
 function drainQueue(): void {
+  if (windowDrainTimer) {
+    clearTimeout(windowDrainTimer);
+    windowDrainTimer = null;
+  }
+
   while (state.queue.length > 0 && canProceed(Date.now())) {
     const next = state.queue.shift();
     next?.();
   }
+
+  scheduleWindowDrain();
 }
 
 async function acquireSlot(): Promise<void> {
@@ -94,6 +128,7 @@ async function acquireSlot(): Promise<void> {
       state.windowTimestamps.push(Date.now());
       resolve();
     });
+    scheduleWindowDrain();
   });
 }
 

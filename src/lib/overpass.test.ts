@@ -318,6 +318,19 @@ describe("rate limiter sliding window", () => {
     expect(s.windowTimestamps.length).toBe(2);
   });
 
+  it("wakes queued requests when the window expires", async () => {
+    mockFetchOk({ ok: true });
+
+    for (let i = 0; i < 10; i++) {
+      await fetchOverpassJson(`q${i}`);
+    }
+
+    const queued = fetchOverpassJson<{ ok: boolean }>("q10");
+    await vi.advanceTimersByTimeAsync(60_001);
+
+    await expect(queued).resolves.toEqual({ ok: true });
+  });
+
   it("exposes correct config values", () => {
     const s = _getOverpassState();
     expect(s.maxConcurrent).toBe(2);

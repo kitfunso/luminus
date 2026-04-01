@@ -47,17 +47,18 @@ function toCardinal(deg: number): string {
  *    W  C   E     [3] [4] [5]
  *   SW  S  SE     [6] [7] [8]
  *
- * cellSize is the distance between adjacent cells in metres.
+ * cellSizeX/cellSizeY are the distances between adjacent cells in metres.
  */
 function computeSlopeAspect(
   grid: number[],
-  cellSizeM: number,
+  cellSizeXM: number,
+  cellSizeYM: number,
 ): { slope_deg: number; aspect_deg: number; aspect_cardinal: string; flatness_score: number } {
   const [nw, n, ne, w, , e, sw, s, se] = grid;
 
   // Horn's method partial derivatives
-  const dzdx = ((ne + 2 * e + se) - (nw + 2 * w + sw)) / (8 * cellSizeM);
-  const dzdy = ((nw + 2 * n + ne) - (sw + 2 * s + se)) / (8 * cellSizeM);
+  const dzdx = ((ne + 2 * e + se) - (nw + 2 * w + sw)) / (8 * cellSizeXM);
+  const dzdy = ((nw + 2 * n + ne) - (sw + 2 * s + se)) / (8 * cellSizeYM);
 
   const slopeRad = Math.atan(Math.sqrt(dzdx * dzdx + dzdy * dzdy));
   const slopeDeg = slopeRad * (180 / Math.PI);
@@ -136,8 +137,13 @@ export async function getTerrainAnalysis(
     throw new Error("Unexpected response from Open-Meteo Elevation API: expected 9 elevation values.");
   }
 
-  const cellSizeM = GRID_STEP_DEG * METRES_PER_DEGREE_LAT;
-  const { slope_deg, aspect_deg, aspect_cardinal, flatness_score } = computeSlopeAspect(elevations, cellSizeM);
+  const cellSizeXM = GRID_STEP_DEG * metresPerDegreeLon(lat);
+  const cellSizeYM = GRID_STEP_DEG * METRES_PER_DEGREE_LAT;
+  const { slope_deg, aspect_deg, aspect_cardinal, flatness_score } = computeSlopeAspect(
+    elevations,
+    cellSizeXM,
+    cellSizeYM,
+  );
 
   const result: TerrainResult = {
     lat,

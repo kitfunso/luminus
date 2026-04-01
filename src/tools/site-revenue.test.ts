@@ -142,7 +142,7 @@ describe("estimateSiteRevenue", () => {
       expect(result.revenue.annual_generation_mwh).toBe(11000);
     });
 
-    it("computes annual revenue = generation * capture_price / 1000", async () => {
+    it("computes annual revenue = generation * capture price", async () => {
       const result = await estimateSiteRevenue({
         lat: 51.5,
         lon: -0.1,
@@ -152,8 +152,8 @@ describe("estimateSiteRevenue", () => {
         date: "2026-03-31",
       });
 
-      // 11000 MWh * 60 EUR/MWh / 1000 = 660 EUR
-      expect(result.revenue.estimated_annual_revenue_eur).toBe(660);
+      // 11000 MWh * 60 EUR/MWh = 660000 EUR
+      expect(result.revenue.estimated_annual_revenue_eur).toBe(660000);
     });
 
     it("does not include BESS-specific fields", async () => {
