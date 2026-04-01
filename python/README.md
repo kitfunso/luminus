@@ -20,41 +20,69 @@ For GIS notebook work:
 pip install luminus-py[all]
 ```
 
+You also need `luminus-mcp` itself available on your machine, because the Python SDK starts the existing Node MCP server under the hood.
+
+```bash
+npm install -g luminus-mcp@0.2.0
+```
+
+## API keys
+
+Keyed tools use the same auth model as the Node server. Resolution order is:
+1. environment variables like `ENTSOE_API_KEY`
+2. `~/.luminus/keys.json`
+
+Example `~/.luminus/keys.json`:
+
+```json
+{
+  "ENTSOE_API_KEY": "...",
+  "GIE_API_KEY": "...",
+  "FINGRID_API_KEY": "..."
+}
+```
+
+Per-notebook overrides are also supported:
+
+```python
+lum = Luminus(profile="trader", env={"ENTSOE_API_KEY": "..."})
+```
+
 ## Quick start
 
 ```python
 from luminus import Luminus
 
-lum = Luminus(profile="trader")
-prices = lum.get_day_ahead_prices(zone="DE")
-df = prices.to_pandas()
+with Luminus(profile="trader") as lum:
+    prices = lum.get_day_ahead_prices(zone="DE")
+    df = prices.to_pandas()
 
-# Any MCP tool can be called directly
-flows = lum.get_cross_border_flows(from_zone="DE", to_zone="NL")
-site = lum.compare_sites(sites=[
-    {"name": "A", "lat": 52.1, "lon": 0.1},
-    {"name": "B", "lat": 52.2, "lon": 0.2},
-], country="GB")
+    # Any MCP tool can be called directly
+    flows = lum.get_cross_border_flows(from_zone="DE", to_zone="NL")
+    site = lum.compare_sites(sites=[
+        {"name": "A", "lat": 52.1, "lon": 0.1},
+        {"name": "B", "lat": 52.2, "lon": 0.2},
+    ], country="GB")
 
-# GIS-friendly exports
-geojson = site.to_geojson(data_key="rankings")
+    # GIS-friendly exports
+    geojson = site.to_geojson(data_key="rankings")
 
-# Batch several calls into one DataFrame
-multi_zone = lum.call_many_to_pandas(
-    "get_day_ahead_prices",
-    [{"zone": "DE"}, {"zone": "FR"}, {"zone": "NL"}],
-    parallel=True,
-)
+    # Batch several calls into one DataFrame
+    multi_zone = lum.call_many_to_pandas(
+        "get_day_ahead_prices",
+        [{"zone": "DE"}, {"zone": "FR"}, {"zone": "NL"}],
+        parallel=True,
+    )
 
-# One-shot export helpers
-prices_df = lum.call_tool_to_pandas("get_day_ahead_prices", {"zone": "DE"})
-rankings_geojson = lum.call_tool_to_geojson("compare_sites", {
-    "country": "GB",
-    "sites": [
-        {"label": "A", "lat": 52.1, "lon": 0.1},
-        {"label": "B", "lat": 52.2, "lon": 0.2},
-    ],
-}, data_key="rankings")
+    # One-shot export helpers
+    prices_df = lum.call_tool_to_pandas("get_day_ahead_prices", {"zone": "DE"})
+    rankings_geojson = lum.call_tool_to_geojson("compare_sites", {
+        "country": "GB",
+        "sites": [
+            {"label": "A", "lat": 52.1, "lon": 0.1},
+            {"label": "B", "lat": 52.2, "lon": 0.2},
+        ],
+    }, data_key="rankings")
 ```
 
 ## Notes

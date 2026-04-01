@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import json
 import os
 import queue
@@ -7,6 +8,7 @@ import shutil
 import subprocess
 import threading
 import time
+import weakref
 from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 from pathlib import Path
@@ -18,6 +20,19 @@ from .result import LuminusResult
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
 DEFAULT_CLIENT_NAME = "luminus-py"
 DEFAULT_CLIENT_VERSION = "0.2.0"
+
+_ACTIVE_CLIENTS: "weakref.WeakSet[Luminus]" = weakref.WeakSet()
+
+
+def _close_active_clients() -> None:  # pragma: no cover - process-exit behaviour
+    for client in list(_ACTIVE_CLIENTS):
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
+atexit.register(_close_active_clients)
 
 
 class _PipePump(threading.Thread):
@@ -103,6 +118,7 @@ class Luminus:
         self.protocol_version = init_result.get("protocolVersion", DEFAULT_PROTOCOL_VERSION)
         self.server_info = init_result.get("serverInfo", {})
         self._send({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
+        _ACTIVE_CLIENTS.add(self)
 
     def __enter__(self) -> "Luminus":
         return self
@@ -110,10 +126,17 @@ class Luminus:
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
 
+    def __del__(self) -> None:  # pragma: no cover - best-effort cleanup
+        try:
+            self.close()
+        except Exception:
+            pass
+
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
+        _ACTIVE_CLIENTS.discard(self)
 
         if self._process.poll() is None:
             self._process.terminate()
