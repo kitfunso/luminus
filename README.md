@@ -110,7 +110,8 @@ Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 | `get_terrain_analysis` | Open-Meteo Elevation | Elevation, slope, aspect, and flatness score for a location |
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
 | `get_grid_connection_queue` | NESO TEC Register | GB transmission TEC register search by connection site, host TO, technology, status, and agreement type |
-| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM | GB grid connection intelligence: nearest GSP lookup, TEC register queue at that GSP, and nearby substations |
+| `get_distribution_headroom` | SSEN Headroom Dashboard | SSEN-only DNO headroom lookup: nearby GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing |
+| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM | GB grid connection intelligence: polygon-first GSP lookup with nearest-point fallback, TEC register queue at that GSP, nearby substations, and SSEN distribution headroom where public SSEN data resolves |
 | `get_land_constraints` | Natural England / EEA Natura 2000 | GB protected areas via Natural England, plus EU Natura 2000 protected sites within a radius |
 | `get_land_cover` | CORINE Land Cover 2018 | Point land-cover classification for EU27 + EEA/EFTA sites, with conservative planning-exclusion flags for wetlands, water bodies, and woodland. GB not covered |
 | `get_agricultural_land` | Natural England ALC | Best and Most Versatile agricultural land screening. Prefers detailed post-1988 surveys, falls back to provisional ALC |
@@ -118,6 +119,7 @@ Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 | `screen_site` | Composite | PV/BESS site screening: terrain + grid + solar + constraints + agricultural land + flood risk in one pass/warn/fail verdict (GB + EU) |
 | `compare_sites` | Composite | Compare and rank 2-10 candidate PV/BESS sites by verdict, solar resource, grid proximity, and terrain (GB + EU) |
 | `estimate_site_revenue` | PVGIS + ENTSO-E | Estimate annual PV generation revenue or BESS arbitrage revenue for a candidate site. Requires ENTSO-E key. |
+| `shortlist_bess_sites` | Composite | GB-only BESS shortlist: combines `compare_sites`, screening-level revenue estimates, GB transmission queue intelligence, and SSEN DNO headroom where public SSEN data resolves. Requires ENTSO-E key. |
 | `verify_gis_sources` | All GIS providers | Health check for upstream GIS data sources. Reports status, response time, and provenance metadata |
 
 Roadmap: see [`docs/gis-roadmap.md`](docs/gis-roadmap.md).
@@ -189,19 +191,19 @@ Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RT
 
 ### Profiles
 
-By default all 54 data tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
+By default all available data tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
-npx luminus-mcp --profile grid       # 11 tools: flows, outages, infrastructure
+npx luminus-mcp --profile grid       # 12 tools: flows, outages, infrastructure
 npx luminus-mcp --profile generation # 6 tools: gen mix, forecasts, carbon
 npx luminus-mcp --profile gas        # 5 tools: storage, LNG, pipeline flows
 npx luminus-mcp --profile renewables # 5 tools: wind/solar forecasts, hydro
 npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
-npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
+npx luminus-mcp --profile bess       # 8 tools: arbitrage, ancillary, revenue, shortlist
 npx luminus-mcp --profile regional   # 8 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
-npx luminus-mcp --profile gis        # 13 tools: solar, terrain, grid proximity, connection queue, connection intelligence, constraints, land cover, agricultural land, flood risk, site screening (GB+EU), comparison, verification
+npx luminus-mcp --profile gis        # 16 tools: solar, terrain, grid, queue, screening, comparison, shortlist, verification
 npx luminus-mcp --profile full       # all 56 tools (default)
 ```
 
@@ -265,6 +267,7 @@ Ask your AI agent:
 | ENTSOG Transparency Platform | [transparency.entsog.eu](https://transparency.entsog.eu/) | European gas pipelines |
 | National Grid ESO | [carbonintensity.org.uk](https://carbonintensity.org.uk/) | UK |
 | NESO Data Portal | [api.neso.energy](https://api.neso.energy/) | GB transmission connection registers and GIS boundary datasets |
+| SSEN Open Data Portal | [data-api.ssen.co.uk](https://data-api.ssen.co.uk/) | SSEN distribution headroom, network capacity, and generation availability datasets |
 | Elexon BMRS | [bmrs.elexon.co.uk](https://bmrs.elexon.co.uk/) | GB balancing mechanism |
 | GIE AGSI+ / ALSI | [agsi.gie.eu](https://agsi.gie.eu/) | European gas & LNG |
 | EIA | [eia.gov](https://www.eia.gov/) | US natural gas |

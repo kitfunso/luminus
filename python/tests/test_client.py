@@ -3,7 +3,9 @@ from pathlib import Path
 import pytest
 
 from luminus import (
+    DistributionHeadroomSnapshot,
     GridConnectionQueueSnapshot,
+    GridConnectionIntelligenceSnapshot,
     GridProximitySnapshot,
     Luminus,
     LuminusConfigurationError,
@@ -144,6 +146,10 @@ def test_notebook_friendly_helper_methods():
         )
         assert revenue.iloc[0]["technology"] == "bess"
         assert revenue.iloc[0]["revenue.estimated_annual_revenue_eur"] == 529250.0
+
+        headroom = client.get_distribution_headroom_matches(lat=50.84, lon=-1.08, operator="SSEN")
+        assert headroom.iloc[0]["substation"] == "Portsmouth"
+        assert headroom.iloc[0]["estimated_generation_headroom_mw"] == 18.5
     finally:
         client.close()
 
@@ -170,6 +176,25 @@ def test_typed_models_remain_opt_in():
         assert isinstance(revenue, SiteRevenueEstimate)
         assert revenue.revenue.estimated_annual_revenue_eur == 529250.0
         assert revenue.price_snapshot.mean_eur_mwh == 82.5
+
+        headroom = client.get_distribution_headroom_snapshot(lat=50.84, lon=-1.08, operator="SSEN")
+        assert isinstance(headroom, DistributionHeadroomSnapshot)
+        assert headroom.nearest_site is not None
+        assert headroom.nearest_site.substation == "Portsmouth"
+        assert headroom.matches[0].generation_rag_status == "Green"
+
+        intelligence = client.get_grid_connection_intelligence_snapshot(
+            lat=50.84,
+            lon=-1.08,
+            country="GB",
+        )
+        assert isinstance(intelligence, GridConnectionIntelligenceSnapshot)
+        assert intelligence.nearest_gsp is not None
+        assert intelligence.nearest_gsp.region_name == "Lovedean"
+        assert intelligence.connection_queue is not None
+        assert intelligence.connection_queue.total_mw_queued == 320.0
+        assert intelligence.distribution_headroom is not None
+        assert intelligence.distribution_headroom.substation == "Portsmouth"
     finally:
         client.close()
 
@@ -198,7 +223,8 @@ def test_real_luminus_server_smoke():
     client = Luminus(command=["node", str(REAL_SERVER)], cwd=ROOT)
     try:
         tools = client.list_tools()
-        assert "get_generation_mix" in tools
-        assert len(tools) >= 50
+        assert "get_grid_connection_intelligence" in tools
+        assert "luminus_status" in tools
+        assert len(tools) >= 30
     finally:
         client.close()

@@ -164,8 +164,8 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     update_frequency: "Updated infrequently — GSP boundaries change rarely",
     reliability: "high",
     caveats: [
-      "Uses nearest-GSP by haversine distance, not polygon containment — an approximation",
-      "GSP coordinates are centroid-like reference points, not precise boundary anchors",
+      "Uses official NESO GSP region polygons when available, with nearest-point fallback for unresolved matches",
+      "Some polygon GSP codes may not map cleanly to CSV or TEC register naming, so fallback logic remains in place",
       "Some GSP names may not match TEC register connection site names exactly",
       "Coverage is GB only — does not include Northern Ireland or offshore",
     ],
@@ -188,6 +188,23 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
       "Projects can appear multiple times because staged or technology-split agreements are still being refined by NESO",
     ],
     attribution: "Contains data from the National Energy System Operator (NESO) TEC register.",
+  },
+  "ssen-distribution-headroom": {
+    id: "ssen-distribution-headroom",
+    name: "SSEN Distribution Headroom Dashboard",
+    provider: "Scottish and Southern Electricity Networks (SSEN)",
+    licence: "Open Government Licence v3.0",
+    url: "https://data-api.ssen.co.uk/dataset/generation-availability-and-network-capacity",
+    api_key_required: false,
+    coverage: "SSEN licence areas (SEPD, SHEPD, Shetland)",
+    update_frequency: "Published periodically by SSEN",
+    reliability: "medium",
+    caveats: [
+      "Coverage is limited to SSEN licence areas and does not include UKPN or NGED",
+      "Headroom values are planning signals, not guaranteed connection capacity or queue position",
+      "Site matching is nearest-point only; it does not infer DNO boundaries from the site list",
+    ],
+    attribution: "Contains data from Scottish and Southern Electricity Networks (SSEN).",
   },
   "pvgis": {
     id: "pvgis",
@@ -366,6 +383,28 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
         const json = JSON.parse(body);
         if (!json.success) return json.error?.message ?? "NESO API reported failure";
         if (!Array.isArray(json.result?.records)) return "Response missing records array";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "ssen-distribution-headroom",
+    url: "https://data-api.ssen.co.uk/api/3/action/package_show?id=generation-availability-and-network-capacity",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        const resources = Array.isArray(json.result?.resources) ? json.result.resources : [];
+        const hasHeadroomCsv = resources.some((resource: { name?: string; format?: string }) =>
+          resource.format === "CSV" &&
+          typeof resource.name === "string" &&
+          resource.name.startsWith("Headroom Dashboard Data"),
+        );
+        if (!hasHeadroomCsv) return "Response missing headroom CSV resource";
         return null;
       } catch {
         return "Response is not valid JSON";

@@ -67,6 +67,7 @@ import { terrainAnalysisSchema, getTerrainAnalysis } from "./tools/terrain-analy
 import { gridProximitySchema, getGridProximity } from "./tools/grid-proximity.js";
 import { gridConnectionQueueSchema, getGridConnectionQueue } from "./tools/grid-connection-queue.js";
 import { gridConnectionIntelligenceSchema, getGridConnectionIntelligence } from "./tools/grid-connection-intelligence.js";
+import { distributionHeadroomSchema, getDistributionHeadroom } from "./tools/distribution-headroom.js";
 import { landConstraintsSchema, getLandConstraints } from "./tools/land-constraints.js";
 import { landCoverSchema, getLandCover } from "./tools/land-cover.js";
 import { agriculturalLandSchema, getAgriculturalLand } from "./tools/agricultural-land.js";
@@ -75,6 +76,7 @@ import { screenSiteSchema, screenSite } from "./tools/screen-site.js";
 import { verifyGisSourcesSchema, verifyGisSources } from "./tools/verify-gis-sources.js";
 import { compareSitesSchema, compareSites } from "./tools/compare-sites.js";
 import { siteRevenueSchema, estimateSiteRevenue } from "./tools/site-revenue.js";
+import { bessShortlistSchema, shortlistBessSites } from "./tools/bess-shortlist.js";
 
 // ---------------------------------------------------------------------------
 // Startup configuration
@@ -684,9 +686,19 @@ if (shouldRegister("get_grid_connection_intelligence")) {
   registeredToolNames.push("get_grid_connection_intelligence");
   server.tool(
     "get_grid_connection_intelligence",
-    "GB grid connection intelligence: finds nearest GSP, queries the TEC register for connection activity at that GSP, and shows nearby substations. Combines spatial GSP lookup with NESO queue data. Not a connection offer or capacity guarantee.",
+    "GB grid connection intelligence: resolves the containing GSP region when NESO boundaries match, otherwise falls back to the nearest GSP, then adds TEC register context, nearby substations, and SSEN distribution headroom where public SSEN data resolves. Not a connection offer or capacity guarantee.",
     gridConnectionIntelligenceSchema.shape,
     auditedToolHandler("get_grid_connection_intelligence", gridConnectionIntelligenceSchema, getGridConnectionIntelligence),
+  );
+}
+
+if (shouldRegister("get_distribution_headroom")) {
+  registeredToolNames.push("get_distribution_headroom");
+  server.tool(
+    "get_distribution_headroom",
+    "SSEN-only distribution headroom lookup. Finds nearby SSEN GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing from SSEN's public headroom dashboard. Not a connection offer or firm capacity right.",
+    distributionHeadroomSchema.shape,
+    auditedToolHandler("get_distribution_headroom", distributionHeadroomSchema, getDistributionHeadroom),
   );
 }
 
@@ -767,6 +779,16 @@ if (shouldRegister("estimate_site_revenue")) {
     "Estimate annual PV generation revenue or BESS arbitrage revenue for a candidate site. Combines solar resource with day-ahead prices (PV) or spread analysis (BESS). Not a financial model.",
     siteRevenueSchema.shape,
     auditedToolHandler("estimate_site_revenue", siteRevenueSchema, estimateSiteRevenue),
+  );
+}
+
+if (shouldRegister("shortlist_bess_sites")) {
+  registeredToolNames.push("shortlist_bess_sites");
+  server.tool(
+    "shortlist_bess_sites",
+    "GB-only BESS shortlist flow. Combines compare_sites, screening-level BESS revenue estimates, GB transmission queue intelligence, and SSEN distribution headroom where public SSEN data resolves into a transparent ranked shortlist. Not a capacity guarantee, connection offer, or investment model.",
+    bessShortlistSchema.shape,
+    auditedToolHandler("shortlist_bess_sites", bessShortlistSchema, shortlistBessSites),
   );
 }
 

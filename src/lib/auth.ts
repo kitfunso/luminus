@@ -177,6 +177,7 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   get_grid_proximity: [],
   get_grid_connection_queue: [],
   get_grid_connection_intelligence: [],
+  get_distribution_headroom: [],
   get_land_constraints: [],
   get_agricultural_land: [],
   get_flood_risk: [],
@@ -184,6 +185,7 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   verify_gis_sources: [],
   compare_sites: [],
   estimate_site_revenue: ["ENTSOE_API_KEY"],
+  shortlist_bess_sites: ["ENTSOE_API_KEY"],
 } as const;
 
 /**

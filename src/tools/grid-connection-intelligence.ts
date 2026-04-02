@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getDistributionHeadroom } from "./distribution-headroom.js";
 import { lookupGspRegion, type GspLookupResult } from "../lib/neso-gsp.js";
 import { getGridConnectionQueue } from "./grid-connection-queue.js";
 import { getGridProximity } from "./grid-proximity.js";
@@ -34,6 +35,21 @@ interface NearbySubstation {
   distance_km: number;
 }
 
+interface DistributionHeadroomSummary {
+  operator: string;
+  substation: string;
+  substation_type: string | null;
+  distance_km: number;
+  estimated_generation_headroom_mw: number | null;
+  estimated_demand_headroom_mva: number | null;
+  generation_rag_status: string | null;
+  demand_rag_status: string | null;
+  generation_constraint: string | null;
+  demand_constraint: string | null;
+  upstream_reinforcement_works: string | null;
+  upstream_reinforcement_completion_date: string | null;
+}
+
 interface GridConnectionIntelligenceResult {
   lat: number;
   lon: number;
@@ -41,25 +57,28 @@ interface GridConnectionIntelligenceResult {
   nearest_gsp: NearestGspResult | null;
   connection_queue: ConnectionQueueResult | null;
   nearby_substations: NearbySubstation[];
+  distribution_headroom: DistributionHeadroomSummary | null;
   confidence_notes: string[];
   source_metadata: {
     gsp_lookup: GisSourceMetadata;
     tec_register: GisSourceMetadata;
     grid_proximity: GisSourceMetadata;
+    distribution_headroom: GisSourceMetadata;
   };
   disclaimer: string;
 }
 
 const DISCLAIMER =
-  "This combines a nearest-GSP spatial approximation with the NESO TEC register and OSM substation data. " +
-  "It is not a connection offer, capacity guarantee, or DNO headroom assessment. " +
+  "This combines NESO GSP region polygons, nearest-point fallback, the NESO TEC register, SSEN distribution headroom where public SSEN data resolves, and OSM substation data. " +
+  "It is not a connection offer, capacity guarantee, or GB-wide DNO headroom assessment. " +
   "Always verify with the relevant network operator before making connection decisions.";
 
 function buildConfidenceNotes(gspResult: GspLookupResult | null): string[] {
   const notes: string[] = [
-    "GSP lookup uses nearest-GSP approximation, not polygon containment",
+    "GSP lookup uses NESO region polygons when available, with nearest-point fallback if boundaries do not resolve a match",
     "TEC register connection sites are matched by GSP name substring, not spatial coordinates",
     "Connection queue data shows contracted positions, not guaranteed available capacity",
+    "Distribution headroom uses SSEN public data only and is not a GB-wide DNO map",
   ];
 
   if (!gspResult) {
@@ -99,10 +118,12 @@ export async function getGridConnectionIntelligence(
     : Promise.resolve(null);
 
   const proximityPromise = queryGridProximity(lat, lon, radiusKm);
+  const distributionHeadroomPromise = queryDistributionHeadroom(lat, lon, radiusKm);
 
-  const [connectionQueue, nearbySubstations] = await Promise.all([
+  const [connectionQueue, nearbySubstations, distributionHeadroom] = await Promise.all([
     tecPromise,
     proximityPromise,
+    distributionHeadroomPromise,
   ]);
 
   return {
@@ -120,11 +141,13 @@ export async function getGridConnectionIntelligence(
       : null,
     connection_queue: connectionQueue,
     nearby_substations: nearbySubstations,
+    distribution_headroom: distributionHeadroom,
     confidence_notes: buildConfidenceNotes(gspResult),
     source_metadata: {
       gsp_lookup: GIS_SOURCES["neso-gsp-lookup"],
       tec_register: GIS_SOURCES["neso-tec-register"],
       grid_proximity: GIS_SOURCES["overpass-osm"],
+      distribution_headroom: GIS_SOURCES["ssen-distribution-headroom"],
     },
     disclaimer: DISCLAIMER,
   };
@@ -177,5 +200,40 @@ async function queryGridProximity(
   } catch {
     // Proximity failure should not block the overall result
     return [];
+  }
+}
+
+async function queryDistributionHeadroom(
+  lat: number,
+  lon: number,
+  radiusKm: number,
+): Promise<DistributionHeadroomSummary | null> {
+  try {
+    const result = await getDistributionHeadroom({
+      lat,
+      lon,
+      operator: "SSEN",
+      radius_km: radiusKm,
+    });
+
+    const site = result.nearest_site;
+    if (!site) return null;
+
+    return {
+      operator: result.operator,
+      substation: site.substation,
+      substation_type: site.substation_type,
+      distance_km: site.distance_km,
+      estimated_generation_headroom_mw: site.estimated_generation_headroom_mw,
+      estimated_demand_headroom_mva: site.estimated_demand_headroom_mva,
+      generation_rag_status: site.generation_rag_status,
+      demand_rag_status: site.demand_rag_status,
+      generation_constraint: site.generation_constraint,
+      demand_constraint: site.demand_constraint,
+      upstream_reinforcement_works: site.upstream_reinforcement_works,
+      upstream_reinforcement_completion_date: site.upstream_reinforcement_completion_date,
+    };
+  } catch {
+    return null;
   }
 }
