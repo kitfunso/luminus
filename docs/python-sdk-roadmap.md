@@ -22,13 +22,12 @@ Status tracker for the notebook-friendly Python client that wraps `luminus-mcp`.
 
 ## Current status
 
-- [ ] Publish `luminus-py` to PyPI - blocked only by a missing PyPI API token on the current machine
+- [x] Publish `luminus-py` to PyPI via GitHub Trusted Publishing (`v0.2.1`)
 - [ ] Revisit async execution or smarter client/process pooling if heavy notebook fan-out becomes a bottleneck
 
 ## Prioritised next actions
 
-1. [ ] Publish `luminus-py` to PyPI once a PyPI API token is configured
-2. [ ] Revisit async execution or smarter client/process pooling if heavy notebook fan-out becomes a bottleneck
+1. [ ] Revisit async execution or smarter client/process pooling if heavy notebook fan-out becomes a bottleneck
 
 ## Guardrails
 

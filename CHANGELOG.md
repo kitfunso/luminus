@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.1 - 2026-04-02
+
+Python SDK follow-up release focused on publishing, notebook ergonomics, and packaging automation.
+
+### Added
+- Trusted Publishing workflow for `luminus-py` on PyPI
+- notebook-first Python helpers for outages, cross-border flows, grid proximity, grid connection queue, and site revenue
+- typed Python models for common GIS and site-revenue result shapes
+- analyst-ready notebooks for trader, GIS siting, and BESS shortlist workflows
+
+### Changed
+- improved Python-side error translation for startup, configuration, and upstream failures
+- extended CI to run Python tests and packaging validation
+- updated Python docs and roadmap to match the shipped SDK surface
+
+### Verification
+- 15 Python tests passed
+- Python wheel and sdist built successfully
+- GitHub Trusted Publishing release workflow passed
+
+For the fuller narrative, see [`docs/releases/0.2.1.md`](docs/releases/0.2.1.md).
+
 ## 0.2.0 - 2026-04-01
 
 Luminus MCP grew from a power-data MCP into a stronger GIS-aware screening and notebook-friendly platform.
