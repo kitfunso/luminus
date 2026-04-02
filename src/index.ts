@@ -75,6 +75,7 @@ import { screenSiteSchema, screenSite } from "./tools/screen-site.js";
 import { verifyGisSourcesSchema, verifyGisSources } from "./tools/verify-gis-sources.js";
 import { compareSitesSchema, compareSites } from "./tools/compare-sites.js";
 import { siteRevenueSchema, estimateSiteRevenue } from "./tools/site-revenue.js";
+import { bessShortlistSchema, shortlistBessSites } from "./tools/bess-shortlist.js";
 
 // ---------------------------------------------------------------------------
 // Startup configuration
@@ -767,6 +768,16 @@ if (shouldRegister("estimate_site_revenue")) {
     "Estimate annual PV generation revenue or BESS arbitrage revenue for a candidate site. Combines solar resource with day-ahead prices (PV) or spread analysis (BESS). Not a financial model.",
     siteRevenueSchema.shape,
     auditedToolHandler("estimate_site_revenue", siteRevenueSchema, estimateSiteRevenue),
+  );
+}
+
+if (shouldRegister("shortlist_bess_sites")) {
+  registeredToolNames.push("shortlist_bess_sites");
+  server.tool(
+    "shortlist_bess_sites",
+    "GB-only BESS shortlist flow. Combines compare_sites, screening-level BESS revenue estimates, and GB transmission queue intelligence into a transparent ranked shortlist. Not a capacity guarantee, connection offer, or investment model.",
+    bessShortlistSchema.shape,
+    auditedToolHandler("shortlist_bess_sites", bessShortlistSchema, shortlistBessSites),
   );
 }
 

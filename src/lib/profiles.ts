@@ -65,6 +65,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_day_ahead_prices',
     'get_intraday_prices',
     'estimate_site_revenue',
+    'shortlist_bess_sites',
   ],
   regional: [
     'get_energy_charts',
@@ -98,6 +99,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'verify_gis_sources',
     'compare_sites',
     'estimate_site_revenue',
+    'shortlist_bess_sites',
   ],
 } as const;
 
@@ -109,11 +111,11 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   gas: 'Gas storage, LNG terminals, US gas data, EU gas prices, and ENTSOG pipelines',
   renewables: 'Wind/solar forecasts, irradiance, ERA5 reanalysis, and hydro inflows',
   uk: 'UK-specific carbon intensity, grid demand, and Elexon BMRS data',
-  bess: 'Battery storage arbitrage: spreads, ancillary prices, and balancing actions',
+  bess: 'Battery storage arbitrage: spreads, ancillary prices, site revenue, and shortlist generation',
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
-  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), and source verification',
-  full: 'All 54 data tools registered by default, plus 2 meta-tools',
+  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), BESS shortlist generation, and source verification',
+  full: 'All registered data tools by default, plus 2 meta-tools',
 };
 
 /**

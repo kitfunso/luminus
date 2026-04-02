@@ -12,6 +12,14 @@ describe("index meta-tools", () => {
     expect(indexSource).toContain("async ({ profile: filterProfile, category }) => {");
     expect(indexSource).toContain("const requestedProfile = filterProfile ?? category;");
   });
+
+  it("registers the shortlist_bess_sites GIS tool", async () => {
+    const indexSource = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
+
+    expect(indexSource).toContain('if (shouldRegister("shortlist_bess_sites"))');
+    expect(indexSource).toContain('server.tool(');
+    expect(indexSource).toContain('"shortlist_bess_sites"');
+  });
 });
 
 describe("public docs", () => {

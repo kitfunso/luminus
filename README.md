@@ -118,6 +118,7 @@ Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 | `screen_site` | Composite | PV/BESS site screening: terrain + grid + solar + constraints + agricultural land + flood risk in one pass/warn/fail verdict (GB + EU) |
 | `compare_sites` | Composite | Compare and rank 2-10 candidate PV/BESS sites by verdict, solar resource, grid proximity, and terrain (GB + EU) |
 | `estimate_site_revenue` | PVGIS + ENTSO-E | Estimate annual PV generation revenue or BESS arbitrage revenue for a candidate site. Requires ENTSO-E key. |
+| `shortlist_bess_sites` | Composite | GB-only BESS shortlist: combines `compare_sites`, screening-level revenue estimates, and GB transmission queue intelligence into a ranked shortlist. Requires ENTSO-E key. |
 | `verify_gis_sources` | All GIS providers | Health check for upstream GIS data sources. Reports status, response time, and provenance metadata |
 
 Roadmap: see [`docs/gis-roadmap.md`](docs/gis-roadmap.md).
@@ -189,7 +190,7 @@ Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RT
 
 ### Profiles
 
-By default all 54 data tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
+By default all available data tools are registered. Use `--profile` to load only what you need, cutting context window cost by 60-90%:
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
@@ -198,10 +199,10 @@ npx luminus-mcp --profile generation # 6 tools: gen mix, forecasts, carbon
 npx luminus-mcp --profile gas        # 5 tools: storage, LNG, pipeline flows
 npx luminus-mcp --profile renewables # 5 tools: wind/solar forecasts, hydro
 npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
-npx luminus-mcp --profile bess       # 5 tools: arbitrage, ancillary, balancing
+npx luminus-mcp --profile bess       # 7 tools: arbitrage, ancillary, revenue, shortlist
 npx luminus-mcp --profile regional   # 8 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
-npx luminus-mcp --profile gis        # 13 tools: solar, terrain, grid proximity, connection queue, connection intelligence, constraints, land cover, agricultural land, flood risk, site screening (GB+EU), comparison, verification
+npx luminus-mcp --profile gis        # 15 tools: solar, terrain, grid, queue, screening, comparison, shortlist, verification
 npx luminus-mcp --profile full       # all 56 tools (default)
 ```
 

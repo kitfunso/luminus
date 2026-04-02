@@ -86,7 +86,7 @@ Luminus/
       carbon.ts           # get_carbon_intensity (derived)
       demand.ts           # get_demand_forecast
       forecast.ts         # get_renewable_forecast
-      ... (54 data tools total, plus 2 always-on meta-tools)
+      ... (55 data tools total, plus 2 always-on meta-tools)
     lib/
       entsoe-client.ts    # ENTSO-E API client (handles XML, auth, rate limits)
       zone-codes.ts       # EIC code mappings
