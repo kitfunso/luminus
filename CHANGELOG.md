@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.2 - 2026-04-02
+
+Python SDK republish to verify the tightened PyPI Trusted Publisher binding.
+
+### Changed
+- bumped `luminus-py` to `0.2.2`
+- republished through the GitHub Trusted Publisher restricted to the `pypi` environment
+- updated release references to point at the latest Python package release
+
+### Verification
+- Python tests passed
+- Python wheel and sdist built successfully
+- GitHub Trusted Publishing release workflow passed
+- PyPI provenance verified `environment: "pypi"`
+
+For the fuller narrative, see [`docs/releases/0.2.2.md`](docs/releases/0.2.2.md).
+
 ## 0.2.1 - 2026-04-02
 
 Python SDK follow-up release focused on publishing, notebook ergonomics, and packaging automation.

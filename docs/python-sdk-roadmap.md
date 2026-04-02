@@ -22,7 +22,7 @@ Status tracker for the notebook-friendly Python client that wraps `luminus-mcp`.
 
 ## Current status
 
-- [x] Publish `luminus-py` to PyPI via GitHub Trusted Publishing (`v0.2.1`)
+- [x] Publish `luminus-py` to PyPI via GitHub Trusted Publishing (`v0.2.2`)
 - [ ] Revisit async execution or smarter client/process pooling if heavy notebook fan-out becomes a bottleneck
 
 ## Prioritised next actions
