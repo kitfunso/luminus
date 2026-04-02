@@ -21,14 +21,14 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 
 - [x] First real GB connection-intelligence slice shipped
 - [x] Conservative spatial bridge between site coordinates and public connection-register geography
-  shipped: `get_grid_connection_intelligence` uses NESO GSP-Gnode CSV for nearest-GSP lookup, then queries TEC register by GSP name
+  shipped: `get_grid_connection_intelligence` uses official NESO GSP polygons when available, falls back to nearest-point matching when needed, then queries the TEC register by GSP region
 - [x] Ranked GB BESS shortlist flow shipped: `shortlist_bess_sites` combines `compare_sites`, screening-level BESS revenue, and GB transmission queue intelligence into one transparent shortlist response
 - [ ] Stronger DNO-level capacity or queue signal, if a public source proves clean enough
 
 ## Prioritised next actions
 
 1. [x] Spatial bridge to NESO/GSP geography
-   shipped: nearest-GSP lookup via NESO CSV + TEC register name match + OSM substations
+   shipped: polygon-first GSP lookup via official NESO boundaries + CSV fallback, TEC register name match, and OSM substations
 2. [x] Evaluate a reduced EU `screen_site` mode
    shipped: EU countries use terrain + solar + grid + Natura 2000 + CORINE, with GB-only layers explicitly omitted and `layers_available`/`layers_unavailable` in the response
 3. [x] Harden shared Overpass querying
@@ -37,8 +37,8 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
    shipped: `shortlist_bess_sites` reuses `compare_sites`, `estimate_site_revenue`, and `get_grid_connection_intelligence` for a GB-only shortlist with transparent scoring
 5. [ ] Revisit `compare_sites` scoring weights after real usage feedback
 6. [ ] Decide where larger pre-processed GIS assets should live if spatial indexing becomes necessary
-7. [ ] Upgrade GSP lookup from nearest-point to polygon containment
-   requires bundling about 10MB of GeoJSON or simplifying boundaries
+7. [x] Upgrade GSP lookup from nearest-point to polygon containment
+   shipped: runtime fetch of NESO's WGS84 boundary GeoJSON from the official ZIP, polygon containment first, nearest-point fallback for unresolved matches
 8. [ ] Explore DNO-level open data (UKPN, NGED, SSEN) for distribution-level capacity signals
 
 ## Key constraints and caveats

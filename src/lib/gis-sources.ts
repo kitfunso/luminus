@@ -164,8 +164,8 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     update_frequency: "Updated infrequently — GSP boundaries change rarely",
     reliability: "high",
     caveats: [
-      "Uses nearest-GSP by haversine distance, not polygon containment — an approximation",
-      "GSP coordinates are centroid-like reference points, not precise boundary anchors",
+      "Uses official NESO GSP region polygons when available, with nearest-point fallback for unresolved matches",
+      "Some polygon GSP codes may not map cleanly to CSV or TEC register naming, so fallback logic remains in place",
       "Some GSP names may not match TEC register connection site names exactly",
       "Coverage is GB only — does not include Northern Ireland or offshore",
     ],

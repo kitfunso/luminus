@@ -239,7 +239,7 @@ describe("getGridConnectionIntelligence", () => {
     });
 
     expect(result.confidence_notes).toContain(
-      "GSP lookup uses nearest-GSP approximation, not polygon containment",
+      "GSP lookup uses NESO region polygons when available, with nearest-point fallback if boundaries do not resolve a match",
     );
     expect(result.confidence_notes).toContain(
       "TEC register connection sites are matched by GSP name substring, not spatial coordinates",

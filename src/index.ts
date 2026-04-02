@@ -685,7 +685,7 @@ if (shouldRegister("get_grid_connection_intelligence")) {
   registeredToolNames.push("get_grid_connection_intelligence");
   server.tool(
     "get_grid_connection_intelligence",
-    "GB grid connection intelligence: finds nearest GSP, queries the TEC register for connection activity at that GSP, and shows nearby substations. Combines spatial GSP lookup with NESO queue data. Not a connection offer or capacity guarantee.",
+    "GB grid connection intelligence: resolves the containing GSP region when NESO boundaries match, otherwise falls back to the nearest GSP, then queries the TEC register and nearby substations. Not a connection offer or capacity guarantee.",
     gridConnectionIntelligenceSchema.shape,
     auditedToolHandler("get_grid_connection_intelligence", gridConnectionIntelligenceSchema, getGridConnectionIntelligence),
   );

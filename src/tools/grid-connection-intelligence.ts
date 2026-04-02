@@ -51,13 +51,13 @@ interface GridConnectionIntelligenceResult {
 }
 
 const DISCLAIMER =
-  "This combines a nearest-GSP spatial approximation with the NESO TEC register and OSM substation data. " +
+  "This combines NESO GSP region polygons, nearest-point fallback, the NESO TEC register, and OSM substation data. " +
   "It is not a connection offer, capacity guarantee, or DNO headroom assessment. " +
   "Always verify with the relevant network operator before making connection decisions.";
 
 function buildConfidenceNotes(gspResult: GspLookupResult | null): string[] {
   const notes: string[] = [
-    "GSP lookup uses nearest-GSP approximation, not polygon containment",
+    "GSP lookup uses NESO region polygons when available, with nearest-point fallback if boundaries do not resolve a match",
     "TEC register connection sites are matched by GSP name substring, not spatial coordinates",
     "Connection queue data shows contracted positions, not guaranteed available capacity",
   ];
