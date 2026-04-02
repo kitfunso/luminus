@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.3.0 - 2026-04-02
+
+Unified npm and Python SDK release for the GIS shortlist and connection-intelligence tranche.
+
+### Added
+- `shortlist_bess_sites` for ranked GB BESS screening that combines GIS scoring, screening-level BESS revenue, transmission queue context, and SSEN DNO headroom where public SSEN data resolves
+- `get_distribution_headroom` for SSEN public DNO headroom, constraint, and reinforcement signals
+- polygon-first NESO GSP lookup with nearest-point fallback in grid connection intelligence
+- Python SDK helpers and typed snapshots for distribution headroom and grid connection intelligence
+- upgraded GIS siting and BESS shortlist notebooks to use the new helper surface
+
+### Changed
+- bumped `luminus-mcp` to `0.3.0`
+- bumped `luminus-py` to `0.3.0`
+- aligned release docs so npm and PyPI version references match the current published state
+- tightened Python packaging checks in the release workflow with `twine check` and wheel smoke tests
+
+### Verification
+- JS test suite passed
+- TypeScript build passed
+- npm audit reported 0 vulnerabilities
+- Python tests passed
+- Python wheel and sdist built successfully
+- Python wheel smoke install passed
+
+For the fuller narrative, see [`docs/releases/0.3.0.md`](docs/releases/0.3.0.md).
+
 ## 0.2.2 - 2026-04-02
 
 Python SDK republish to verify the tightened PyPI Trusted Publisher binding.

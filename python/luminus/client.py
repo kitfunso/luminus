@@ -34,7 +34,7 @@ from .result import LuminusResult
 
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
 DEFAULT_CLIENT_NAME = "luminus-py"
-DEFAULT_CLIENT_VERSION = "0.2.2"
+DEFAULT_CLIENT_VERSION = "0.3.0"
 
 _ACTIVE_CLIENTS: "weakref.WeakSet[Luminus]" = weakref.WeakSet()
 

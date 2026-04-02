@@ -59,18 +59,24 @@ describe("public docs", () => {
     const readme = read("README.md");
     const pythonReadme = read("python/README.md");
     const packageJson = JSON.parse(read("package.json")) as { version: string };
+    const pyproject = read("python/pyproject.toml");
+    const pyprojectMatch = pyproject.match(/^version = "([^"]+)"/m);
     const pythonRelease021 = read("docs/releases/0.2.1.md");
     const pythonRelease022 = read("docs/releases/0.2.2.md");
 
-    expect(packageJson.version).toBe("0.2.0");
+    expect(pyprojectMatch).not.toBeNull();
+    const pythonVersion = pyprojectMatch![1];
+
+    expect(packageJson.version).toBe("0.3.0");
     expect(readme).toContain(
-      "Latest npm release: [v0.2.0 release notes](docs/releases/0.2.0.md)",
+      `Latest release: [v${packageJson.version} release notes](docs/releases/${packageJson.version}.md)`,
     );
     expect(readme).toContain(
-      "Latest Python SDK release: [v0.2.2 release notes](docs/releases/0.2.2.md)",
+      `Current published versions: \`luminus-mcp@${packageJson.version}\` and \`luminus-py==${pythonVersion}\`.`,
     );
-    expect(pythonReadme).toContain("npm install -g luminus-mcp");
-    expect(pythonReadme).not.toContain("npm install -g luminus-mcp@0.2.0");
+    expect(pythonReadme).toContain(
+      `Current published versions: \`luminus-mcp@${packageJson.version}\` and \`luminus-py==${pythonVersion}\`.`,
+    );
     expect(pythonRelease021).toContain("# luminus-py v0.2.1");
     expect(pythonRelease021).toContain("The npm MCP package remained `luminus-mcp@0.2.0`.");
     expect(pythonRelease022).toContain("# luminus-py v0.2.2");

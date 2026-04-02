@@ -3,9 +3,9 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Latest npm release: [v0.2.0 release notes](docs/releases/0.2.0.md) | Latest Python SDK release: [v0.2.2 release notes](docs/releases/0.2.2.md) | [Changelog](CHANGELOG.md)
+Latest release: [v0.3.0 release notes](docs/releases/0.3.0.md) | [Changelog](CHANGELOG.md)
 
-The npm MCP package is still `luminus-mcp@0.2.0`. The `0.2.1` and `0.2.2` tags were Python SDK releases.
+Current published versions: `luminus-mcp@0.3.0` and `luminus-py==0.3.0`.
 
 Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 

@@ -1,6 +1,6 @@
 {
   "name": "luminus-mcp",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Real-time European & UK electricity grid data via MCP. 56 tools, all free.",
   "type": "module",
   "main": "dist/index.js",
