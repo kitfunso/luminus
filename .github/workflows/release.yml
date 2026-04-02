@@ -1,0 +1,60 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-python-distributions:
+    name: Build Python distributions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip build
+
+      - name: Build wheel and sdist
+        run: python -m build python
+
+      - name: Store distribution artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: python-package-distributions
+          path: python/dist/
+
+  publish-pypi:
+    name: Publish luminus-py to PyPI
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - build-python-distributions
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/luminus-py
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

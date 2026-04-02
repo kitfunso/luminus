@@ -13,29 +13,22 @@ Status tracker for the notebook-friendly Python client that wraps `luminus-mcp`.
 - [x] Parallel batch fan-out via multiple MCP subprocesses
 - [x] Higher-level notebook helpers for common flows like multi-zone prices, generation mix, and ranked site comparison
 - [x] Notebook examples for quickstart, GIS screening, BESS ranked screening, map exports, multi-zone prices, and auth setup
+- [x] Analyst-ready notebook demos for trader workflow, GIS siting workflow, and BESS shortlist workflow
+- [x] More opinionated notebook helpers for outages, cross-border flows, grid proximity, grid connection queue, and site revenue
+- [x] CI coverage for Python tests and packaging checks on push / PR
+- [x] Clearer Python-side error translation for startup failures, missing API keys, and upstream tool errors
+- [x] Lightweight typed result models for common GIS and site-revenue flows
 - [x] Python packaging metadata, buildable wheel/sdist, and local packaging checks
 
 ## Current status
 
-- [ ] Publish `luminus-py` to PyPI — blocked only by missing PyPI API token on the current machine
+- [ ] Publish `luminus-py` to PyPI - blocked only by a missing PyPI API token on the current machine
+- [ ] Revisit async execution or smarter client/process pooling if heavy notebook fan-out becomes a bottleneck
 
 ## Prioritised next actions
 
 1. [ ] Publish `luminus-py` to PyPI once a PyPI API token is configured
-2. [ ] Add more opinionated notebook methods for the highest-usage flows:
-   - outages
-   - cross-border flows
-   - grid proximity
-   - grid connection queue
-   - site revenue
-3. [ ] Add CI for the Python package so tests and packaging checks run on push / PR
-4. [ ] Add 2-3 polished analyst-ready notebook demos:
-   - trader workflow
-   - GIS siting workflow
-   - BESS shortlist workflow
-5. [ ] Improve error translation for missing API keys, startup failures, and upstream tool errors so notebook users get clearer exceptions
-6. [ ] Add richer typed result models where they help, without losing the dynamic whole-surface access
-7. [ ] Revisit async execution or smarter client/process pooling if heavy notebook fan-out becomes a bottleneck
+2. [ ] Revisit async execution or smarter client/process pooling if heavy notebook fan-out becomes a bottleneck
 
 ## Guardrails
 

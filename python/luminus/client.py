@@ -14,12 +14,21 @@ from itertools import count
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-from .exceptions import LuminusError, LuminusProtocolError, LuminusTransportError
+from .exceptions import (
+    LuminusConfigurationError,
+    LuminusError,
+    LuminusProtocolError,
+    LuminusStartupError,
+    LuminusToolError,
+    LuminusTransportError,
+    LuminusUpstreamError,
+)
+from .models import GridConnectionQueueSnapshot, GridProximitySnapshot, SiteRevenueEstimate
 from .result import LuminusResult
 
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
 DEFAULT_CLIENT_NAME = "luminus-py"
-DEFAULT_CLIENT_VERSION = "0.2.0"
+DEFAULT_CLIENT_VERSION = "0.2.1"
 
 _ACTIVE_CLIENTS: "weakref.WeakSet[Luminus]" = weakref.WeakSet()
 
@@ -94,27 +103,31 @@ class Luminus:
                 bufsize=1,
             )
         except FileNotFoundError as exc:
-            raise LuminusTransportError(
+            raise LuminusStartupError(
                 "Could not start luminus-mcp. Install it on PATH or pass an explicit command=[...]."
             ) from exc
 
         if self._process.stdin is None or self._process.stdout is None or self._process.stderr is None:
-            raise LuminusTransportError("Failed to open stdio pipes to luminus-mcp.")
+            raise LuminusStartupError("Failed to open stdio pipes to luminus-mcp.")
 
         self._stdout_pump = _PipePump(self._process.stdout, self._stdout_queue)
         self._stderr_pump = _PipePump(self._process.stderr, self._stderr_queue)
         self._stdout_pump.start()
         self._stderr_pump.start()
 
-        init_result = self._request(
-            "initialize",
-            {
-                "protocolVersion": DEFAULT_PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": {"name": DEFAULT_CLIENT_NAME, "version": DEFAULT_CLIENT_VERSION},
-            },
-            timeout=startup_timeout,
-        )
+        try:
+            init_result = self._request(
+                "initialize",
+                {
+                    "protocolVersion": DEFAULT_PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": {"name": DEFAULT_CLIENT_NAME, "version": DEFAULT_CLIENT_VERSION},
+                },
+                timeout=startup_timeout,
+            )
+        except LuminusTransportError as exc:
+            self.close()
+            raise LuminusStartupError(str(exc)) from exc
         self.protocol_version = init_result.get("protocolVersion", DEFAULT_PROTOCOL_VERSION)
         self.server_info = init_result.get("serverInfo", {})
         self._send({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
@@ -176,6 +189,8 @@ class Luminus:
             timeout=self.request_timeout,
         )
         parsed = self._parse_tool_result(result)
+        if result.get("isError"):
+            self._raise_tool_error(name, parsed)
         return LuminusResult(tool_name=name, raw=parsed, raw_response=result)
 
     def get_day_ahead_prices(self, **arguments: Any) -> LuminusResult:
@@ -184,11 +199,58 @@ class Luminus:
     def get_generation_mix(self, **arguments: Any) -> LuminusResult:
         return self.call_tool("get_generation_mix", arguments)
 
+    def get_outages_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_outages", arguments, data_key="outages")
+
     def screen_site(self, **arguments: Any) -> LuminusResult:
         return self.call_tool("screen_site", arguments)
 
     def get_server_status(self) -> LuminusResult:
         return self.call_tool("get_server_status", {})
+
+    def get_cross_border_flows_many(
+        self,
+        corridors: Iterable[tuple[str, str]],
+        *,
+        parallel: bool = False,
+        max_workers: int | None = None,
+        **arguments: Any,
+    ):
+        return self.call_many_to_pandas(
+            "get_cross_border_flows",
+            [
+                {**arguments, "from_zone": from_zone, "to_zone": to_zone}
+                for from_zone, to_zone in corridors
+            ],
+            data_key="flows",
+            request_prefix="request_",
+            parallel=parallel,
+            max_workers=max_workers,
+        )
+
+    def get_grid_proximity_substations(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_grid_proximity", arguments, data_key="substations")
+
+    def get_grid_proximity_lines(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_grid_proximity", arguments, data_key="lines")
+
+    def get_grid_proximity_snapshot(self, **arguments: Any) -> GridProximitySnapshot:
+        return self.call_tool("get_grid_proximity", arguments).to_model(GridProximitySnapshot)
+
+    def get_grid_connection_queue_projects(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_grid_connection_queue", arguments, data_key="projects")
+
+    def get_grid_connection_queue_sites(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_grid_connection_queue", arguments, data_key="connection_sites")
+
+    def get_grid_connection_queue_snapshot(self, **arguments: Any) -> GridConnectionQueueSnapshot:
+        return self.call_tool("get_grid_connection_queue", arguments).to_model(GridConnectionQueueSnapshot)
+
+    def estimate_site_revenue_frame(self, **arguments: Any):
+        return self.call_tool("estimate_site_revenue", arguments).to_flat_pandas()
+
+    def estimate_site_revenue_estimate(self, **arguments: Any) -> SiteRevenueEstimate:
+        return self.call_tool("estimate_site_revenue", arguments).to_model(SiteRevenueEstimate)
 
     def call_tool_to_pandas(
         self,
@@ -355,7 +417,7 @@ class Luminus:
         if command is None:
             executable = shutil.which("luminus-mcp")
             if executable is None:
-                raise LuminusError(
+                raise LuminusStartupError(
                     "luminus-mcp was not found on PATH. Install it first or pass command=[...]."
                 )
             return [executable, "--profile", profile]
@@ -427,6 +489,15 @@ class Luminus:
             except json.JSONDecodeError:
                 return text
         return dict(result)
+
+    def _raise_tool_error(self, tool_name: str, payload: Any) -> None:
+        message = payload if isinstance(payload, str) else json.dumps(payload)
+        lower = message.lower()
+        if "configuration error" in lower or "api key" in lower:
+            raise LuminusConfigurationError(f"{tool_name} failed: {message}")
+        if "upstream" in lower or "timed out" in lower or "no data" in lower:
+            raise LuminusUpstreamError(f"{tool_name} failed: {message}")
+        raise LuminusToolError(f"{tool_name} failed: {message}")
 
     def _crash_message(self, prefix: str) -> str:
         stderr_lines: list[str] = []

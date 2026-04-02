@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any, Mapping, Protocol, TypeVar
+
+
+T = TypeVar("T")
+
+
+class SupportsFromDict(Protocol[T]):
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> T: ...
 
 
 @dataclass(slots=True)
@@ -80,6 +88,25 @@ class LuminusResult:
             ) from exc
 
         return pd.DataFrame(self._frame_rows(data_key=data_key))
+
+    def to_flat_pandas(self, data_key: str | None = None, *, sep: str = "."):
+        try:
+            import pandas as pd
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError(
+                "pandas is not installed. Install luminus-py[notebook] or add pandas manually."
+            ) from exc
+
+        value = self._resolve_value(data_key=data_key)
+        if isinstance(value, list):
+            return pd.json_normalize(value, sep=sep)
+        return pd.json_normalize(value, sep=sep)
+
+    def to_model(self, model_type: type[SupportsFromDict[T]], data_key: str | None = None) -> T:
+        value = self._resolve_value(data_key=data_key)
+        if not isinstance(value, Mapping):
+            raise TypeError(f"{self.tool_name} result is not a mapping and cannot be converted to {model_type.__name__}")
+        return model_type.from_dict(value)
 
     def to_geojson(self, data_key: str | None = None) -> dict[str, Any]:
         features: list[dict[str, Any]] = []

@@ -40,3 +40,26 @@ jobs:
 
       - name: Verify publish contents
         run: npm pack --dry-run
+
+  python-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Python test and build dependencies
+        run: python -m pip install --upgrade pip build pandas pytest
+
+      - name: Run Python tests
+        run: python -m pytest python/tests -q
+
+      - name: Validate Python package build
+        run: python -m build python

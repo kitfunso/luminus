@@ -87,6 +87,63 @@ with Luminus(profile="trader") as lum:
     }, data_key="rankings")
 ```
 
+## Notebook demos
+
+Polished notebook demos live in [`examples/`](examples/):
+
+- [Trader workflow](examples/trader_workflow.ipynb)
+- [GIS siting workflow](examples/gis_siting_workflow.ipynb)
+- [BESS shortlist workflow](examples/bess_shortlist_workflow.ipynb)
+
+## Notebook-first helpers
+
+The Python SDK now ships a few opinionated helpers for high-usage analyst flows:
+
+- `lum.get_outages_frame(...)`
+- `lum.get_cross_border_flows_many([...])`
+- `lum.get_grid_proximity_substations(...)`
+- `lum.get_grid_proximity_lines(...)`
+- `lum.get_grid_proximity_snapshot(...)`
+- `lum.get_grid_connection_queue_projects(...)`
+- `lum.get_grid_connection_queue_sites(...)`
+- `lum.get_grid_connection_queue_snapshot(...)`
+- `lum.estimate_site_revenue_frame(...)`
+- `lum.estimate_site_revenue_estimate(...)`
+
+Example:
+
+```python
+from luminus import GridProximitySnapshot, Luminus, SiteRevenueEstimate
+
+with Luminus(profile="gis") as lum:
+    outages = lum.get_outages_frame(zone="DE", type="generation")
+    flows = lum.get_cross_border_flows_many([("DE", "NL"), ("FR", "DE")])
+    substations = lum.get_grid_proximity_substations(lat=52.0, lon=0.1)
+    queue = lum.get_grid_connection_queue_projects(connection_site_query="Berkswell")
+    revenue = lum.estimate_site_revenue_frame(
+        lat=52.0,
+        lon=0.1,
+        zone="GB",
+        technology="bess",
+        capacity_mw=20,
+    )
+
+    proximity: GridProximitySnapshot = lum.get_grid_proximity_snapshot(lat=52.0, lon=0.1)
+    estimate: SiteRevenueEstimate = lum.estimate_site_revenue_estimate(
+        lat=52.0,
+        lon=0.1,
+        zone="GB",
+        technology="bess",
+    )
+```
+
+## Errors and typed models
+
+- Startup failures now raise `LuminusStartupError`.
+- Tool-side configuration failures raise `LuminusConfigurationError`.
+- Tool-side upstream/data-source failures raise `LuminusUpstreamError`.
+- Dynamic whole-surface access still works through `LuminusResult`, and common GIS/revenue flows also expose opt-in typed models.
+
 ## Notes
 
 - Use `lum.list_tools()` to see the live tool surface for the active profile.
@@ -94,8 +151,9 @@ with Luminus(profile="trader") as lum:
 - Use `lum.call_many()` / `lum.call_many_to_pandas()` for generic multi-zone or multi-site notebook pulls.
 - Use `parallel=True` on batch helpers when you want the SDK to fan out across multiple MCP subprocesses.
 - Use `lum.get_day_ahead_prices_many()` and `lum.get_generation_mix_many()` for common analyst workflows.
-- Use `lum.compare_sites_rankings()` and its geo helpers for ranked siting output.
-- Notebook-style examples live in [`examples/`](examples/).
+- Use `lum.compare_sites_rankings()` together with `lum.compare_sites_rankings_geojson()` and `lum.compare_sites_rankings_geodataframe()` for ranked siting output.
+- Use the typed snapshots only when they help notebook readability; the raw dynamic MCP surface is still available.
+- Notebook demos live in [`examples/`](examples/).
 - Use `to_geojson()` for lightweight mapping and `to_geodataframe()` when GeoPandas is installed.
 
 - Requires `luminus-mcp` to be available on `PATH`, unless you pass an explicit command.
