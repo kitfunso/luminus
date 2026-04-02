@@ -30,6 +30,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_remit_messages',
     'get_acer_remit',
     'get_grid_connection_queue',
+    'get_distribution_headroom',
   ],
   generation: [
     'get_generation_mix',
@@ -65,6 +66,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_day_ahead_prices',
     'get_intraday_prices',
     'estimate_site_revenue',
+    'get_distribution_headroom',
     'shortlist_bess_sites',
   ],
   regional: [
@@ -90,6 +92,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_terrain_analysis',
     'get_grid_proximity',
     'get_grid_connection_queue',
+    'get_distribution_headroom',
     'get_land_constraints',
     'get_land_cover',
     'get_agricultural_land',
@@ -106,15 +109,15 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
 /** Short descriptions for each profile, used by the discovery tool. */
 const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   trader: 'Day-ahead, intraday, balancing, and commodity prices for energy trading',
-  grid: 'Cross-border flows, outages, transmission, auctions, connection-register signals, and grid infrastructure',
+  grid: 'Cross-border flows, outages, transmission, auctions, transmission/DNO connection signals, and grid infrastructure',
   generation: 'Generation mix, real-time output, carbon intensity, and demand forecasts',
   gas: 'Gas storage, LNG terminals, US gas data, EU gas prices, and ENTSOG pipelines',
   renewables: 'Wind/solar forecasts, irradiance, ERA5 reanalysis, and hydro inflows',
   uk: 'UK-specific carbon intensity, grid demand, and Elexon BMRS data',
-  bess: 'Battery storage arbitrage: spreads, ancillary prices, site revenue, and shortlist generation',
+  bess: 'Battery storage arbitrage: spreads, ancillary prices, site revenue, DNO headroom signals, and shortlist generation',
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
-  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), BESS shortlist generation, and source verification',
+  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, SSEN DNO headroom, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), BESS shortlist generation, and source verification',
   full: 'All registered data tools by default, plus 2 meta-tools',
 };
 

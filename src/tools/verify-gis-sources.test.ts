@@ -49,6 +49,13 @@ describe("verifyGisSources", () => {
       if (url.includes("api.neso.energy")) {
         return makeOkResponse({ success: true, result: { records: [{}] } });
       }
+      if (url.includes("data-api.ssen.co.uk")) {
+        return makeOkResponse({
+          result: {
+            resources: [{ name: "Headroom Dashboard Data - March 2026", format: "CSV" }],
+          },
+        });
+      }
       if (url.includes("arcgis.com") || url.includes("environment.data.gov.uk") || url.includes("bio.discomap.eea.europa.eu")) {
         return makeOkResponse({ features: [{ attributes: { NAME: "Test" } }] });
       }
@@ -64,9 +71,9 @@ describe("verifyGisSources", () => {
     const result = await verifyGisSources({});
 
     expect(result.checked_at).toBeDefined();
-    expect(result.sources.length).toBe(10);
-    expect(result.summary.total).toBe(10);
-    expect(result.summary.ok).toBe(10);
+    expect(result.sources.length).toBe(11);
+    expect(result.summary.total).toBe(11);
+    expect(result.summary.ok).toBe(11);
     expect(result.summary.degraded).toBe(0);
     expect(result.summary.unreachable).toBe(0);
   });
@@ -166,6 +173,13 @@ describe("verifyGisSources", () => {
       if (url.includes("api.neso.energy")) {
         return makeOkResponse({ success: true, result: { records: [{}] } });
       }
+      if (url.includes("data-api.ssen.co.uk")) {
+        return makeOkResponse({
+          result: {
+            resources: [{ name: "Headroom Dashboard Data - March 2026", format: "CSV" }],
+          },
+        });
+      }
       if (url.includes("arcgis.com")) {
         throw new Error("Network failure");
       }
@@ -186,10 +200,10 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    // ok: open-meteo, neso-gsp-lookup, neso-tec, eea-natura2000, corine, pvgis = 6
+    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, eea-natura2000, corine, pvgis = 7
     // degraded: overpass (429), ea-flood-map (500) = 2
     // unreachable: natural-england, natural-england-alc (arcgis.com network failure) = 2
-    expect(result.summary.ok).toBe(6);
+    expect(result.summary.ok).toBe(7);
     expect(result.summary.degraded).toBe(2);
     expect(result.summary.unreachable).toBe(2);
   });

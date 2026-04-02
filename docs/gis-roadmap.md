@@ -23,7 +23,9 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 - [x] Conservative spatial bridge between site coordinates and public connection-register geography
   shipped: `get_grid_connection_intelligence` uses official NESO GSP polygons when available, falls back to nearest-point matching when needed, then queries the TEC register by GSP region
 - [x] Ranked GB BESS shortlist flow shipped: `shortlist_bess_sites` combines `compare_sites`, screening-level BESS revenue, and GB transmission queue intelligence into one transparent shortlist response
-- [ ] Stronger DNO-level capacity or queue signal, if a public source proves clean enough
+- [x] First public DNO capacity slice shipped
+  shipped: `get_distribution_headroom` uses SSEN's public headroom dashboard data for SSEN licence areas, with nearby GSP/BSP/primary-site headroom, constraint, and reinforcement context
+- [ ] Wider DNO coverage still depends on cleaner public access from UKPN and NGED
 
 ## Prioritised next actions
 
@@ -39,7 +41,8 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 6. [ ] Decide where larger pre-processed GIS assets should live if spatial indexing becomes necessary
 7. [x] Upgrade GSP lookup from nearest-point to polygon containment
    shipped: runtime fetch of NESO's WGS84 boundary GeoJSON from the official ZIP, polygon containment first, nearest-point fallback for unresolved matches
-8. [ ] Explore DNO-level open data (UKPN, NGED, SSEN) for distribution-level capacity signals
+8. [x] Explore DNO-level open data (UKPN, NGED, SSEN) for distribution-level capacity signals
+   shipped: SSEN's public headroom CSV is clean enough to wire into `get_distribution_headroom`; UKPN and NGED still appear portal-gated or shared-access for the useful datasets
 
 ## Key constraints and caveats
 
@@ -48,6 +51,7 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 - `get_land_cover` is **not GB-capable** because CORINE 2018 does not cover Great Britain. GB `screen_site` documents this gap and notes that `agricultural_land` provides partial land-use context for England; a real UK source such as UKCEH Land Cover Map via WMS remains a future option.
 - `get_grid_proximity` is **distance/infrastructure only**, not capacity.
 - `get_grid_connection_queue` is **NESO transmission-register only**, not a GB-wide DNO headroom map.
+- `get_distribution_headroom` is **SSEN-only** today. It does not infer UKPN or NGED coverage and should not be treated as a GB-wide DNO map.
 - Public GIS services can change field names, service structure, or uptime without warning.
 - Queue or contracted-capacity signals are **not** the same as a guaranteed connection offer.
 

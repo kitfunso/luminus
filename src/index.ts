@@ -67,6 +67,7 @@ import { terrainAnalysisSchema, getTerrainAnalysis } from "./tools/terrain-analy
 import { gridProximitySchema, getGridProximity } from "./tools/grid-proximity.js";
 import { gridConnectionQueueSchema, getGridConnectionQueue } from "./tools/grid-connection-queue.js";
 import { gridConnectionIntelligenceSchema, getGridConnectionIntelligence } from "./tools/grid-connection-intelligence.js";
+import { distributionHeadroomSchema, getDistributionHeadroom } from "./tools/distribution-headroom.js";
 import { landConstraintsSchema, getLandConstraints } from "./tools/land-constraints.js";
 import { landCoverSchema, getLandCover } from "./tools/land-cover.js";
 import { agriculturalLandSchema, getAgriculturalLand } from "./tools/agricultural-land.js";
@@ -688,6 +689,16 @@ if (shouldRegister("get_grid_connection_intelligence")) {
     "GB grid connection intelligence: resolves the containing GSP region when NESO boundaries match, otherwise falls back to the nearest GSP, then queries the TEC register and nearby substations. Not a connection offer or capacity guarantee.",
     gridConnectionIntelligenceSchema.shape,
     auditedToolHandler("get_grid_connection_intelligence", gridConnectionIntelligenceSchema, getGridConnectionIntelligence),
+  );
+}
+
+if (shouldRegister("get_distribution_headroom")) {
+  registeredToolNames.push("get_distribution_headroom");
+  server.tool(
+    "get_distribution_headroom",
+    "SSEN-only distribution headroom lookup. Finds nearby SSEN GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing from SSEN's public headroom dashboard. Not a connection offer or firm capacity right.",
+    distributionHeadroomSchema.shape,
+    auditedToolHandler("get_distribution_headroom", distributionHeadroomSchema, getDistributionHeadroom),
   );
 }
 
