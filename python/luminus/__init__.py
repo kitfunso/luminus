@@ -9,11 +9,14 @@ from .exceptions import (
     LuminusUpstreamError,
 )
 from .models import GridConnectionQueueSnapshot, GridProximitySnapshot, SiteRevenueEstimate
+from .models import DistributionHeadroomSnapshot, GridConnectionIntelligenceSnapshot
 from .result import LuminusResult
 
 __all__ = [
     "Luminus",
+    "DistributionHeadroomSnapshot",
     "GridConnectionQueueSnapshot",
+    "GridConnectionIntelligenceSnapshot",
     "GridProximitySnapshot",
     "LuminusError",
     "LuminusConfigurationError",

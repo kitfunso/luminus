@@ -23,7 +23,13 @@ from .exceptions import (
     LuminusTransportError,
     LuminusUpstreamError,
 )
-from .models import GridConnectionQueueSnapshot, GridProximitySnapshot, SiteRevenueEstimate
+from .models import (
+    DistributionHeadroomSnapshot,
+    GridConnectionIntelligenceSnapshot,
+    GridConnectionQueueSnapshot,
+    GridProximitySnapshot,
+    SiteRevenueEstimate,
+)
 from .result import LuminusResult
 
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
@@ -245,6 +251,17 @@ class Luminus:
 
     def get_grid_connection_queue_snapshot(self, **arguments: Any) -> GridConnectionQueueSnapshot:
         return self.call_tool("get_grid_connection_queue", arguments).to_model(GridConnectionQueueSnapshot)
+
+    def get_distribution_headroom_matches(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_distribution_headroom", arguments, data_key="matches")
+
+    def get_distribution_headroom_snapshot(self, **arguments: Any) -> DistributionHeadroomSnapshot:
+        return self.call_tool("get_distribution_headroom", arguments).to_model(DistributionHeadroomSnapshot)
+
+    def get_grid_connection_intelligence_snapshot(self, **arguments: Any) -> GridConnectionIntelligenceSnapshot:
+        return self.call_tool("get_grid_connection_intelligence", arguments).to_model(
+            GridConnectionIntelligenceSnapshot
+        )
 
     def estimate_site_revenue_frame(self, **arguments: Any):
         return self.call_tool("estimate_site_revenue", arguments).to_flat_pandas()

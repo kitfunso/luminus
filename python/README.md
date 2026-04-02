@@ -107,19 +107,29 @@ The Python SDK now ships a few opinionated helpers for high-usage analyst flows:
 - `lum.get_grid_connection_queue_projects(...)`
 - `lum.get_grid_connection_queue_sites(...)`
 - `lum.get_grid_connection_queue_snapshot(...)`
+- `lum.get_distribution_headroom_matches(...)`
+- `lum.get_distribution_headroom_snapshot(...)`
+- `lum.get_grid_connection_intelligence_snapshot(...)`
 - `lum.estimate_site_revenue_frame(...)`
 - `lum.estimate_site_revenue_estimate(...)`
 
 Example:
 
 ```python
-from luminus import GridProximitySnapshot, Luminus, SiteRevenueEstimate
+from luminus import (
+    DistributionHeadroomSnapshot,
+    GridConnectionIntelligenceSnapshot,
+    GridProximitySnapshot,
+    Luminus,
+    SiteRevenueEstimate,
+)
 
 with Luminus(profile="gis") as lum:
     outages = lum.get_outages_frame(zone="DE", type="generation")
     flows = lum.get_cross_border_flows_many([("DE", "NL"), ("FR", "DE")])
     substations = lum.get_grid_proximity_substations(lat=52.0, lon=0.1)
     queue = lum.get_grid_connection_queue_projects(connection_site_query="Berkswell")
+    headroom = lum.get_distribution_headroom_matches(lat=50.84, lon=-1.08, operator="SSEN")
     revenue = lum.estimate_site_revenue_frame(
         lat=52.0,
         lon=0.1,
@@ -129,6 +139,16 @@ with Luminus(profile="gis") as lum:
     )
 
     proximity: GridProximitySnapshot = lum.get_grid_proximity_snapshot(lat=52.0, lon=0.1)
+    headroom_snapshot: DistributionHeadroomSnapshot = lum.get_distribution_headroom_snapshot(
+        lat=50.84,
+        lon=-1.08,
+        operator="SSEN",
+    )
+    intelligence: GridConnectionIntelligenceSnapshot = lum.get_grid_connection_intelligence_snapshot(
+        lat=50.84,
+        lon=-1.08,
+        country="GB",
+    )
     estimate: SiteRevenueEstimate = lum.estimate_site_revenue_estimate(
         lat=52.0,
         lon=0.1,
