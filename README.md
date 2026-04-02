@@ -111,7 +111,7 @@ Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
 | `get_grid_connection_queue` | NESO TEC Register | GB transmission TEC register search by connection site, host TO, technology, status, and agreement type |
 | `get_distribution_headroom` | SSEN Headroom Dashboard | SSEN-only DNO headroom lookup: nearby GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing |
-| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM | GB grid connection intelligence: polygon-first GSP lookup with nearest-point fallback, TEC register queue at that GSP, and nearby substations |
+| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM | GB grid connection intelligence: polygon-first GSP lookup with nearest-point fallback, TEC register queue at that GSP, nearby substations, and SSEN distribution headroom where public SSEN data resolves |
 | `get_land_constraints` | Natural England / EEA Natura 2000 | GB protected areas via Natural England, plus EU Natura 2000 protected sites within a radius |
 | `get_land_cover` | CORINE Land Cover 2018 | Point land-cover classification for EU27 + EEA/EFTA sites, with conservative planning-exclusion flags for wetlands, water bodies, and woodland. GB not covered |
 | `get_agricultural_land` | Natural England ALC | Best and Most Versatile agricultural land screening. Prefers detailed post-1988 surveys, falls back to provisional ALC |

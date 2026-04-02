@@ -21,7 +21,7 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 
 - [x] First real GB connection-intelligence slice shipped
 - [x] Conservative spatial bridge between site coordinates and public connection-register geography
-  shipped: `get_grid_connection_intelligence` uses official NESO GSP polygons when available, falls back to nearest-point matching when needed, then queries the TEC register by GSP region
+  shipped: `get_grid_connection_intelligence` uses official NESO GSP polygons when available, falls back to nearest-point matching when needed, then adds TEC register, nearby substation, and SSEN distribution headroom context where public SSEN data resolves
 - [x] Ranked GB BESS shortlist flow shipped: `shortlist_bess_sites` combines `compare_sites`, screening-level BESS revenue, GB transmission queue intelligence, and SSEN DNO headroom where public SSEN data resolves into one transparent shortlist response
 - [x] First public DNO capacity slice shipped
   shipped: `get_distribution_headroom` uses SSEN's public headroom dashboard data for SSEN licence areas, with nearby GSP/BSP/primary-site headroom, constraint, and reinforcement context
