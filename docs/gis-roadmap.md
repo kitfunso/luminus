@@ -22,7 +22,7 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 - [x] First real GB connection-intelligence slice shipped
 - [x] Conservative spatial bridge between site coordinates and public connection-register geography
   shipped: `get_grid_connection_intelligence` uses official NESO GSP polygons when available, falls back to nearest-point matching when needed, then queries the TEC register by GSP region
-- [x] Ranked GB BESS shortlist flow shipped: `shortlist_bess_sites` combines `compare_sites`, screening-level BESS revenue, and GB transmission queue intelligence into one transparent shortlist response
+- [x] Ranked GB BESS shortlist flow shipped: `shortlist_bess_sites` combines `compare_sites`, screening-level BESS revenue, GB transmission queue intelligence, and SSEN DNO headroom where public SSEN data resolves into one transparent shortlist response
 - [x] First public DNO capacity slice shipped
   shipped: `get_distribution_headroom` uses SSEN's public headroom dashboard data for SSEN licence areas, with nearby GSP/BSP/primary-site headroom, constraint, and reinforcement context
 - [ ] Wider DNO coverage still depends on cleaner public access from UKPN and NGED
@@ -36,7 +36,7 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 3. [x] Harden shared Overpass querying
    shipped: rate limiter (2 concurrent / 10 per minute), exponential backoff, AbortController timeout, query-too-expensive detection
 4. [x] Build a ranked BESS site-screening flow that combines `screen_site` / `compare_sites` with storage-specific economics and queue signals for shortlist generation
-   shipped: `shortlist_bess_sites` reuses `compare_sites`, `estimate_site_revenue`, and `get_grid_connection_intelligence` for a GB-only shortlist with transparent scoring
+   shipped: `shortlist_bess_sites` reuses `compare_sites`, `estimate_site_revenue`, `get_grid_connection_intelligence`, and `get_distribution_headroom` for a GB-only shortlist with transparent scoring and optional SSEN DNO context
 5. [ ] Revisit `compare_sites` scoring weights after real usage feedback
 6. [ ] Decide where larger pre-processed GIS assets should live if spatial indexing becomes necessary
 7. [x] Upgrade GSP lookup from nearest-point to polygon containment
@@ -47,7 +47,7 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 ## Key constraints and caveats
 
 - `screen_site` and `compare_sites` now support **GB + EU**. EU mode uses fewer layers and does not include agricultural land or flood risk.
-- `shortlist_bess_sites` is **GB-only** because it depends on the current GB transmission queue-intelligence path.
+- `shortlist_bess_sites` is **GB-only** because it depends on the current GB transmission queue-intelligence path and only has public DNO headroom coverage for SSEN areas.
 - `get_land_cover` is **not GB-capable** because CORINE 2018 does not cover Great Britain. GB `screen_site` documents this gap and notes that `agricultural_land` provides partial land-use context for England; a real UK source such as UKCEH Land Cover Map via WMS remains a future option.
 - `get_grid_proximity` is **distance/infrastructure only**, not capacity.
 - `get_grid_connection_queue` is **NESO transmission-register only**, not a GB-wide DNO headroom map.

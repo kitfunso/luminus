@@ -12,18 +12,35 @@ vi.mock("./site-revenue.js", () => ({
   estimateSiteRevenue: vi.fn(),
 }));
 
+vi.mock("./distribution-headroom.js", () => ({
+  getDistributionHeadroom: vi.fn(),
+}));
+
 import { shortlistBessSites } from "./bess-shortlist.js";
 import { compareSites } from "./compare-sites.js";
 import { getGridConnectionIntelligence } from "./grid-connection-intelligence.js";
 import { estimateSiteRevenue } from "./site-revenue.js";
+import { getDistributionHeadroom } from "./distribution-headroom.js";
 
 const compareSitesMock = vi.mocked(compareSites);
 const getGridConnectionIntelligenceMock = vi.mocked(getGridConnectionIntelligence);
 const estimateSiteRevenueMock = vi.mocked(estimateSiteRevenue);
+const getDistributionHeadroomMock = vi.mocked(getDistributionHeadroom);
 
 describe("shortlistBessSites", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    getDistributionHeadroomMock.mockResolvedValue({
+      lat: 0,
+      lon: 0,
+      operator: "SSEN",
+      radius_km: 25,
+      nearest_site: null,
+      matches: [],
+      confidence_notes: ["No SSEN headroom site found within search radius"],
+      source_metadata: {} as any,
+      disclaimer: "dno",
+    });
   });
 
   afterEach(() => {
@@ -305,5 +322,150 @@ describe("shortlistBessSites", () => {
         ],
       }),
     ).rejects.toThrow("shortlist_size");
+  });
+
+  it("uses SSEN DNO headroom to break ties when shortlist inputs are otherwise similar", async () => {
+    compareSitesMock.mockResolvedValue({
+      site_count: 2,
+      rankings: [
+        {
+          rank: 1,
+          label: "Alpha",
+          lat: 51.5,
+          lon: -0.1,
+          verdict: "pass",
+          flag_count: 0,
+          solar_kwh_m2: 1100,
+          slope_deg: 2,
+          nearest_grid_km: 0.8,
+          constraint_count: 0,
+          score: 85,
+          reasoning: "Strong GIS site.",
+          data_gaps: [],
+        },
+        {
+          rank: 2,
+          label: "Bravo",
+          lat: 51.52,
+          lon: -0.12,
+          verdict: "pass",
+          flag_count: 0,
+          solar_kwh_m2: 1100,
+          slope_deg: 2,
+          nearest_grid_km: 0.8,
+          constraint_count: 0,
+          score: 85,
+          reasoning: "Strong GIS site.",
+          data_gaps: [],
+        },
+      ],
+      failed_sites: [],
+      heuristics_used: ["GIS heuristic"],
+      disclaimer: "GIS disclaimer",
+    });
+
+    estimateSiteRevenueMock.mockResolvedValue({
+      lat: 51.5,
+      lon: -0.1,
+      zone: "GB",
+      technology: "bess",
+      capacity_mw: 10,
+      terrain: null,
+      revenue: { estimated_annual_revenue_eur: 500000, daily_revenue_eur: 1370 },
+      price_snapshot: null,
+      caveats: [],
+      disclaimer: "rev",
+    });
+
+    getGridConnectionIntelligenceMock.mockResolvedValue({
+      lat: 51.5,
+      lon: -0.1,
+      country: "GB",
+      nearest_gsp: null,
+      connection_queue: { projects: [], total_mw_queued: 1000, search_term: "Alpha" },
+      nearby_substations: [],
+      confidence_notes: [],
+      source_metadata: {} as any,
+      disclaimer: "queue",
+    });
+
+    getDistributionHeadroomMock
+      .mockResolvedValueOnce({
+        lat: 51.5,
+        lon: -0.1,
+        operator: "SSEN",
+        radius_km: 25,
+        nearest_site: {
+          asset_id: "A",
+          licence_area: "England / SEPD",
+          substation: "Alpha GSP",
+          substation_type: "GSP",
+          voltage_kv: "132",
+          upstream_gsp: null,
+          upstream_bsp: null,
+          distance_km: 1.2,
+          estimated_demand_headroom_mva: 5,
+          demand_rag_status: "Amber",
+          demand_constraint: "Demand constraint",
+          connected_generation_mw: 10,
+          contracted_generation_mw: 15,
+          estimated_generation_headroom_mw: 5,
+          generation_rag_status: "Red",
+          generation_constraint: "Generation constraint",
+          upstream_reinforcement_works: null,
+          upstream_reinforcement_completion_date: null,
+          substation_reinforcement_works: null,
+          substation_reinforcement_completion_date: null,
+        },
+        matches: [],
+        confidence_notes: [],
+        source_metadata: {} as any,
+        disclaimer: "dno",
+      })
+      .mockResolvedValueOnce({
+        lat: 51.52,
+        lon: -0.12,
+        operator: "SSEN",
+        radius_km: 25,
+        nearest_site: {
+          asset_id: "B",
+          licence_area: "England / SEPD",
+          substation: "Bravo GSP",
+          substation_type: "GSP",
+          voltage_kv: "132",
+          upstream_gsp: null,
+          upstream_bsp: null,
+          distance_km: 1.1,
+          estimated_demand_headroom_mva: 12,
+          demand_rag_status: "Green",
+          demand_constraint: null,
+          connected_generation_mw: 8,
+          contracted_generation_mw: 9,
+          estimated_generation_headroom_mw: 45,
+          generation_rag_status: "Green",
+          generation_constraint: null,
+          upstream_reinforcement_works: null,
+          upstream_reinforcement_completion_date: null,
+          substation_reinforcement_works: null,
+          substation_reinforcement_completion_date: null,
+        },
+        matches: [],
+        confidence_notes: [],
+        source_metadata: {} as any,
+        disclaimer: "dno",
+      });
+
+    const result = await shortlistBessSites({
+      country: "GB",
+      sites: [
+        { label: "Alpha", lat: 51.5, lon: -0.1 },
+        { label: "Bravo", lat: 51.52, lon: -0.12 },
+      ],
+    });
+
+    expect(result.rankings[0].label).toBe("Bravo");
+    expect(result.rankings[0].dno_generation_headroom_mw).toBe(45);
+    expect(result.rankings[0].dno_headroom_site).toBe("Bravo GSP");
+    expect(result.rankings[0].reasoning).toContain("SSEN DNO headroom");
   });
 });

@@ -119,7 +119,7 @@ Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 | `screen_site` | Composite | PV/BESS site screening: terrain + grid + solar + constraints + agricultural land + flood risk in one pass/warn/fail verdict (GB + EU) |
 | `compare_sites` | Composite | Compare and rank 2-10 candidate PV/BESS sites by verdict, solar resource, grid proximity, and terrain (GB + EU) |
 | `estimate_site_revenue` | PVGIS + ENTSO-E | Estimate annual PV generation revenue or BESS arbitrage revenue for a candidate site. Requires ENTSO-E key. |
-| `shortlist_bess_sites` | Composite | GB-only BESS shortlist: combines `compare_sites`, screening-level revenue estimates, and GB transmission queue intelligence into a ranked shortlist. Requires ENTSO-E key. |
+| `shortlist_bess_sites` | Composite | GB-only BESS shortlist: combines `compare_sites`, screening-level revenue estimates, GB transmission queue intelligence, and SSEN DNO headroom where public SSEN data resolves. Requires ENTSO-E key. |
 | `verify_gis_sources` | All GIS providers | Health check for upstream GIS data sources. Reports status, response time, and provenance metadata |
 
 Roadmap: see [`docs/gis-roadmap.md`](docs/gis-roadmap.md).

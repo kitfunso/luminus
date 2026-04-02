@@ -786,7 +786,7 @@ if (shouldRegister("shortlist_bess_sites")) {
   registeredToolNames.push("shortlist_bess_sites");
   server.tool(
     "shortlist_bess_sites",
-    "GB-only BESS shortlist flow. Combines compare_sites, screening-level BESS revenue estimates, and GB transmission queue intelligence into a transparent ranked shortlist. Not a capacity guarantee, connection offer, or investment model.",
+    "GB-only BESS shortlist flow. Combines compare_sites, screening-level BESS revenue estimates, GB transmission queue intelligence, and SSEN distribution headroom where public SSEN data resolves into a transparent ranked shortlist. Not a capacity guarantee, connection offer, or investment model.",
     bessShortlistSchema.shape,
     auditedToolHandler("shortlist_bess_sites", bessShortlistSchema, shortlistBessSites),
   );
