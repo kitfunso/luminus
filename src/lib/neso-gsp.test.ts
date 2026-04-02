@@ -157,6 +157,17 @@ describe("lookupGspRegion", () => {
     expect(result!.region_name).toBe("Alpha");
   });
 
+  it("returns a polygon-contained GSP even when the reference point is outside the radius cutoff", async () => {
+    await mockFetchOk(POLYGON_TEST_CSV, POLYGON_PRIORITY_GEOJSON);
+
+    const result = await lookupGspRegion(0.1, 0.1, 10);
+
+    expect(result).not.toBeNull();
+    expect(result!.gsp_id).toBe("GSP_A");
+    expect(result!.gsp_name).toBe("ALPHA_1");
+    expect(result!.region_name).toBe("Alpha");
+  });
+
   it("falls back to nearest-point lookup when no polygon contains the site", async () => {
     await mockFetchOk(POLYGON_TEST_CSV, POLYGON_PRIORITY_GEOJSON);
 

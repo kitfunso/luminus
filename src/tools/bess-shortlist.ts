@@ -319,12 +319,14 @@ export async function shortlistBessSites(
       rank: index + 1,
     }));
 
+  const effectiveShortlistSize = Math.min(shortlistSize, rankings.length);
+
   return {
     country: "GB",
     technology: "bess",
     site_count: params.sites.length,
-    shortlist_size: shortlistSize,
-    shortlist: rankings.slice(0, shortlistSize),
+    shortlist_size: effectiveShortlistSize,
+    shortlist: rankings.slice(0, effectiveShortlistSize),
     rankings,
     failed_sites: compareResult.failed_sites.map((site) => ({
       label: site.label,

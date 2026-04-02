@@ -355,12 +355,7 @@ function findContainedRecord(
 
 function toLookupResult(
   match: { record: GspRecord; distanceKm: number },
-  radiusKm: number,
-): GspLookupResult | null {
-  if (match.distanceKm > radiusKm) {
-    return null;
-  }
-
+): GspLookupResult {
   return {
     gsp_id: match.record.gsp_id,
     gsp_name: match.record.gsp_name,
@@ -388,11 +383,15 @@ export async function lookupGspRegion(
 
   const contained = findContainedRecord(records, boundaries, lat, lon);
   if (contained) {
-    return toLookupResult(contained, radiusKm);
+    return toLookupResult(contained);
   }
 
   const nearest = findNearestRecord(records, lat, lon);
-  return nearest ? toLookupResult(nearest, radiusKm) : null;
+  if (!nearest || nearest.distanceKm > radiusKm) {
+    return null;
+  }
+
+  return toLookupResult(nearest);
 }
 
 /** Reset cache — exposed for tests. */

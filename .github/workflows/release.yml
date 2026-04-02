@@ -45,7 +45,7 @@ jobs:
           /tmp/luminus-smoke/bin/python -c "import luminus; print(luminus.__version__)"
 
       - name: Store distribution artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: python-package-distributions
           path: python/dist/
@@ -64,7 +64,7 @@ jobs:
 
     steps:
       - name: Download distribution artifacts
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: python-package-distributions
           path: dist/

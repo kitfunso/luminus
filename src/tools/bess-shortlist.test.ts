@@ -301,6 +301,86 @@ describe("shortlistBessSites", () => {
     expect(result.rankings[1].reasoning).toContain("missing");
   });
 
+  it("caps shortlist_size to the surviving ranked sites when comparison drops failures", async () => {
+    compareSitesMock.mockResolvedValue({
+      site_count: 3,
+      rankings: [
+        {
+          rank: 1,
+          label: "Alpha",
+          lat: 52.1,
+          lon: -0.1,
+          verdict: "pass",
+          flag_count: 0,
+          solar_kwh_m2: 1120,
+          slope_deg: 2.1,
+          nearest_grid_km: 0.9,
+          constraint_count: 0,
+          score: 92,
+          reasoning: "Strong GIS site.",
+          data_gaps: [],
+        },
+        {
+          rank: 2,
+          label: "Bravo",
+          lat: 52.2,
+          lon: -0.2,
+          verdict: "warn",
+          flag_count: 1,
+          solar_kwh_m2: 1110,
+          slope_deg: 3.4,
+          nearest_grid_km: 1.1,
+          constraint_count: 0,
+          score: 76,
+          reasoning: "Some GIS caveats.",
+          data_gaps: [],
+        },
+      ],
+      failed_sites: [{ label: "Dropped", lat: 52.4, lon: -0.4, error: "GIS timeout" }],
+      heuristics_used: ["GIS heuristic"],
+      disclaimer: "GIS disclaimer",
+    });
+
+    estimateSiteRevenueMock.mockResolvedValue({
+      lat: 52.1,
+      lon: -0.1,
+      zone: "GB",
+      technology: "bess",
+      capacity_mw: 10,
+      terrain: null,
+      revenue: { estimated_annual_revenue_eur: 500000, daily_revenue_eur: 1370 },
+      price_snapshot: null,
+      caveats: [],
+      disclaimer: "rev",
+    });
+
+    getGridConnectionIntelligenceMock.mockResolvedValue({
+      lat: 52.1,
+      lon: -0.1,
+      country: "GB",
+      nearest_gsp: null,
+      connection_queue: { projects: [], total_mw_queued: 1000, search_term: "Alpha" },
+      nearby_substations: [],
+      confidence_notes: [],
+      source_metadata: {} as any,
+      disclaimer: "queue",
+    });
+
+    const result = await shortlistBessSites({
+      country: "GB",
+      shortlist_size: 3,
+      sites: [
+        { label: "Alpha", lat: 52.1, lon: -0.1 },
+        { label: "Bravo", lat: 52.2, lon: -0.2 },
+        { label: "Dropped", lat: 52.4, lon: -0.4 },
+      ],
+    });
+
+    expect(result.rankings).toHaveLength(2);
+    expect(result.shortlist).toHaveLength(2);
+    expect(result.shortlist_size).toBe(2);
+  });
+
   it("rejects unsupported countries and invalid shortlist size", async () => {
     await expect(
       shortlistBessSites({
