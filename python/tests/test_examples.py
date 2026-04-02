@@ -22,6 +22,8 @@ def test_bess_shortlist_workflow_keeps_rank_labels_aligned_with_candidates():
     assert 'country="GB"' in source
     assert 'rankings = shortlist_result.to_pandas(data_key="rankings")' in source
     assert 'shortlist = shortlist_result.to_pandas(data_key="shortlist")' in source
+    assert '"dno_generation_headroom_mw"' in source
+    assert '"dno_headroom_site"' in source
 
 
 def test_release_workflow_cleans_old_python_artifacts_before_building():
