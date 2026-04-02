@@ -54,4 +54,26 @@ describe("public docs", () => {
     expect(scope).toContain("timingSafeCompare");
     expect(scope).not.toContain("timingSafeEqual");
   });
+
+  it("keeps npm and Python release references distinct", () => {
+    const readme = read("README.md");
+    const pythonReadme = read("python/README.md");
+    const packageJson = JSON.parse(read("package.json")) as { version: string };
+    const pythonRelease021 = read("docs/releases/0.2.1.md");
+    const pythonRelease022 = read("docs/releases/0.2.2.md");
+
+    expect(packageJson.version).toBe("0.2.0");
+    expect(readme).toContain(
+      "Latest npm release: [v0.2.0 release notes](docs/releases/0.2.0.md)",
+    );
+    expect(readme).toContain(
+      "Latest Python SDK release: [v0.2.2 release notes](docs/releases/0.2.2.md)",
+    );
+    expect(pythonReadme).toContain("npm install -g luminus-mcp");
+    expect(pythonReadme).not.toContain("npm install -g luminus-mcp@0.2.0");
+    expect(pythonRelease021).toContain("# luminus-py v0.2.1");
+    expect(pythonRelease021).toContain("The npm MCP package remained `luminus-mcp@0.2.0`.");
+    expect(pythonRelease022).toContain("# luminus-py v0.2.2");
+    expect(pythonRelease022).toContain("The npm MCP package remained `luminus-mcp@0.2.0`.");
+  });
 });

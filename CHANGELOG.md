@@ -4,6 +4,8 @@
 
 Python SDK republish to verify the tightened PyPI Trusted Publisher binding.
 
+This was a Python SDK release only. The npm MCP package remained `luminus-mcp@0.2.0`.
+
 ### Changed
 - bumped `luminus-py` to `0.2.2`
 - republished through the GitHub Trusted Publisher restricted to the `pypi` environment
@@ -20,6 +22,8 @@ For the fuller narrative, see [`docs/releases/0.2.2.md`](docs/releases/0.2.2.md)
 ## 0.2.1 - 2026-04-02
 
 Python SDK follow-up release focused on publishing, notebook ergonomics, and packaging automation.
+
+This was a Python SDK release only. The npm MCP package remained `luminus-mcp@0.2.0`.
 
 ### Added
 - Trusted Publishing workflow for `luminus-py` on PyPI

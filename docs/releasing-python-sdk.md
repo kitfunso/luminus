@@ -2,6 +2,8 @@
 
 This repo publishes `luminus-py` through GitHub Trusted Publishing.
 
+Python SDK releases do not automatically imply an npm MCP release. Unless you are also shipping the Node package, `luminus-mcp` can remain on its current npm version.
+
 ## Preconditions
 
 - PyPI publisher is configured for:
