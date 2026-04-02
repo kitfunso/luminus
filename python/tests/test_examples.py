@@ -26,6 +26,17 @@ def test_bess_shortlist_workflow_keeps_rank_labels_aligned_with_candidates():
     assert '"dno_headroom_site"' in source
 
 
+def test_gis_siting_workflow_uses_python_gis_helpers_for_connection_context():
+    source = read_notebook_source("gis_siting_workflow.ipynb")
+
+    assert "GridConnectionIntelligenceSnapshot" in source
+    assert "DistributionHeadroomSnapshot" in source
+    assert "get_grid_connection_intelligence_snapshot(" in source
+    assert "get_distribution_headroom_matches(" in source
+    assert 'operator="SSEN"' in source
+    assert 'country="GB"' in source
+
+
 def test_release_workflow_cleans_old_python_artifacts_before_building():
     source = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
 
