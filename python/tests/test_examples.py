@@ -33,6 +33,9 @@ def test_gis_siting_workflow_uses_python_gis_helpers_for_connection_context():
     assert "DistributionHeadroomSnapshot" in source
     assert "get_grid_connection_intelligence_snapshot(" in source
     assert "get_distribution_headroom_matches(" in source
+    assert "intelligence.nged_connection_signal" in source
+    assert "nged_queue_projects" in source
+    assert "nged_td_limits" in source
     assert 'operator="SSEN"' in source
     assert 'country="GB"' in source
 
