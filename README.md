@@ -3,11 +3,11 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Latest release: [v0.3.0 release notes](docs/releases/0.3.0.md) | [Changelog](CHANGELOG.md)
+Latest release: [v0.3.1 release notes](docs/releases/0.3.1.md) | [Changelog](CHANGELOG.md)
 
-Current published versions: `luminus-mcp@0.3.0` and `luminus-py==0.3.0`.
+Current published versions: `luminus-mcp@0.3.1` and `luminus-py==0.3.1`.
 
-Real-time European & UK electricity grid data via MCP. 57 tools, all free.
+Real-time European & UK electricity grid data via MCP. 62 tools, all free.
 
 ## Tools
 
@@ -114,7 +114,7 @@ Real-time European & UK electricity grid data via MCP. 57 tools, all free.
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
 | `get_grid_connection_queue` | NESO TEC Register | GB transmission TEC register search by connection site, host TO, technology, status, and agreement type |
 | `get_nged_connection_signal` | NGED Connected Data Portal | NGED-only public GSP signal: connection-queue rows plus seasonal TD-limit records where the matched GSP is publicly covered |
-| `get_distribution_headroom` | SSEN Headroom Dashboard | SSEN-only DNO headroom lookup: nearby GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing |
+| `get_distribution_headroom` | SSEN + Northern Powergrid | Public DNO headroom lookup for SSEN and Northern Powergrid: nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing where the operator publishes that data |
 | `get_grid_connection_intelligence` | NESO GSP + TEC + OSM | GB grid connection intelligence: polygon-first GSP lookup with nearest-point fallback, TEC register queue at that GSP, nearby substations, SSEN distribution headroom where public SSEN data resolves, and NGED public queue and TD-limit context where that GSP is covered |
 | `get_land_constraints` | Natural England / EEA Natura 2000 | GB protected areas via Natural England, plus EU Natura 2000 protected sites within a radius |
 | `get_land_cover` | CORINE Land Cover 2018 | Point land-cover classification for EU27 + EEA/EFTA sites, with conservative planning-exclusion flags for wetlands, water bodies, and woodland. GB not covered |
@@ -208,7 +208,7 @@ npx luminus-mcp --profile bess       # 8 tools: arbitrage, ancillary, revenue, s
 npx luminus-mcp --profile regional   # 8 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
 npx luminus-mcp --profile gis        # 17 tools: solar, terrain, grid, queue, screening, comparison, shortlist, verification
-npx luminus-mcp --profile full       # all 57 tools (default)
+npx luminus-mcp --profile full       # all 62 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:
@@ -273,6 +273,7 @@ Ask your AI agent:
 | NESO Data Portal | [api.neso.energy](https://api.neso.energy/) | GB transmission connection registers and GIS boundary datasets |
 | NGED Connected Data Portal | [connecteddata.nationalgrid.co.uk](https://connecteddata.nationalgrid.co.uk/) | NGED public GSP queue and transmission-distribution limit datasets |
 | SSEN Open Data Portal | [data-api.ssen.co.uk](https://data-api.ssen.co.uk/) | SSEN distribution headroom, network capacity, and generation availability datasets |
+| Northern Powergrid Open Data Portal | [northernpowergrid.opendatasoft.com](https://northernpowergrid.opendatasoft.com/) | Northern Powergrid heat-map substation headroom and service-area datasets |
 | Elexon BMRS | [bmrs.elexon.co.uk](https://bmrs.elexon.co.uk/) | GB balancing mechanism |
 | GIE AGSI+ / ALSI | [agsi.gie.eu](https://agsi.gie.eu/) | European gas & LNG |
 | EIA | [eia.gov](https://www.eia.gov/) | US natural gas |

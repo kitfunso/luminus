@@ -28,7 +28,7 @@ You also need `luminus-mcp` itself available on your machine, because the Python
 npm install -g luminus-mcp
 ```
 
-Current published versions: `luminus-mcp@0.3.0` and `luminus-py==0.3.0`.
+Current published versions: `luminus-mcp@0.3.1` and `luminus-py==0.3.1`.
 
 ## API keys
 
@@ -114,6 +114,8 @@ The Python SDK now ships a few opinionated helpers for high-usage analyst flows:
 - `lum.get_grid_connection_intelligence_snapshot(...)`
 - `lum.estimate_site_revenue_frame(...)`
 - `lum.estimate_site_revenue_estimate(...)`
+
+`get_distribution_headroom_*` currently supports `operator="SSEN"` and `operator="NPG"` against the public upstreams wired into the MCP server.
 
 Example:
 

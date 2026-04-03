@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.3.1 - 2026-04-03
+
+Unified npm and Python patch release for the Northern Powergrid headroom tranche and stale package-surface cleanup.
+
+### Added
+- `get_distribution_headroom` support for Northern Powergrid's public heat-map substation dataset alongside SSEN
+- Northern Powergrid source metadata and health checks in `verify_gis_sources`
+
+### Changed
+- bumped `luminus-mcp` to `0.3.1`
+- bumped `luminus-py` to `0.3.1`
+- updated npm package metadata and README text so the published package surface reflects the current 62-tool catalog
+- aligned top-level and Python README version references with the current published state
+
+### Verification
+- targeted GIS and docs drift tests passed
+- TypeScript build passed
+- Python tests passed
+- Python wheel and sdist built successfully
+
+For the fuller narrative, see [`docs/releases/0.3.1.md`](docs/releases/0.3.1.md).
+
 ## 0.3.0 - 2026-04-02
 
 Unified npm and Python SDK release for the GIS shortlist and connection-intelligence tranche.

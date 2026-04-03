@@ -56,6 +56,19 @@ describe("verifyGisSources", () => {
           },
         });
       }
+      if (url.includes("connecteddata.nationalgrid.co.uk")) {
+        return makeOkResponse({
+          success: true,
+          result: {
+            resources: [{ id: "nged-resource", name: "Berkswell", datastore_active: true }],
+          },
+        });
+      }
+      if (url.includes("northernpowergrid.opendatasoft.com")) {
+        return makeOkResponse({
+          results: [{ name: "Armouries Drive", type: "Primary", substation_location: { lat: 53.79, lon: -1.53 } }],
+        });
+      }
       if (url.includes("arcgis.com") || url.includes("environment.data.gov.uk") || url.includes("bio.discomap.eea.europa.eu")) {
         return makeOkResponse({ features: [{ attributes: { NAME: "Test" } }] });
       }
@@ -71,9 +84,9 @@ describe("verifyGisSources", () => {
     const result = await verifyGisSources({});
 
     expect(result.checked_at).toBeDefined();
-    expect(result.sources.length).toBe(11);
-    expect(result.summary.total).toBe(11);
-    expect(result.summary.ok).toBe(11);
+    expect(result.sources.length).toBe(14);
+    expect(result.summary.total).toBe(14);
+    expect(result.summary.ok).toBe(14);
     expect(result.summary.degraded).toBe(0);
     expect(result.summary.unreachable).toBe(0);
   });
@@ -180,6 +193,11 @@ describe("verifyGisSources", () => {
           },
         });
       }
+      if (url.includes("northernpowergrid.opendatasoft.com")) {
+        return makeOkResponse({
+          results: [{ name: "Armouries Drive", type: "Primary", substation_location: { lat: 53.79, lon: -1.53 } }],
+        });
+      }
       if (url.includes("arcgis.com")) {
         throw new Error("Network failure");
       }
@@ -200,11 +218,11 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, eea-natura2000, corine, pvgis = 7
-    // degraded: overpass (429), ea-flood-map (500) = 2
+    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, npg-heatmap, eea-natura2000, corine, pvgis = 8
+    // degraded: overpass (429), ea-flood-map (500), plus the two NGED source checks = 4
     // unreachable: natural-england, natural-england-alc (arcgis.com network failure) = 2
-    expect(result.summary.ok).toBe(7);
-    expect(result.summary.degraded).toBe(2);
+    expect(result.summary.ok).toBe(8);
+    expect(result.summary.degraded).toBe(4);
     expect(result.summary.unreachable).toBe(2);
   });
 

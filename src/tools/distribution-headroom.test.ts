@@ -11,6 +11,50 @@ const MOCK_CSV = [
   "BAD-ROW,BAD-ROW,England / SEPD,Missing Coordinates,Alpha GSP,Alpha BSP,Primary,33,,,TQ 222 222,,1002,2 x 20MVA,No,12.0,3.0,5.0,0.0,1.0,Red,Substation Thermal Capacity,5MW,0.0,0.0,No,5.0,13.1,8.8,Red,Substation Thermal Capacity,,,",
 ].join("\n");
 
+const MOCK_NPG_RESPONSE = {
+  total_count: 2,
+  results: [
+    {
+      name: "Armouries Drive",
+      type: "Primary",
+      pvoltage: 11,
+      genhr: 29.5,
+      demhr: 12.3,
+      gentot: 0.432,
+      demtot: 6.751,
+      genconstraint: ["No Voltage Constraint"],
+      demconstraint: ["No Demand Constraint"],
+      worst_case_constraint_gen_colour: "Green",
+      worst_case_constraint_dem_colour: "Green",
+      upstreamname: "Low Road",
+      gsp_name: "Skelton Grange",
+      substation_location: {
+        lat: 53.79066604669437,
+        lon: -1.5299547015469377,
+      },
+    },
+    {
+      name: "Temple Moor",
+      type: "BSP",
+      pvoltage: 33,
+      genhr: 4.1,
+      demhr: 1.8,
+      gentot: 12.2,
+      demtot: 24.4,
+      genconstraint: ["Amber - Voltage"],
+      demconstraint: ["Red - Fault Level"],
+      worst_case_constraint_gen_colour: "Amber",
+      worst_case_constraint_dem_colour: "Red",
+      upstreamname: "Skelton Grange",
+      gsp_name: "Skelton Grange",
+      substation_location: {
+        lat: 53.803,
+        lon: -1.49,
+      },
+    },
+  ],
+};
+
 function mockFetchOk(body: string): void {
   vi.stubGlobal(
     "fetch",
@@ -81,6 +125,24 @@ function mockFetchFail(status: number): void {
   );
 }
 
+function mockFetchNpgOk(payload: unknown): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input) => {
+      const url = String(input);
+      if (url.includes("northernpowergrid.opendatasoft.com")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => payload,
+        };
+      }
+
+      throw new Error(`Unexpected URL: ${url}`);
+    }),
+  );
+}
+
 describe("getDistributionHeadroom", () => {
   beforeEach(() => {
     resetDistributionHeadroomCacheForTests();
@@ -110,6 +172,31 @@ describe("getDistributionHeadroom", () => {
     expect(result.source_metadata.id).toBe("ssen-distribution-headroom");
   });
 
+  it("returns the nearest NPG headroom sites within the search radius", async () => {
+    mockFetchNpgOk(MOCK_NPG_RESPONSE);
+
+    const result = await getDistributionHeadroom({
+      lat: 53.791,
+      lon: -1.531,
+      operator: "NPG",
+    });
+
+    expect(result.operator).toBe("NPG");
+    expect(result.nearest_site).not.toBeNull();
+    expect(result.nearest_site!.asset_id).toBe("NPG:Primary:Armouries Drive");
+    expect(result.nearest_site!.substation).toBe("Armouries Drive");
+    expect(result.nearest_site!.substation_type).toBe("Primary");
+    expect(result.nearest_site!.upstream_gsp).toBe("Skelton Grange");
+    expect(result.nearest_site!.upstream_bsp).toBe("Low Road");
+    expect(result.nearest_site!.estimated_generation_headroom_mw).toBe(29.5);
+    expect(result.nearest_site!.estimated_demand_headroom_mva).toBe(12.3);
+    expect(result.nearest_site!.generation_rag_status).toBe("Green");
+    expect(result.nearest_site!.demand_rag_status).toBe("Green");
+    expect(result.matches).toHaveLength(2);
+    expect(result.matches[1].generation_constraint).toContain("Amber - Voltage");
+    expect(result.source_metadata.id).toBe("npg-heatmap-substation-areas");
+  });
+
   it("caches the SSEN headroom CSV after the first fetch", async () => {
     mockFetchOk(MOCK_CSV);
 
@@ -134,6 +221,21 @@ describe("getDistributionHeadroom", () => {
     expect(result.confidence_notes).toContain("No SSEN headroom site found within search radius");
   });
 
+  it("returns no matches when no NPG site is within the search radius", async () => {
+    mockFetchNpgOk(MOCK_NPG_RESPONSE);
+
+    const result = await getDistributionHeadroom({
+      lat: 51.0,
+      lon: 0.0,
+      operator: "NPG",
+      radius_km: 5,
+    });
+
+    expect(result.nearest_site).toBeNull();
+    expect(result.matches).toEqual([]);
+    expect(result.confidence_notes).toContain("No NPG headroom site found within search radius");
+  });
+
   it("rejects unsupported operators", async () => {
     mockFetchOk(MOCK_CSV);
 
@@ -143,7 +245,7 @@ describe("getDistributionHeadroom", () => {
         lon: -0.1,
         operator: "UKPN" as "SSEN",
       }),
-    ).rejects.toThrow('Only operator "SSEN" is currently supported.');
+    ).rejects.toThrow('Only operators "SSEN" and "NPG" are currently supported.');
   });
 
   it("handles fetch failure", async () => {

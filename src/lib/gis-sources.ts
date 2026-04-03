@@ -206,6 +206,23 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     ],
     attribution: "Contains data from Scottish and Southern Electricity Networks (SSEN).",
   },
+  "npg-heatmap-substation-areas": {
+    id: "npg-heatmap-substation-areas",
+    name: "Northern Powergrid Heat Map Data - Substation Areas",
+    provider: "Northern Powergrid",
+    licence: "Open Government Licence v3.0",
+    url: "https://northernpowergrid.opendatasoft.com/explore/dataset/heatmapsubstationareas/",
+    api_key_required: false,
+    coverage: "Northern Powergrid licence areas via published Primary, BSP, and GSP heat-map sites",
+    update_frequency: "Published periodically by Northern Powergrid",
+    reliability: "medium",
+    caveats: [
+      "Coverage is limited to Northern Powergrid's licence area and published heat-map sites",
+      "Generation headroom is published in MW and demand headroom in MVA as planning signals, not guaranteed connection capacity",
+      "This tool currently matches against published site locations and does not yet use the dataset's service-area polygons",
+    ],
+    attribution: "Contains data from Northern Powergrid.",
+  },
   "nged-connection-queue": {
     id: "nged-connection-queue",
     name: "NGED Connection Queue",
@@ -439,6 +456,71 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
           resource.name.startsWith("Headroom Dashboard Data"),
         );
         if (!hasHeadroomCsv) return "Response missing headroom CSV resource";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "npg-heatmap-substation-areas",
+    url:
+      "https://northernpowergrid.opendatasoft.com/api/explore/v2.1/catalog/datasets/heatmapsubstationareas/records?limit=1&select=name,type,substation_location",
+    method: "GET",
+    timeout_ms: 10_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        const row = Array.isArray(json.results) ? json.results[0] : null;
+        if (!row) return "Response missing results";
+        for (const field of ["name", "type", "substation_location"]) {
+          if (!(field in row)) {
+            return `Response missing field "${field}"`;
+          }
+        }
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "nged-connection-queue",
+    url: "https://connecteddata.nationalgrid.co.uk/api/3/action/package_show?id=connection-queue",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (!json.success) return json.error?.message ?? "NGED API reported failure";
+        const resources = Array.isArray(json.result?.resources) ? json.result.resources : [];
+        const hasDatastoreResource = resources.some((resource: { datastore_active?: boolean }) =>
+          resource.datastore_active === true,
+        );
+        if (!hasDatastoreResource) return "Response missing datastore-backed queue resource";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "nged-asset-limits",
+    url: "https://connecteddata.nationalgrid.co.uk/api/3/action/package_show?id=asset-limits-pre-event-transmission-distribution-limits",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (!json.success) return json.error?.message ?? "NGED API reported failure";
+        const resources = Array.isArray(json.result?.resources) ? json.result.resources : [];
+        const hasDatastoreResource = resources.some((resource: { datastore_active?: boolean }) =>
+          resource.datastore_active === true,
+        );
+        if (!hasDatastoreResource) return "Response missing datastore-backed asset-limits resource";
         return null;
       } catch {
         return "Response is not valid JSON";

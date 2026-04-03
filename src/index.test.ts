@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PROFILES } from "./lib/profiles.js";
+import { PROFILES, TOTAL_TOOLS } from "./lib/profiles.js";
 
 describe("index meta-tools", () => {
   it("keeps luminus_discover backward-compatible with category filters", async () => {
@@ -43,12 +43,22 @@ describe("public docs", () => {
 
   it("keeps README profile counts aligned with code", () => {
     const readme = read("README.md");
+    const packageJson = JSON.parse(read("package.json")) as { description: string };
 
+    expect(readme).toContain(
+      `Real-time European & UK electricity grid data via MCP. ${TOTAL_TOOLS} tools, all free.`,
+    );
+    expect(packageJson.description).toBe(
+      `Real-time European & UK electricity grid data via MCP. ${TOTAL_TOOLS} tools, all free.`,
+    );
     expect(readme).toContain(
       `npx luminus-mcp --profile grid       # ${PROFILES.grid.length} tools: flows, outages, infrastructure`,
     );
     expect(readme).toContain(
       `npx luminus-mcp --profile regional   # ${PROFILES.regional.length} tools: country-specific sources`,
+    );
+    expect(readme).toContain(
+      `npx luminus-mcp --profile full       # all ${TOTAL_TOOLS} tools (default)`,
     );
   });
 
@@ -74,7 +84,6 @@ describe("public docs", () => {
     expect(pyprojectMatch).not.toBeNull();
     const pythonVersion = pyprojectMatch![1];
 
-    expect(packageJson.version).toBe("0.3.0");
     expect(readme).toContain(
       `Latest release: [v${packageJson.version} release notes](docs/releases/${packageJson.version}.md)`,
     );

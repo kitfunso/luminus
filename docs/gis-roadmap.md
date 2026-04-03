@@ -23,8 +23,8 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 - [x] Conservative spatial bridge between site coordinates and public connection-register geography
   shipped: `get_grid_connection_intelligence` uses official NESO GSP polygons when available, falls back to nearest-point matching when needed, then adds TEC register, nearby substation, SSEN distribution headroom where public SSEN data resolves, and NGED public queue and TD-limit context where the matched GSP is covered
 - [x] Ranked GB BESS shortlist flow shipped: `shortlist_bess_sites` combines `compare_sites`, screening-level BESS revenue, GB transmission queue intelligence, and SSEN DNO headroom where public SSEN data resolves into one transparent shortlist response
-- [x] First public DNO capacity slice shipped
-  shipped: `get_distribution_headroom` uses SSEN's public headroom dashboard data for SSEN licence areas, with nearby GSP/BSP/primary-site headroom, constraint, and reinforcement context
+- [x] Public DNO headroom coverage shipped for multiple operators
+  shipped: `get_distribution_headroom` uses SSEN's public headroom dashboard data for SSEN licence areas and Northern Powergrid's public heat-map substation data for NPG licence areas, with nearby GSP/BSP/primary-site headroom, constraint, and reinforcement context
 - [x] Second public operator-specific connection signal shipped
   shipped: `get_nged_connection_signal` resolves a GB site to a NESO GSP, then returns NGED's public per-GSP connection queue and TD-limit records where that GSP is covered
 - [ ] Wider DNO coverage still depends on cleaner public access from UKPN and direct public headroom data
@@ -43,8 +43,8 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 6. [ ] Decide where larger pre-processed GIS assets should live if spatial indexing becomes necessary
 7. [x] Upgrade GSP lookup from nearest-point to polygon containment
    shipped: runtime fetch of NESO's WGS84 boundary GeoJSON from the official ZIP, polygon containment first, nearest-point fallback for unresolved matches
-8. [x] Explore DNO-level open data (UKPN, NGED, SSEN) for distribution-level capacity signals
-   shipped: SSEN's public headroom CSV is clean enough to wire into `get_distribution_headroom`; NGED's public per-GSP queue and TD-limit datasets are clean enough to wire into `get_nged_connection_signal`; UKPN still appears portal-gated for the useful spatial capacity datasets
+8. [x] Explore DNO-level open data (UKPN, NGED, SSEN, NPG) for distribution-level capacity signals
+   shipped: SSEN's public headroom CSV and Northern Powergrid's public heat-map substation dataset are clean enough to wire into `get_distribution_headroom`; NGED's public per-GSP queue and TD-limit datasets are clean enough to wire into `get_nged_connection_signal`; UKPN still appears portal-gated for the useful spatial capacity datasets
 
 ## Key constraints and caveats
 
@@ -53,7 +53,7 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 - `get_land_cover` is **not GB-capable** because CORINE 2018 does not cover Great Britain. GB `screen_site` documents this gap and notes that `agricultural_land` provides partial land-use context for England; a real UK source such as UKCEH Land Cover Map via WMS remains a future option.
 - `get_grid_proximity` is **distance/infrastructure only**, not capacity.
 - `get_grid_connection_queue` is **NESO transmission-register only**, not a GB-wide DNO headroom map.
-- `get_distribution_headroom` is **SSEN-only** today. It does not infer UKPN or NGED coverage and should not be treated as a GB-wide DNO map.
+- `get_distribution_headroom` supports **SSEN + Northern Powergrid** today. It still does not infer UKPN, SPEN, or ENWL coverage and should not be treated as a GB-wide DNO map.
 - `get_nged_connection_signal` is **NGED-only** today. It returns public per-GSP queue and TD-limit signals, not DNO headroom or a connection offer.
 - Public GIS services can change field names, service structure, or uptime without warning.
 - Queue or contracted-capacity signals are **not** the same as a guaranteed connection offer.

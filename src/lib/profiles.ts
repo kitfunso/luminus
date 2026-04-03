@@ -119,7 +119,7 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   bess: 'Battery storage arbitrage: spreads, ancillary prices, site revenue, DNO headroom signals, and shortlist generation',
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
-  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, NGED public GSP queue/TD-limit signals, SSEN DNO headroom, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), BESS shortlist generation, and source verification',
+  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, NGED public GSP queue/TD-limit signals, SSEN and Northern Powergrid DNO headroom, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), BESS shortlist generation, and source verification',
   full: 'All registered data tools by default, plus 2 meta-tools',
 };
 

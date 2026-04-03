@@ -126,7 +126,7 @@ const registeredToolNames: string[] = [];
 
 const server = new McpServer({
   name: "luminus",
-  version: "0.3.0",
+  version: "0.3.1",
 });
 
 // ---------------------------------------------------------------------------
@@ -697,7 +697,7 @@ if (shouldRegister("get_distribution_headroom")) {
   registeredToolNames.push("get_distribution_headroom");
   server.tool(
     "get_distribution_headroom",
-    "SSEN-only distribution headroom lookup. Finds nearby SSEN GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing from SSEN's public headroom dashboard. Not a connection offer or firm capacity right.",
+    "Public DNO headroom lookup for SSEN and Northern Powergrid. Finds nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing where the operator publishes that data. Not a connection offer or firm capacity right.",
     distributionHeadroomSchema.shape,
     auditedToolHandler("get_distribution_headroom", distributionHeadroomSchema, getDistributionHeadroom),
   );
