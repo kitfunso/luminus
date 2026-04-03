@@ -30,6 +30,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_remit_messages',
     'get_acer_remit',
     'get_grid_connection_queue',
+    'get_nged_connection_signal',
     'get_distribution_headroom',
   ],
   generation: [
@@ -92,6 +93,7 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_terrain_analysis',
     'get_grid_proximity',
     'get_grid_connection_queue',
+    'get_nged_connection_signal',
     'get_distribution_headroom',
     'get_land_constraints',
     'get_land_cover',
@@ -117,7 +119,7 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   bess: 'Battery storage arbitrage: spreads, ancillary prices, site revenue, DNO headroom signals, and shortlist generation',
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
-  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, SSEN DNO headroom, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), BESS shortlist generation, and source verification',
+  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, NGED public GSP queue/TD-limit signals, SSEN DNO headroom, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), BESS shortlist generation, and source verification',
   full: 'All registered data tools by default, plus 2 meta-tools',
 };
 

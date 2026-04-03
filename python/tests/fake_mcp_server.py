@@ -360,6 +360,71 @@ for line in sys.stdin:
                     "upstream_reinforcement_works": "Lovedean upgrade",
                     "upstream_reinforcement_completion_date": "2028-03-31",
                 },
+                "nged_connection_signal": {
+                    "queue_signal": {
+                        "resource_name": "Lovedean",
+                        "summary": {
+                            "matched_projects": 2,
+                            "returned_projects": 2,
+                            "total_site_export_capacity_mw": 41.8,
+                            "total_site_import_capacity_mw": 2.5,
+                            "status_breakdown": {
+                                "Accepted": 1,
+                                "Recently Connected": 1,
+                            },
+                            "fuel_type_breakdown": {
+                                "Battery": 1,
+                                "Solar": 1,
+                            },
+                        },
+                        "projects": [
+                            {
+                                "licence_area": "South West",
+                                "gsp": "LOVEDEAN 132kV",
+                                "tanm": True,
+                                "danm": False,
+                                "status": "Accepted",
+                                "bus_number": 11023,
+                                "bus_name": "LOVE_MAIN1",
+                                "site_id": 101,
+                                "application_id": 7,
+                                "site_export_capacity_mw": 20.0,
+                                "site_import_capacity_mw": 1.5,
+                                "machine_export_capacity_mw": 20.0,
+                                "machine_import_capacity_mw": 1.0,
+                                "fuel_type": "Battery",
+                                "machine_id": "BAT-1",
+                                "position": 3,
+                            }
+                        ],
+                    },
+                    "td_limits": {
+                        "resource_name": "Lovedean Td Limits",
+                        "summary": {
+                            "matched_rows": 2,
+                            "seasons": ["Summer", "Winter"],
+                            "min_import_tl_mw": -302.6,
+                            "max_export_tl_mw": 63.9,
+                        },
+                        "rows": [
+                            {
+                                "gsp_name": "Lovedean",
+                                "from_bus_number": 419700,
+                                "to_bus_number": 320538,
+                                "tertiary_bus_number": 32170,
+                                "from_bus_name": "LOVE2_H10",
+                                "to_bus_name": "LOVE1_SGT1",
+                                "tertiary_bus_name": "LOVE8G1",
+                                "circuit_id": "S1",
+                                "season": "Winter",
+                                "import_tl_mw": -302.6,
+                                "export_tl_mw": 63.9,
+                                "import_cafpl_mva": None,
+                                "export_carpl_mva": 240.0,
+                            }
+                        ],
+                    },
+                },
                 "confidence_notes": [
                     "GSP lookup uses polygon containment when available",
                     "Distribution headroom uses SSEN public data only",
@@ -369,6 +434,8 @@ for line in sys.stdin:
                     "tec_register": {"source": "fake-neso-tec"},
                     "grid_proximity": {"source": "fake-overpass"},
                     "distribution_headroom": {"source": "fake-ssen"},
+                    "nged_queue_signal": {"source": "fake-nged-queue"},
+                    "nged_td_limits": {"source": "fake-nged-limits"},
                 },
                 "disclaimer": "Planning signal only.",
             }

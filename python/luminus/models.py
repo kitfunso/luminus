@@ -335,6 +335,193 @@ class GridConnectionIntelligenceDistributionHeadroom:
 
 
 @dataclass(slots=True)
+class GridConnectionIntelligenceNgedQueueSummary:
+    matched_projects: int
+    returned_projects: int
+    total_site_export_capacity_mw: float
+    total_site_import_capacity_mw: float
+    status_breakdown: dict[str, int]
+    fuel_type_breakdown: dict[str, int]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "GridConnectionIntelligenceNgedQueueSummary":
+        return cls(
+            matched_projects=int(payload["matched_projects"]),
+            returned_projects=int(payload["returned_projects"]),
+            total_site_export_capacity_mw=float(payload["total_site_export_capacity_mw"]),
+            total_site_import_capacity_mw=float(payload["total_site_import_capacity_mw"]),
+            status_breakdown={
+                str(key): int(value)
+                for key, value in dict(payload.get("status_breakdown", {})).items()
+            },
+            fuel_type_breakdown={
+                str(key): int(value)
+                for key, value in dict(payload.get("fuel_type_breakdown", {})).items()
+            },
+        )
+
+
+@dataclass(slots=True)
+class GridConnectionIntelligenceNgedQueueProject:
+    licence_area: str | None
+    gsp: str | None
+    tanm: bool | None
+    danm: bool | None
+    status: str | None
+    bus_number: int | None = None
+    bus_name: str | None = None
+    site_id: int | None = None
+    application_id: int | None = None
+    site_export_capacity_mw: float | None = None
+    site_import_capacity_mw: float | None = None
+    machine_export_capacity_mw: float | None = None
+    machine_import_capacity_mw: float | None = None
+    fuel_type: str | None = None
+    machine_id: str | None = None
+    position: int | None = None
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "GridConnectionIntelligenceNgedQueueProject":
+        return cls(
+            licence_area=payload.get("licence_area"),
+            gsp=payload.get("gsp"),
+            tanm=payload.get("tanm"),
+            danm=payload.get("danm"),
+            status=payload.get("status"),
+            bus_number=_optional_int(payload.get("bus_number")),
+            bus_name=payload.get("bus_name"),
+            site_id=_optional_int(payload.get("site_id")),
+            application_id=_optional_int(payload.get("application_id")),
+            site_export_capacity_mw=_optional_float(payload.get("site_export_capacity_mw")),
+            site_import_capacity_mw=_optional_float(payload.get("site_import_capacity_mw")),
+            machine_export_capacity_mw=_optional_float(payload.get("machine_export_capacity_mw")),
+            machine_import_capacity_mw=_optional_float(payload.get("machine_import_capacity_mw")),
+            fuel_type=payload.get("fuel_type"),
+            machine_id=payload.get("machine_id"),
+            position=_optional_int(payload.get("position")),
+        )
+
+
+@dataclass(slots=True)
+class GridConnectionIntelligenceNgedQueueSignal:
+    resource_name: str
+    summary: GridConnectionIntelligenceNgedQueueSummary
+    projects: list[GridConnectionIntelligenceNgedQueueProject]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "GridConnectionIntelligenceNgedQueueSignal":
+        return cls(
+            resource_name=str(payload["resource_name"]),
+            summary=GridConnectionIntelligenceNgedQueueSummary.from_dict(
+                dict(payload.get("summary", {}))
+            ),
+            projects=[
+                GridConnectionIntelligenceNgedQueueProject.from_dict(item)
+                for item in payload.get("projects", [])
+                if isinstance(item, Mapping)
+            ],
+        )
+
+
+@dataclass(slots=True)
+class GridConnectionIntelligenceNgedTdLimitsSummary:
+    matched_rows: int
+    seasons: list[str]
+    min_import_tl_mw: float | None
+    max_export_tl_mw: float | None
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "GridConnectionIntelligenceNgedTdLimitsSummary":
+        return cls(
+            matched_rows=int(payload["matched_rows"]),
+            seasons=[str(item) for item in payload.get("seasons", [])],
+            min_import_tl_mw=_optional_float(payload.get("min_import_tl_mw")),
+            max_export_tl_mw=_optional_float(payload.get("max_export_tl_mw")),
+        )
+
+
+@dataclass(slots=True)
+class GridConnectionIntelligenceNgedTdLimitRow:
+    gsp_name: str | None
+    from_bus_number: int | None = None
+    to_bus_number: int | None = None
+    tertiary_bus_number: int | None = None
+    from_bus_name: str | None = None
+    to_bus_name: str | None = None
+    tertiary_bus_name: str | None = None
+    circuit_id: str | None = None
+    season: str | None = None
+    import_tl_mw: float | None = None
+    export_tl_mw: float | None = None
+    import_cafpl_mva: float | None = None
+    export_carpl_mva: float | None = None
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "GridConnectionIntelligenceNgedTdLimitRow":
+        return cls(
+            gsp_name=payload.get("gsp_name"),
+            from_bus_number=_optional_int(payload.get("from_bus_number")),
+            to_bus_number=_optional_int(payload.get("to_bus_number")),
+            tertiary_bus_number=_optional_int(payload.get("tertiary_bus_number")),
+            from_bus_name=payload.get("from_bus_name"),
+            to_bus_name=payload.get("to_bus_name"),
+            tertiary_bus_name=payload.get("tertiary_bus_name"),
+            circuit_id=payload.get("circuit_id"),
+            season=payload.get("season"),
+            import_tl_mw=_optional_float(payload.get("import_tl_mw")),
+            export_tl_mw=_optional_float(payload.get("export_tl_mw")),
+            import_cafpl_mva=_optional_float(payload.get("import_cafpl_mva")),
+            export_carpl_mva=_optional_float(payload.get("export_carpl_mva")),
+        )
+
+
+@dataclass(slots=True)
+class GridConnectionIntelligenceNgedTdLimits:
+    resource_name: str
+    summary: GridConnectionIntelligenceNgedTdLimitsSummary
+    rows: list[GridConnectionIntelligenceNgedTdLimitRow]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "GridConnectionIntelligenceNgedTdLimits":
+        return cls(
+            resource_name=str(payload["resource_name"]),
+            summary=GridConnectionIntelligenceNgedTdLimitsSummary.from_dict(
+                dict(payload.get("summary", {}))
+            ),
+            rows=[
+                GridConnectionIntelligenceNgedTdLimitRow.from_dict(item)
+                for item in payload.get("rows", [])
+                if isinstance(item, Mapping)
+            ],
+        )
+
+
+@dataclass(slots=True)
+class GridConnectionIntelligenceNgedConnectionSignal:
+    queue_signal: GridConnectionIntelligenceNgedQueueSignal | None
+    td_limits: GridConnectionIntelligenceNgedTdLimits | None
+
+    @classmethod
+    def from_dict(
+        cls, payload: Mapping[str, Any]
+    ) -> "GridConnectionIntelligenceNgedConnectionSignal":
+        queue_signal_payload = payload.get("queue_signal")
+        td_limits_payload = payload.get("td_limits")
+        return cls(
+            queue_signal=(
+                GridConnectionIntelligenceNgedQueueSignal.from_dict(queue_signal_payload)
+                if isinstance(queue_signal_payload, Mapping)
+                else None
+            ),
+            td_limits=(
+                GridConnectionIntelligenceNgedTdLimits.from_dict(td_limits_payload)
+                if isinstance(td_limits_payload, Mapping)
+                else None
+            ),
+        )
+
+
+@dataclass(slots=True)
 class GridConnectionIntelligenceSnapshot:
     lat: float
     lon: float
@@ -343,6 +530,7 @@ class GridConnectionIntelligenceSnapshot:
     connection_queue: GridConnectionIntelligenceQueue | None
     nearby_substations: list[GridConnectionIntelligenceSubstation]
     distribution_headroom: GridConnectionIntelligenceDistributionHeadroom | None
+    nged_connection_signal: GridConnectionIntelligenceNgedConnectionSignal | None
     confidence_notes: list[str]
     source_metadata: dict[str, Any]
     disclaimer: str
@@ -352,6 +540,7 @@ class GridConnectionIntelligenceSnapshot:
         nearest_gsp_payload = payload.get("nearest_gsp")
         connection_queue_payload = payload.get("connection_queue")
         distribution_headroom_payload = payload.get("distribution_headroom")
+        nged_connection_signal_payload = payload.get("nged_connection_signal")
         return cls(
             lat=float(payload["lat"]),
             lon=float(payload["lon"]),
@@ -374,6 +563,13 @@ class GridConnectionIntelligenceSnapshot:
             distribution_headroom=(
                 GridConnectionIntelligenceDistributionHeadroom.from_dict(distribution_headroom_payload)
                 if isinstance(distribution_headroom_payload, Mapping)
+                else None
+            ),
+            nged_connection_signal=(
+                GridConnectionIntelligenceNgedConnectionSignal.from_dict(
+                    nged_connection_signal_payload
+                )
+                if isinstance(nged_connection_signal_payload, Mapping)
                 else None
             ),
             confidence_notes=[str(item) for item in payload.get("confidence_notes", [])],

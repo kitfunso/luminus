@@ -7,7 +7,7 @@ Latest release: [v0.3.0 release notes](docs/releases/0.3.0.md) | [Changelog](CHA
 
 Current published versions: `luminus-mcp@0.3.0` and `luminus-py==0.3.0`.
 
-Real-time European & UK electricity grid data via MCP. 56 tools, all free.
+Real-time European & UK electricity grid data via MCP. 57 tools, all free.
 
 ## Tools
 
@@ -70,6 +70,7 @@ Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 | `get_auction_results` | JAO | Cross-border capacity auction prices & allocation |
 | `get_transmission_lines` | OpenStreetMap | HV transmission line routes (220kV+) |
 | `get_grid_connection_queue` | NESO TEC Register | GB transmission connection-register signal: queued/contracted projects, MW, status, and dates by connection site |
+| `get_nged_connection_signal` | NGED Connected Data Portal | NGED-only public GSP signal: connection-queue rows plus seasonal TD-limit records where the matched GSP is publicly covered |
 | `get_eu_frequency` | mainsfrequency.com | Real-time grid frequency (Hz) and deviation |
 
 ### UK Specific
@@ -112,8 +113,9 @@ Real-time European & UK electricity grid data via MCP. 56 tools, all free.
 | `get_terrain_analysis` | Open-Meteo Elevation | Elevation, slope, aspect, and flatness score for a location |
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
 | `get_grid_connection_queue` | NESO TEC Register | GB transmission TEC register search by connection site, host TO, technology, status, and agreement type |
+| `get_nged_connection_signal` | NGED Connected Data Portal | NGED-only public GSP signal: connection-queue rows plus seasonal TD-limit records where the matched GSP is publicly covered |
 | `get_distribution_headroom` | SSEN Headroom Dashboard | SSEN-only DNO headroom lookup: nearby GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing |
-| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM | GB grid connection intelligence: polygon-first GSP lookup with nearest-point fallback, TEC register queue at that GSP, nearby substations, and SSEN distribution headroom where public SSEN data resolves |
+| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM | GB grid connection intelligence: polygon-first GSP lookup with nearest-point fallback, TEC register queue at that GSP, nearby substations, SSEN distribution headroom where public SSEN data resolves, and NGED public queue and TD-limit context where that GSP is covered |
 | `get_land_constraints` | Natural England / EEA Natura 2000 | GB protected areas via Natural England, plus EU Natura 2000 protected sites within a radius |
 | `get_land_cover` | CORINE Land Cover 2018 | Point land-cover classification for EU27 + EEA/EFTA sites, with conservative planning-exclusion flags for wetlands, water bodies, and woodland. GB not covered |
 | `get_agricultural_land` | Natural England ALC | Best and Most Versatile agricultural land screening. Prefers detailed post-1988 surveys, falls back to provisional ALC |
@@ -197,7 +199,7 @@ By default all available data tools are registered. Use `--profile` to load only
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
-npx luminus-mcp --profile grid       # 12 tools: flows, outages, infrastructure
+npx luminus-mcp --profile grid       # 13 tools: flows, outages, infrastructure
 npx luminus-mcp --profile generation # 6 tools: gen mix, forecasts, carbon
 npx luminus-mcp --profile gas        # 5 tools: storage, LNG, pipeline flows
 npx luminus-mcp --profile renewables # 5 tools: wind/solar forecasts, hydro
@@ -205,8 +207,8 @@ npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
 npx luminus-mcp --profile bess       # 8 tools: arbitrage, ancillary, revenue, shortlist
 npx luminus-mcp --profile regional   # 8 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
-npx luminus-mcp --profile gis        # 16 tools: solar, terrain, grid, queue, screening, comparison, shortlist, verification
-npx luminus-mcp --profile full       # all 56 tools (default)
+npx luminus-mcp --profile gis        # 17 tools: solar, terrain, grid, queue, screening, comparison, shortlist, verification
+npx luminus-mcp --profile full       # all 57 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:
@@ -269,6 +271,7 @@ Ask your AI agent:
 | ENTSOG Transparency Platform | [transparency.entsog.eu](https://transparency.entsog.eu/) | European gas pipelines |
 | National Grid ESO | [carbonintensity.org.uk](https://carbonintensity.org.uk/) | UK |
 | NESO Data Portal | [api.neso.energy](https://api.neso.energy/) | GB transmission connection registers and GIS boundary datasets |
+| NGED Connected Data Portal | [connecteddata.nationalgrid.co.uk](https://connecteddata.nationalgrid.co.uk/) | NGED public GSP queue and transmission-distribution limit datasets |
 | SSEN Open Data Portal | [data-api.ssen.co.uk](https://data-api.ssen.co.uk/) | SSEN distribution headroom, network capacity, and generation availability datasets |
 | Elexon BMRS | [bmrs.elexon.co.uk](https://bmrs.elexon.co.uk/) | GB balancing mechanism |
 | GIE AGSI+ / ALSI | [agsi.gie.eu](https://agsi.gie.eu/) | European gas & LNG |

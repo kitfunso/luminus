@@ -3,6 +3,7 @@ import { getDistributionHeadroom } from "./distribution-headroom.js";
 import { lookupGspRegion, type GspLookupResult } from "../lib/neso-gsp.js";
 import { getGridConnectionQueue } from "./grid-connection-queue.js";
 import { getGridProximity } from "./grid-proximity.js";
+import { getNgedConnectionSignal } from "./nged-connection-signal.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 
 export const gridConnectionIntelligenceSchema = z.object({
@@ -50,6 +51,23 @@ interface DistributionHeadroomSummary {
   upstream_reinforcement_completion_date: string | null;
 }
 
+interface NgedQueueSignalSummary {
+  resource_name: string;
+  summary: Record<string, unknown>;
+  projects: Array<Record<string, unknown>>;
+}
+
+interface NgedTdLimitSummary {
+  resource_name: string;
+  summary: Record<string, unknown>;
+  rows: Array<Record<string, unknown>>;
+}
+
+interface NgedConnectionSignalSummary {
+  queue_signal: NgedQueueSignalSummary | null;
+  td_limits: NgedTdLimitSummary | null;
+}
+
 interface GridConnectionIntelligenceResult {
   lat: number;
   lon: number;
@@ -58,18 +76,21 @@ interface GridConnectionIntelligenceResult {
   connection_queue: ConnectionQueueResult | null;
   nearby_substations: NearbySubstation[];
   distribution_headroom: DistributionHeadroomSummary | null;
+  nged_connection_signal: NgedConnectionSignalSummary | null;
   confidence_notes: string[];
   source_metadata: {
     gsp_lookup: GisSourceMetadata;
     tec_register: GisSourceMetadata;
     grid_proximity: GisSourceMetadata;
     distribution_headroom: GisSourceMetadata;
+    nged_queue_signal: GisSourceMetadata;
+    nged_td_limits: GisSourceMetadata;
   };
   disclaimer: string;
 }
 
 const DISCLAIMER =
-  "This combines NESO GSP region polygons, nearest-point fallback, the NESO TEC register, SSEN distribution headroom where public SSEN data resolves, and OSM substation data. " +
+  "This combines NESO GSP region polygons, nearest-point fallback, the NESO TEC register, SSEN distribution headroom where public SSEN data resolves, NGED public queue and TD-limit data where the matched GSP is covered, and OSM substation data. " +
   "It is not a connection offer, capacity guarantee, or GB-wide DNO headroom assessment. " +
   "Always verify with the relevant network operator before making connection decisions.";
 
@@ -79,6 +100,7 @@ function buildConfidenceNotes(gspResult: GspLookupResult | null): string[] {
     "TEC register connection sites are matched by GSP name substring, not spatial coordinates",
     "Connection queue data shows contracted positions, not guaranteed available capacity",
     "Distribution headroom uses SSEN public data only and is not a GB-wide DNO map",
+    "NGED public queue and TD-limit context only appears where the matched GSP is covered by NGED's published resources",
   ];
 
   if (!gspResult) {
@@ -119,11 +141,15 @@ export async function getGridConnectionIntelligence(
 
   const proximityPromise = queryGridProximity(lat, lon, radiusKm);
   const distributionHeadroomPromise = queryDistributionHeadroom(lat, lon, radiusKm);
+  const ngedSignalPromise = gspResult
+    ? queryNgedConnectionSignal(lat, lon, radiusKm)
+    : Promise.resolve(null);
 
-  const [connectionQueue, nearbySubstations, distributionHeadroom] = await Promise.all([
+  const [connectionQueue, nearbySubstations, distributionHeadroom, ngedConnectionSignal] = await Promise.all([
     tecPromise,
     proximityPromise,
     distributionHeadroomPromise,
+    ngedSignalPromise,
   ]);
 
   return {
@@ -142,12 +168,15 @@ export async function getGridConnectionIntelligence(
     connection_queue: connectionQueue,
     nearby_substations: nearbySubstations,
     distribution_headroom: distributionHeadroom,
+    nged_connection_signal: ngedConnectionSignal,
     confidence_notes: buildConfidenceNotes(gspResult),
     source_metadata: {
       gsp_lookup: GIS_SOURCES["neso-gsp-lookup"],
       tec_register: GIS_SOURCES["neso-tec-register"],
       grid_proximity: GIS_SOURCES["overpass-osm"],
       distribution_headroom: GIS_SOURCES["ssen-distribution-headroom"],
+      nged_queue_signal: GIS_SOURCES["nged-connection-queue"],
+      nged_td_limits: GIS_SOURCES["nged-asset-limits"],
     },
     disclaimer: DISCLAIMER,
   };
@@ -232,6 +261,28 @@ async function queryDistributionHeadroom(
       demand_constraint: site.demand_constraint,
       upstream_reinforcement_works: site.upstream_reinforcement_works,
       upstream_reinforcement_completion_date: site.upstream_reinforcement_completion_date,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function queryNgedConnectionSignal(
+  lat: number,
+  lon: number,
+  radiusKm: number,
+): Promise<NgedConnectionSignalSummary | null> {
+  try {
+    const result = await getNgedConnectionSignal({
+      lat,
+      lon,
+      radius_km: radiusKm,
+      country: "GB",
+    });
+
+    return {
+      queue_signal: result.queue_signal as NgedQueueSignalSummary | null,
+      td_limits: result.td_limits as NgedTdLimitSummary | null,
     };
   } catch {
     return null;

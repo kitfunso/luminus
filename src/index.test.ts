@@ -27,6 +27,13 @@ describe("index meta-tools", () => {
     expect(indexSource).toContain('if (shouldRegister("get_distribution_headroom"))');
     expect(indexSource).toContain('"get_distribution_headroom"');
   });
+
+  it("registers the NGED public connection signal tool", async () => {
+    const indexSource = readFileSync(join(process.cwd(), "src/index.ts"), "utf8");
+
+    expect(indexSource).toContain('if (shouldRegister("get_nged_connection_signal"))');
+    expect(indexSource).toContain('"get_nged_connection_signal"');
+  });
 });
 
 describe("public docs", () => {

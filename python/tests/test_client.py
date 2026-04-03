@@ -195,6 +195,13 @@ def test_typed_models_remain_opt_in():
         assert intelligence.connection_queue.total_mw_queued == 320.0
         assert intelligence.distribution_headroom is not None
         assert intelligence.distribution_headroom.substation == "Portsmouth"
+        assert intelligence.nged_connection_signal is not None
+        assert intelligence.nged_connection_signal.queue_signal is not None
+        assert intelligence.nged_connection_signal.queue_signal.summary.matched_projects == 2
+        assert intelligence.nged_connection_signal.queue_signal.projects[0].fuel_type == "Battery"
+        assert intelligence.nged_connection_signal.td_limits is not None
+        assert intelligence.nged_connection_signal.td_limits.summary.max_export_tl_mw == 63.9
+        assert intelligence.nged_connection_signal.td_limits.rows[0].season == "Winter"
     finally:
         client.close()
 

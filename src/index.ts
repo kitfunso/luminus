@@ -67,6 +67,7 @@ import { terrainAnalysisSchema, getTerrainAnalysis } from "./tools/terrain-analy
 import { gridProximitySchema, getGridProximity } from "./tools/grid-proximity.js";
 import { gridConnectionQueueSchema, getGridConnectionQueue } from "./tools/grid-connection-queue.js";
 import { gridConnectionIntelligenceSchema, getGridConnectionIntelligence } from "./tools/grid-connection-intelligence.js";
+import { ngedConnectionSignalSchema, getNgedConnectionSignal } from "./tools/nged-connection-signal.js";
 import { distributionHeadroomSchema, getDistributionHeadroom } from "./tools/distribution-headroom.js";
 import { landConstraintsSchema, getLandConstraints } from "./tools/land-constraints.js";
 import { landCoverSchema, getLandCover } from "./tools/land-cover.js";
@@ -686,7 +687,7 @@ if (shouldRegister("get_grid_connection_intelligence")) {
   registeredToolNames.push("get_grid_connection_intelligence");
   server.tool(
     "get_grid_connection_intelligence",
-    "GB grid connection intelligence: resolves the containing GSP region when NESO boundaries match, otherwise falls back to the nearest GSP, then adds TEC register context, nearby substations, and SSEN distribution headroom where public SSEN data resolves. Not a connection offer or capacity guarantee.",
+    "GB grid connection intelligence: resolves the containing GSP region when NESO boundaries match, otherwise falls back to the nearest GSP, then adds TEC register context, nearby substations, SSEN distribution headroom where public SSEN data resolves, and NGED public queue and TD-limit context where that GSP is covered. Not a connection offer or capacity guarantee.",
     gridConnectionIntelligenceSchema.shape,
     auditedToolHandler("get_grid_connection_intelligence", gridConnectionIntelligenceSchema, getGridConnectionIntelligence),
   );
@@ -699,6 +700,16 @@ if (shouldRegister("get_distribution_headroom")) {
     "SSEN-only distribution headroom lookup. Finds nearby SSEN GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing from SSEN's public headroom dashboard. Not a connection offer or firm capacity right.",
     distributionHeadroomSchema.shape,
     auditedToolHandler("get_distribution_headroom", distributionHeadroomSchema, getDistributionHeadroom),
+  );
+}
+
+if (shouldRegister("get_nged_connection_signal")) {
+  registeredToolNames.push("get_nged_connection_signal");
+  server.tool(
+    "get_nged_connection_signal",
+    "NGED-only public connection signal. Resolves a GB site to its NESO GSP, then returns NGED's public per-GSP connection queue and TD-limit records where that GSP is covered. Not headroom, a connection offer, or a firm capacity right.",
+    ngedConnectionSignalSchema.shape,
+    auditedToolHandler("get_nged_connection_signal", ngedConnectionSignalSchema, getNgedConnectionSignal),
   );
 }
 

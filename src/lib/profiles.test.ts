@@ -18,4 +18,10 @@ describe("GIS shortlist tool wiring", () => {
     expect(PROFILES.bess).toContain("get_distribution_headroom");
     expect(TOOL_KEY_REQUIREMENTS.get_distribution_headroom).toEqual([]);
   });
+
+  it("exposes the NGED public connection signal in the grid and GIS profiles", () => {
+    expect(PROFILES.grid).toContain("get_nged_connection_signal");
+    expect(PROFILES.gis).toContain("get_nged_connection_signal");
+    expect(TOOL_KEY_REQUIREMENTS.get_nged_connection_signal).toEqual([]);
+  });
 });

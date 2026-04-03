@@ -151,6 +151,8 @@ with Luminus(profile="gis") as lum:
         lon=-1.08,
         country="GB",
     )
+    if intelligence.nged_connection_signal and intelligence.nged_connection_signal.queue_signal:
+        project_count = intelligence.nged_connection_signal.queue_signal.summary.matched_projects
     estimate: SiteRevenueEstimate = lum.estimate_site_revenue_estimate(
         lat=52.0,
         lon=0.1,

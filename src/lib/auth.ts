@@ -177,6 +177,7 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   get_grid_proximity: [],
   get_grid_connection_queue: [],
   get_grid_connection_intelligence: [],
+  get_nged_connection_signal: [],
   get_distribution_headroom: [],
   get_land_constraints: [],
   get_agricultural_land: [],

@@ -17,16 +17,22 @@ vi.mock("./distribution-headroom.js", () => ({
   getDistributionHeadroom: vi.fn(),
 }));
 
+vi.mock("./nged-connection-signal.js", () => ({
+  getNgedConnectionSignal: vi.fn(),
+}));
+
 import { getGridConnectionIntelligence } from "./grid-connection-intelligence.js";
 import { lookupGspRegion } from "../lib/neso-gsp.js";
 import { getGridConnectionQueue } from "./grid-connection-queue.js";
 import { getGridProximity } from "./grid-proximity.js";
 import { getDistributionHeadroom } from "./distribution-headroom.js";
+import { getNgedConnectionSignal } from "./nged-connection-signal.js";
 
 const mockLookupGspRegion = vi.mocked(lookupGspRegion);
 const mockGetGridConnectionQueue = vi.mocked(getGridConnectionQueue);
 const mockGetGridProximity = vi.mocked(getGridProximity);
 const mockGetDistributionHeadroom = vi.mocked(getDistributionHeadroom);
+const mockGetNgedConnectionSignal = vi.mocked(getNgedConnectionSignal);
 
 const MOCK_GSP_RESULT = {
   gsp_id: "GSP_1",
@@ -195,6 +201,78 @@ const MOCK_DNO_RESULT = {
   disclaimer: "test disclaimer",
 };
 
+const MOCK_NGED_RESULT = {
+  lat: 52.39,
+  lon: -1.64,
+  country: "GB",
+  nearest_gsp: {
+    gsp_id: "GSP_1",
+    gsp_name: "BERKSWELL",
+    distance_km: 2.5,
+    region_id: "R1",
+    region_name: "West Midlands",
+  },
+  queue_signal: {
+    resource_name: "West Midlands",
+    summary: {
+      matched_projects: 2,
+      returned_projects: 2,
+      total_site_export_capacity_mw: 41.8,
+      total_site_import_capacity_mw: 2.5,
+      status_breakdown: {
+        Accepted: 1,
+        "Recently Connected": 1,
+      },
+      fuel_type_breakdown: {
+        Battery: 1,
+        Solar: 1,
+      },
+    },
+    projects: [
+      {
+        licence_area: "East Midlands",
+        gsp: "BERKSWELL 132kV S STN",
+        tanm: false,
+        danm: false,
+        status: "Recently Connected",
+        site_export_capacity_mw: 25,
+      },
+    ],
+  },
+  td_limits: {
+    resource_name: "West Midlands Td Limits",
+    summary: {
+      matched_rows: 2,
+      seasons: ["Summer", "Winter"],
+      min_import_tl_mw: -302.6,
+      max_export_tl_mw: 63.9,
+    },
+    rows: [
+      {
+        gsp_name: "West Midlands",
+        season: "Winter",
+        import_tl_mw: -302.6,
+        export_tl_mw: 63.9,
+      },
+    ],
+  },
+  confidence_notes: [
+    "NGED queue rows are project or machine records and should not be treated as available connection capacity",
+  ],
+  source_metadata: {
+    gsp_lookup: {
+      id: "neso-gsp-lookup",
+    },
+    queue_signal: {
+      id: "nged-connection-queue",
+    },
+    td_limits: {
+      id: "nged-asset-limits",
+    },
+  },
+  disclaimer: "test disclaimer",
+};
+
 describe("getGridConnectionIntelligence", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -209,6 +287,7 @@ describe("getGridConnectionIntelligence", () => {
     mockGetGridConnectionQueue.mockResolvedValue(MOCK_TEC_RESULT);
     mockGetGridProximity.mockResolvedValue(MOCK_PROXIMITY_RESULT);
     mockGetDistributionHeadroom.mockResolvedValue(MOCK_DNO_RESULT);
+    mockGetNgedConnectionSignal.mockResolvedValue(MOCK_NGED_RESULT);
 
     const result = await getGridConnectionIntelligence({
       lat: 52.39,
@@ -233,6 +312,9 @@ describe("getGridConnectionIntelligence", () => {
     expect(result.distribution_headroom!.operator).toBe("SSEN");
     expect(result.distribution_headroom!.substation).toBe("Alpha GSP");
     expect(result.distribution_headroom!.estimated_generation_headroom_mw).toBe(35);
+    expect(result.nged_connection_signal).not.toBeNull();
+    expect(result.nged_connection_signal!.queue_signal?.summary.matched_projects).toBe(2);
+    expect(result.nged_connection_signal!.td_limits?.summary.max_export_tl_mw).toBe(63.9);
 
     expect(result.country).toBe("GB");
     expect(result.lat).toBe(52.39);
@@ -257,9 +339,11 @@ describe("getGridConnectionIntelligence", () => {
     expect(result.connection_queue).toBeNull();
     expect(result.nearby_substations).toHaveLength(2);
     expect(result.distribution_headroom).toBeNull();
+    expect(result.nged_connection_signal).toBeNull();
 
     // Should NOT have called TEC register
     expect(mockGetGridConnectionQueue).not.toHaveBeenCalled();
+    expect(mockGetNgedConnectionSignal).not.toHaveBeenCalled();
   });
 
   it("handles TEC register failure gracefully", async () => {
@@ -267,6 +351,7 @@ describe("getGridConnectionIntelligence", () => {
     mockGetGridConnectionQueue.mockRejectedValue(new Error("NESO API timeout"));
     mockGetGridProximity.mockResolvedValue(MOCK_PROXIMITY_RESULT);
     mockGetDistributionHeadroom.mockResolvedValue(MOCK_DNO_RESULT);
+    mockGetNgedConnectionSignal.mockResolvedValue(MOCK_NGED_RESULT);
 
     const result = await getGridConnectionIntelligence({
       lat: 52.39,
@@ -294,6 +379,7 @@ describe("getGridConnectionIntelligence", () => {
     mockGetGridConnectionQueue.mockResolvedValue(MOCK_TEC_RESULT);
     mockGetGridProximity.mockResolvedValue(MOCK_PROXIMITY_RESULT);
     mockGetDistributionHeadroom.mockResolvedValue(MOCK_DNO_RESULT);
+    mockGetNgedConnectionSignal.mockResolvedValue(MOCK_NGED_RESULT);
 
     const result = await getGridConnectionIntelligence({
       lat: 52.39,
@@ -312,6 +398,9 @@ describe("getGridConnectionIntelligence", () => {
     );
     expect(result.confidence_notes).toContain(
       "Distribution headroom uses SSEN public data only and is not a GB-wide DNO map",
+    );
+    expect(result.confidence_notes).toContain(
+      "NGED public queue and TD-limit context only appears where the matched GSP is covered by NGED's published resources",
     );
   });
 
@@ -332,11 +421,12 @@ describe("getGridConnectionIntelligence", () => {
     expect(result.confidence_notes).toContain("No GSP found within search radius");
   });
 
-  it("source_metadata includes all three sources", async () => {
+  it("source_metadata includes NGED provenance alongside the existing sources", async () => {
     mockLookupGspRegion.mockResolvedValue(MOCK_GSP_RESULT);
     mockGetGridConnectionQueue.mockResolvedValue(MOCK_TEC_RESULT);
     mockGetGridProximity.mockResolvedValue(MOCK_PROXIMITY_RESULT);
     mockGetDistributionHeadroom.mockResolvedValue(MOCK_DNO_RESULT);
+    mockGetNgedConnectionSignal.mockResolvedValue(MOCK_NGED_RESULT);
 
     const result = await getGridConnectionIntelligence({
       lat: 52.39,
@@ -352,6 +442,10 @@ describe("getGridConnectionIntelligence", () => {
     expect(result.source_metadata.grid_proximity.id).toBe("overpass-osm");
     expect(result.source_metadata.distribution_headroom).toBeDefined();
     expect(result.source_metadata.distribution_headroom.id).toBe("ssen-distribution-headroom");
+    expect(result.source_metadata.nged_queue_signal).toBeDefined();
+    expect(result.source_metadata.nged_queue_signal.id).toBe("nged-connection-queue");
+    expect(result.source_metadata.nged_td_limits).toBeDefined();
+    expect(result.source_metadata.nged_td_limits.id).toBe("nged-asset-limits");
   });
 
   it("handles grid proximity failure gracefully", async () => {
@@ -359,6 +453,7 @@ describe("getGridConnectionIntelligence", () => {
     mockGetGridConnectionQueue.mockResolvedValue(MOCK_TEC_RESULT);
     mockGetGridProximity.mockRejectedValue(new Error("Overpass timeout"));
     mockGetDistributionHeadroom.mockResolvedValue(MOCK_DNO_RESULT);
+    mockGetNgedConnectionSignal.mockResolvedValue(MOCK_NGED_RESULT);
 
     const result = await getGridConnectionIntelligence({
       lat: 52.39,
@@ -376,6 +471,7 @@ describe("getGridConnectionIntelligence", () => {
     mockGetGridConnectionQueue.mockResolvedValue(MOCK_TEC_RESULT);
     mockGetGridProximity.mockResolvedValue(MOCK_PROXIMITY_RESULT);
     mockGetDistributionHeadroom.mockRejectedValue(new Error("SSEN timeout"));
+    mockGetNgedConnectionSignal.mockResolvedValue(MOCK_NGED_RESULT);
 
     const result = await getGridConnectionIntelligence({
       lat: 52.39,
@@ -388,11 +484,30 @@ describe("getGridConnectionIntelligence", () => {
     expect(result.distribution_headroom).toBeNull();
   });
 
+  it("handles NGED public signal failure gracefully", async () => {
+    mockLookupGspRegion.mockResolvedValue(MOCK_GSP_RESULT);
+    mockGetGridConnectionQueue.mockResolvedValue(MOCK_TEC_RESULT);
+    mockGetGridProximity.mockResolvedValue(MOCK_PROXIMITY_RESULT);
+    mockGetDistributionHeadroom.mockResolvedValue(MOCK_DNO_RESULT);
+    mockGetNgedConnectionSignal.mockRejectedValue(new Error("NGED timeout"));
+
+    const result = await getGridConnectionIntelligence({
+      lat: 52.39,
+      lon: -1.64,
+      country: "GB",
+    });
+
+    expect(result.nearest_gsp).not.toBeNull();
+    expect(result.connection_queue).not.toBeNull();
+    expect(result.nged_connection_signal).toBeNull();
+  });
+
   it("uses default radius_km of 25 when not provided", async () => {
     mockLookupGspRegion.mockResolvedValue(MOCK_GSP_RESULT);
     mockGetGridConnectionQueue.mockResolvedValue(MOCK_TEC_RESULT);
     mockGetGridProximity.mockResolvedValue(MOCK_PROXIMITY_RESULT);
     mockGetDistributionHeadroom.mockResolvedValue(MOCK_DNO_RESULT);
+    mockGetNgedConnectionSignal.mockResolvedValue(MOCK_NGED_RESULT);
 
     await getGridConnectionIntelligence({
       lat: 52.39,
@@ -406,6 +521,12 @@ describe("getGridConnectionIntelligence", () => {
       lon: -1.64,
       operator: "SSEN",
       radius_km: 25,
+    });
+    expect(mockGetNgedConnectionSignal).toHaveBeenCalledWith({
+      lat: 52.39,
+      lon: -1.64,
+      radius_km: 25,
+      country: "GB",
     });
   });
 
