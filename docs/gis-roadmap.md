@@ -27,7 +27,8 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
   shipped: `get_distribution_headroom` uses SSEN's public headroom dashboard data for SSEN licence areas and Northern Powergrid's public heat-map substation data for NPG licence areas, with nearby GSP/BSP/primary-site headroom, constraint, and reinforcement context
 - [x] Second public operator-specific connection signal shipped
   shipped: `get_nged_connection_signal` resolves a GB site to a NESO GSP, then returns NGED's public per-GSP connection queue and TD-limit records where that GSP is covered
-- [ ] Wider DNO coverage still depends on cleaner public access from UKPN and direct public headroom data
+- [x] Wider DNO coverage shipped
+  shipped: UKPN (DFES Counterfactual scenario) and SPEN (BV scenario) added to `get_distribution_headroom`; both require free OpenDataSoft API keys. New composite tools: `get_embedded_capacity_register` (UKPN + SPEN), `get_flexibility_market` (UKPN + SPEN), `get_constraint_breaches` (UKPN), `get_spen_grid_intelligence`, `get_ukpn_grid_overview`
 
 ## Prioritised next actions
 
@@ -44,17 +45,18 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 7. [x] Upgrade GSP lookup from nearest-point to polygon containment
    shipped: runtime fetch of NESO's WGS84 boundary GeoJSON from the official ZIP, polygon containment first, nearest-point fallback for unresolved matches
 8. [x] Explore DNO-level open data (UKPN, NGED, SSEN, NPG) for distribution-level capacity signals
-   shipped: SSEN's public headroom CSV and Northern Powergrid's public heat-map substation dataset are clean enough to wire into `get_distribution_headroom`; NGED's public per-GSP queue and TD-limit datasets are clean enough to wire into `get_nged_connection_signal`; UKPN still appears portal-gated for the useful spatial capacity datasets
+   shipped: SSEN (public, no key), Northern Powergrid (public, no key), UKPN DFES (free key), and SPEN NSHR (free key) all wired into `get_distribution_headroom`; NGED public per-GSP queue and TD-limit datasets wired into `get_nged_connection_signal`; UKPN and SPEN portals require free registration for API access
 
 ## Key constraints and caveats
 
 - `screen_site` and `compare_sites` now support **GB + EU**. EU mode uses fewer layers and does not include agricultural land or flood risk.
-- `shortlist_bess_sites` is **GB-only** because it depends on the current GB transmission queue-intelligence path and only has public DNO headroom coverage for SSEN areas.
+- `shortlist_bess_sites` is **GB-only** because it depends on the current GB transmission queue-intelligence path.
 - `get_land_cover` is **not GB-capable** because CORINE 2018 does not cover Great Britain. GB `screen_site` documents this gap and notes that `agricultural_land` provides partial land-use context for England; a real UK source such as UKCEH Land Cover Map via WMS remains a future option.
 - `get_grid_proximity` is **distance/infrastructure only**, not capacity.
 - `get_grid_connection_queue` is **NESO transmission-register only**, not a GB-wide DNO headroom map.
-- `get_distribution_headroom` supports **SSEN + Northern Powergrid** today. It still does not infer UKPN, SPEN, or ENWL coverage and should not be treated as a GB-wide DNO map.
+- `get_distribution_headroom` supports **SSEN, NPG, UKPN, and SPEN**. SSEN and NPG are fully public; UKPN and SPEN require free portal registration. SPEN has no substation coordinates (returns alphabetically). ENWL is not yet covered.
 - `get_nged_connection_signal` is **NGED-only** today. It returns public per-GSP queue and TD-limit signals, not DNO headroom or a connection offer.
+- `get_embedded_capacity_register`, `get_flexibility_market`, `get_constraint_breaches`, `get_spen_grid_intelligence`, and `get_ukpn_grid_overview` all require **free API keys** from their respective OpenDataSoft portals.
 - Public GIS services can change field names, service structure, or uptime without warning.
 - Queue or contracted-capacity signals are **not** the same as a guaranteed connection offer.
 

@@ -32,6 +32,10 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_grid_connection_queue',
     'get_nged_connection_signal',
     'get_distribution_headroom',
+    'get_embedded_capacity_register',
+    'get_constraint_breaches',
+    'get_ukpn_grid_overview',
+    'get_spen_grid_intelligence',
   ],
   generation: [
     'get_generation_mix',
@@ -69,6 +73,9 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'estimate_site_revenue',
     'get_distribution_headroom',
     'shortlist_bess_sites',
+    'get_flexibility_market',
+    'get_constraint_breaches',
+    'get_embedded_capacity_register',
   ],
   regional: [
     'get_energy_charts',
@@ -105,21 +112,26 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'compare_sites',
     'estimate_site_revenue',
     'shortlist_bess_sites',
+    'get_embedded_capacity_register',
+    'get_flexibility_market',
+    'get_constraint_breaches',
+    'get_spen_grid_intelligence',
+    'get_ukpn_grid_overview',
   ],
 } as const;
 
 /** Short descriptions for each profile, used by the discovery tool. */
 const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   trader: 'Day-ahead, intraday, balancing, and commodity prices for energy trading',
-  grid: 'Cross-border flows, outages, transmission, auctions, transmission/DNO connection signals, and grid infrastructure',
+  grid: 'Cross-border flows, outages, transmission, auctions, transmission/DNO connection signals, grid infrastructure, UKPN grid overview, SPEN grid intelligence, embedded capacity, and constraint history',
   generation: 'Generation mix, real-time output, carbon intensity, and demand forecasts',
   gas: 'Gas storage, LNG terminals, US gas data, EU gas prices, and ENTSOG pipelines',
   renewables: 'Wind/solar forecasts, irradiance, ERA5 reanalysis, and hydro inflows',
   uk: 'UK-specific carbon intensity, grid demand, and Elexon BMRS data',
-  bess: 'Battery storage arbitrage: spreads, ancillary prices, site revenue, DNO headroom signals, and shortlist generation',
+  bess: 'Battery storage arbitrage: spreads, ancillary prices, site revenue, DNO headroom, flex market, constraint breaches, embedded capacity, and shortlist generation',
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
-  gis: 'GIS site prospecting: solar resource, terrain, grid proximity, GB transmission connection-register signals, NGED public GSP queue/TD-limit signals, SSEN and Northern Powergrid DNO headroom, GB grid connection intelligence (GSP + TEC + substations), land constraints, land cover, agricultural-land screening, flood-risk screening, composite site screening (GB + EU), multi-site comparison (GB + EU), BESS shortlist generation, and source verification',
+  gis: 'GIS site prospecting: solar, terrain, grid proximity, connection signals (NESO TEC + NGED), DNO headroom (SSEN/NPG/UKPN/SPEN), embedded capacity registers, flex market, constraint breaches, SPEN/UKPN grid intelligence, land constraints, land cover, agricultural land, flood risk, site screening, comparison, BESS shortlist, and source verification',
   full: 'All registered data tools by default, plus 2 meta-tools',
 };
 

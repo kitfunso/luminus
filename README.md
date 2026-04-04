@@ -7,7 +7,7 @@ Latest release: [v0.3.1 release notes](docs/releases/0.3.1.md) | [Changelog](CHA
 
 Current published versions: `luminus-mcp@0.3.1` and `luminus-py==0.3.1`.
 
-Real-time European & UK electricity grid data via MCP. 62 tools, all free.
+Real-time European & UK electricity grid data via MCP. 67 tools, most free.
 
 ## Tools
 
@@ -114,8 +114,13 @@ Real-time European & UK electricity grid data via MCP. 62 tools, all free.
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
 | `get_grid_connection_queue` | NESO TEC Register | GB transmission TEC register search by connection site, host TO, technology, status, and agreement type |
 | `get_nged_connection_signal` | NGED Connected Data Portal | NGED-only public GSP signal: connection-queue rows plus seasonal TD-limit records where the matched GSP is publicly covered |
-| `get_distribution_headroom` | SSEN + Northern Powergrid | Public DNO headroom lookup for SSEN and Northern Powergrid: nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing where the operator publishes that data |
-| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM | GB grid connection intelligence: polygon-first GSP lookup with nearest-point fallback, TEC register queue at that GSP, nearby substations, SSEN distribution headroom where public SSEN data resolves, and NGED public queue and TD-limit context where that GSP is covered |
+| `get_distribution_headroom` | SSEN + NPG + UKPN + SPEN | Public DNO headroom lookup: nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing. SSEN and NPG are free; UKPN and SPEN require free API keys |
+| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM + DNOs | GB grid connection intelligence: polygon-first GSP lookup, TEC register queue, nearby substations, distribution headroom from SSEN/NPG/UKPN (closest match), and NGED public queue and TD-limit context |
+| `get_embedded_capacity_register` | UKPN + SPEN | Connected and accepted generation/storage near a location, with energy source, capacity, and connection status. Requires API key |
+| `get_flexibility_market` | UKPN + SPEN | Historical flexibility dispatch events with pricing, zones, providers, and technology types. Requires API key |
+| `get_constraint_breaches` | UKPN | Grid constraint breach history: where/when constraints triggered DER curtailment, with duration and energy lost. Requires API key |
+| `get_spen_grid_intelligence` | SPEN | Composite: GSP queue positions, DG connections network capacity (SPD), and capacity management curtailment events. Requires API key |
+| `get_ukpn_grid_overview` | UKPN | Composite: GSP capacity and utilisation, HV flexibility zones with constraint types, and live network faults. Requires API key |
 | `get_land_constraints` | Natural England / EEA Natura 2000 | GB protected areas via Natural England, plus EU Natura 2000 protected sites within a radius |
 | `get_land_cover` | CORINE Land Cover 2018 | Point land-cover classification for EU27 + EEA/EFTA sites, with conservative planning-exclusion flags for wetlands, water bodies, and woodland. GB not covered |
 | `get_agricultural_land` | Natural England ALC | Best and Most Versatile agricultural land screening. Prefers detailed post-1988 surveys, falls back to provisional ALC |
@@ -170,13 +175,17 @@ EIA_API_KEY=your-key-here           # Optional: US gas data
 FINGRID_API_KEY=your-key-here       # Optional: Finnish grid data
 ESIOS_API_TOKEN=your-token-here     # Optional: Spanish market data
 STORMGLASS_API_KEY=your-key-here    # Optional: offshore marine weather
+UKPN_ODS_API_KEY=your-key-here     # Optional: UKPN headroom, ECR, flex, constraints
+SPEN_ODS_API_KEY=your-key-here     # Optional: SPEN headroom, ECR, grid intelligence
 ```
 
 ```json
 // Option 2: ~/.luminus/keys.json (alternative to env vars)
 {
   "ENTSOE_API_KEY": "your-key-here",
-  "GIE_API_KEY": "your-key-here"
+  "GIE_API_KEY": "your-key-here",
+  "UKPN_ODS_API_KEY": "your-key-here",
+  "SPEN_ODS_API_KEY": "your-key-here"
 }
 ```
 
@@ -190,6 +199,8 @@ All keys are free:
 - **Fingrid**: Register at [data.fingrid.fi](https://data.fingrid.fi/)
 - **ESIOS**: Email consultasios@ree.es to request a token
 - **Storm Glass**: Register at [stormglass.io](https://stormglass.io/)
+- **UKPN**: Register at [ukpowernetworks.opendatasoft.com](https://ukpowernetworks.opendatasoft.com/) → My API Keys
+- **SPEN**: Register at [spenergynetworks.opendatasoft.com](https://spenergynetworks.opendatasoft.com/) → My API Keys
 
 Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RTE France, Energi Data Service, ERA5 weather, hydro inflows, Nordpool, SMARD, and more.
 
@@ -199,16 +210,16 @@ By default all available data tools are registered. Use `--profile` to load only
 
 ```bash
 npx luminus-mcp --profile trader     # 8 tools: prices, spreads, commodities
-npx luminus-mcp --profile grid       # 13 tools: flows, outages, infrastructure
+npx luminus-mcp --profile grid       # 17 tools: flows, outages, infrastructure, DNO data
 npx luminus-mcp --profile generation # 6 tools: gen mix, forecasts, carbon
 npx luminus-mcp --profile gas        # 5 tools: storage, LNG, pipeline flows
 npx luminus-mcp --profile renewables # 5 tools: wind/solar forecasts, hydro
 npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
-npx luminus-mcp --profile bess       # 8 tools: arbitrage, ancillary, revenue, shortlist
+npx luminus-mcp --profile bess       # 11 tools: arbitrage, ancillary, revenue, shortlist, flex, constraints
 npx luminus-mcp --profile regional   # 8 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
-npx luminus-mcp --profile gis        # 17 tools: solar, terrain, grid, queue, screening, comparison, shortlist, verification
-npx luminus-mcp --profile full       # all 62 tools (default)
+npx luminus-mcp --profile gis        # 22 tools: solar, terrain, grid, queue, screening, comparison, shortlist, DNO data, verification
+npx luminus-mcp --profile full       # all 67 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:

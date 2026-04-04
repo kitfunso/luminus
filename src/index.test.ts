@@ -46,13 +46,13 @@ describe("public docs", () => {
     const packageJson = JSON.parse(read("package.json")) as { description: string };
 
     expect(readme).toContain(
-      `Real-time European & UK electricity grid data via MCP. ${TOTAL_TOOLS} tools, all free.`,
+      `Real-time European & UK electricity grid data via MCP. ${TOTAL_TOOLS} tools, most free.`,
     );
     expect(packageJson.description).toBe(
-      `Real-time European & UK electricity grid data via MCP. ${TOTAL_TOOLS} tools, all free.`,
+      `Real-time European & UK electricity grid data via MCP. ${TOTAL_TOOLS} tools, most free.`,
     );
     expect(readme).toContain(
-      `npx luminus-mcp --profile grid       # ${PROFILES.grid.length} tools: flows, outages, infrastructure`,
+      `npx luminus-mcp --profile grid       # ${PROFILES.grid.length} tools:`,
     );
     expect(readme).toContain(
       `npx luminus-mcp --profile regional   # ${PROFILES.regional.length} tools: country-specific sources`,
