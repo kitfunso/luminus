@@ -90,7 +90,7 @@ interface GridConnectionIntelligenceResult {
 }
 
 const DISCLAIMER =
-  "This combines NESO GSP region polygons, nearest-point fallback, the NESO TEC register, SSEN distribution headroom where public SSEN data resolves, NGED public queue and TD-limit data where the matched GSP is covered, and OSM substation data. " +
+  "This combines NESO GSP region polygons, nearest-point fallback, the NESO TEC register, distribution headroom from SSEN/NPG/UKPN where public data resolves, NGED public queue and TD-limit data where the matched GSP is covered, and OSM substation data. " +
   "It is not a connection offer, capacity guarantee, or GB-wide DNO headroom assessment. " +
   "Always verify with the relevant network operator before making connection decisions.";
 
@@ -99,7 +99,7 @@ function buildConfidenceNotes(gspResult: GspLookupResult | null): string[] {
     "GSP lookup uses NESO region polygons when available, with nearest-point fallback if boundaries do not resolve a match",
     "TEC register connection sites are matched by GSP name substring, not spatial coordinates",
     "Connection queue data shows contracted positions, not guaranteed available capacity",
-    "Distribution headroom uses SSEN public data only and is not a GB-wide DNO map",
+    "Distribution headroom queries SSEN, NPG, UKPN, and SPEN public data; coverage depends on the site's DNO area",
     "NGED public queue and TD-limit context only appears where the matched GSP is covered by NGED's published resources",
   ];
 
@@ -237,34 +237,52 @@ async function queryDistributionHeadroom(
   lon: number,
   radiusKm: number,
 ): Promise<DistributionHeadroomSummary | null> {
-  try {
-    const result = await getDistributionHeadroom({
-      lat,
-      lon,
-      operator: "SSEN",
-      radius_km: radiusKm,
-    });
+  // Query all spatial operators in parallel and return the closest match.
+  // SPEN is excluded because it has no coordinates.
+  const operators = ["SSEN", "NPG", "UKPN"] as const;
 
-    const site = result.nearest_site;
-    if (!site) return null;
+  const results = await Promise.all(
+    operators.map(async (operator) => {
+      try {
+        const result = await getDistributionHeadroom({
+          lat,
+          lon,
+          operator,
+          radius_km: radiusKm,
+        });
+        return result.nearest_site ? { operator: result.operator, site: result.nearest_site } : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
 
-    return {
-      operator: result.operator,
-      substation: site.substation,
-      substation_type: site.substation_type,
-      distance_km: site.distance_km,
-      estimated_generation_headroom_mw: site.estimated_generation_headroom_mw,
-      estimated_demand_headroom_mva: site.estimated_demand_headroom_mva,
-      generation_rag_status: site.generation_rag_status,
-      demand_rag_status: site.demand_rag_status,
-      generation_constraint: site.generation_constraint,
-      demand_constraint: site.demand_constraint,
-      upstream_reinforcement_works: site.upstream_reinforcement_works,
-      upstream_reinforcement_completion_date: site.upstream_reinforcement_completion_date,
-    };
-  } catch {
-    return null;
+  // Pick the closest match across all operators
+  let best: { operator: string; site: NonNullable<typeof results[number]>["site"] } | null = null;
+  for (const result of results) {
+    if (!result) continue;
+    if (!best || result.site.distance_km < best.site.distance_km) {
+      best = result;
+    }
   }
+
+  if (!best) return null;
+
+  const site = best.site;
+  return {
+    operator: best.operator,
+    substation: site.substation,
+    substation_type: site.substation_type,
+    distance_km: site.distance_km,
+    estimated_generation_headroom_mw: site.estimated_generation_headroom_mw,
+    estimated_demand_headroom_mva: site.estimated_demand_headroom_mva,
+    generation_rag_status: site.generation_rag_status,
+    demand_rag_status: site.demand_rag_status,
+    generation_constraint: site.generation_constraint,
+    demand_constraint: site.demand_constraint,
+    upstream_reinforcement_works: site.upstream_reinforcement_works,
+    upstream_reinforcement_completion_date: site.upstream_reinforcement_completion_date,
+  };
 }
 
 async function queryNgedConnectionSignal(

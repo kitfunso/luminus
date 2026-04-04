@@ -223,6 +223,76 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     ],
     attribution: "Contains data from Northern Powergrid.",
   },
+  "ukpn-dfes-headroom": {
+    id: "ukpn-dfes-headroom",
+    name: "UKPN DFES Network Scenario Headroom Report",
+    provider: "UK Power Networks",
+    licence: "Open Data (free registration required for API access)",
+    url: "https://ukpowernetworks.opendatasoft.com/explore/dataset/dfes-network-headroom-report/",
+    api_key_required: true,
+    coverage: "UKPN licence areas: Eastern Power Networks (EPN), London Power Networks (LPN), South Eastern Power Networks (SPN)",
+    update_frequency: "Updated annually with DFES cycle",
+    reliability: "medium",
+    caveats: [
+      "Headroom values are scenario-based projections (Baseline/Low/High to 2050), not real-time operational readings",
+      "Coverage is limited to UKPN licence areas — does not include SSEN, NPG, SPEN, or NGED",
+      "Demand headroom is reported in MW, not MVA, for this source",
+      "Substation coordinates are from the DFES dataset and may not match exact physical asset locations",
+    ],
+    attribution: "Contains data from UK Power Networks.",
+  },
+  "spen-nshr-headroom": {
+    id: "spen-nshr-headroom",
+    name: "SP Energy Networks NDP Network Scenario Headroom Report",
+    provider: "SP Energy Networks",
+    licence: "Open Data (free registration required for API access)",
+    url: "https://spenergynetworks.opendatasoft.com/explore/dataset/spm-nshr-data-workbook/",
+    api_key_required: true,
+    coverage: "SPEN licence areas: SP Distribution (Central/South Scotland) and SP Manweb (Merseyside/North Wales)",
+    update_frequency: "Updated annually with NDP cycle",
+    reliability: "medium",
+    caveats: [
+      "SPEN NSHR does not publish substation coordinates — spatial (distance-based) matching is not available",
+      "Headroom values are scenario-based projections (Baseline/Low/High to 2050), not real-time operational readings",
+      "Generation headroom is split into synchronous and fully-rated converter types; the tool reports the lower of the two",
+      "SPD (Scottish) dataset slug is inferred and may not be published separately",
+    ],
+    attribution: "Contains data from SP Energy Networks.",
+  },
+  "ukpn-flexibility-dispatches": {
+    id: "ukpn-flexibility-dispatches",
+    name: "UKPN Flexibility Dispatches",
+    provider: "UK Power Networks",
+    licence: "Open Data (free registration required for API access)",
+    url: "https://ukpowernetworks.opendatasoft.com/explore/dataset/ukpn-flexibility-dispatches/",
+    api_key_required: true,
+    coverage: "UKPN licence areas: Eastern Power Networks (EPN), London Power Networks (LPN), South Eastern Power Networks (SPN)",
+    update_frequency: "Updated after each flexibility dispatch event",
+    reliability: "medium",
+    caveats: [
+      "Dispatch records are historical activations, not future availability or guaranteed pricing",
+      "Pricing reflects contracted rates at the time of dispatch and may not represent current market levels",
+      "Coverage is limited to UKPN flexibility zones",
+    ],
+    attribution: "Contains data from UK Power Networks.",
+  },
+  "spen-flex-dispatch": {
+    id: "spen-flex-dispatch",
+    name: "SPEN Flex Dispatch",
+    provider: "SP Energy Networks",
+    licence: "Open Data (free registration required for API access)",
+    url: "https://spenergynetworks.opendatasoft.com/explore/dataset/flex_dispatch/",
+    api_key_required: true,
+    coverage: "SPEN licence areas: SP Distribution (Central/South Scotland) and SP Manweb (Merseyside/North Wales)",
+    update_frequency: "Updated after each flexibility dispatch event",
+    reliability: "medium",
+    caveats: [
+      "Dispatch records are historical activations, not future availability",
+      "SPEN dispatches do not include zone or provider-level detail",
+      "Pricing data is not published in the SPEN flex dispatch dataset",
+    ],
+    attribution: "Contains data from SP Energy Networks.",
+  },
   "nged-connection-queue": {
     id: "nged-connection-queue",
     name: "NGED Connection Queue",
@@ -486,6 +556,58 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
     },
   },
   {
+    source_id: "ukpn-dfes-headroom",
+    // Use catalog metadata endpoint (public) instead of records endpoint (key-gated).
+    url:
+      "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/dfes-network-headroom-report",
+    method: "GET",
+    timeout_ms: 10_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.dataset_id !== "dfes-network-headroom-report") {
+          return "Unexpected dataset_id in response";
+        }
+        const fieldNames = (json.fields ?? []).map((f: { name?: string }) => f.name);
+        for (const required of ["substation_name", "headroom_mw", "spatial_coordinates"]) {
+          if (!fieldNames.includes(required)) {
+            return `Dataset schema missing field "${required}"`;
+          }
+        }
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "spen-nshr-headroom",
+    // Use catalog metadata endpoint (public) instead of records endpoint (key-gated).
+    url:
+      "https://spenergynetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/spm-nshr-data-workbook",
+    method: "GET",
+    timeout_ms: 10_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.dataset_id !== "spm-nshr-data-workbook") {
+          return "Unexpected dataset_id in response";
+        }
+        const fieldNames = (json.fields ?? []).map((f: { name?: string }) => f.name);
+        for (const required of ["substation_group", "headroom_mw", "headroom_type"]) {
+          if (!fieldNames.includes(required)) {
+            return `Dataset schema missing field "${required}"`;
+          }
+        }
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
     source_id: "nged-connection-queue",
     url: "https://connecteddata.nationalgrid.co.uk/api/3/action/package_show?id=connection-queue",
     method: "GET",
@@ -521,6 +643,44 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
           resource.datastore_active === true,
         );
         if (!hasDatastoreResource) return "Response missing datastore-backed asset-limits resource";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "ukpn-flexibility-dispatches",
+    url:
+      "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/ukpn-flexibility-dispatches",
+    method: "GET",
+    timeout_ms: 10_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.dataset_id !== "ukpn-flexibility-dispatches") {
+          return "Unexpected dataset_id in response";
+        }
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "spen-flex-dispatch",
+    url:
+      "https://spenergynetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/flex_dispatch",
+    method: "GET",
+    timeout_ms: 10_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.dataset_id !== "flex_dispatch") {
+          return "Unexpected dataset_id in response";
+        }
         return null;
       } catch {
         return "Response is not valid JSON";

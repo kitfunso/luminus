@@ -78,6 +78,11 @@ import { verifyGisSourcesSchema, verifyGisSources } from "./tools/verify-gis-sou
 import { compareSitesSchema, compareSites } from "./tools/compare-sites.js";
 import { siteRevenueSchema, estimateSiteRevenue } from "./tools/site-revenue.js";
 import { bessShortlistSchema, shortlistBessSites } from "./tools/bess-shortlist.js";
+import { embeddedCapacityRegisterSchema, getEmbeddedCapacityRegister } from "./tools/embedded-capacity-register.js";
+import { flexibilityMarketSchema, getFlexibilityMarket } from "./tools/flexibility-market.js";
+import { constraintBreachesSchema, getConstraintBreaches } from "./tools/constraint-breaches.js";
+import { spenGridIntelligenceSchema, getSpenGridIntelligence } from "./tools/spen-grid-intelligence.js";
+import { ukpnGridOverviewSchema, getUkpnGridOverview } from "./tools/ukpn-grid-overview.js";
 
 // ---------------------------------------------------------------------------
 // Startup configuration
@@ -697,7 +702,7 @@ if (shouldRegister("get_distribution_headroom")) {
   registeredToolNames.push("get_distribution_headroom");
   server.tool(
     "get_distribution_headroom",
-    "Public DNO headroom lookup for SSEN and Northern Powergrid. Finds nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing where the operator publishes that data. Not a connection offer or firm capacity right.",
+    "Public DNO headroom lookup for SSEN, Northern Powergrid, UKPN (key required), and SP Energy Networks (key required). Finds nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing where the operator publishes that data. Not a connection offer or firm capacity right.",
     distributionHeadroomSchema.shape,
     auditedToolHandler("get_distribution_headroom", distributionHeadroomSchema, getDistributionHeadroom),
   );
@@ -800,6 +805,56 @@ if (shouldRegister("shortlist_bess_sites")) {
     "GB-only BESS shortlist flow. Combines compare_sites, screening-level BESS revenue estimates, GB transmission queue intelligence, and SSEN distribution headroom where public SSEN data resolves into a transparent ranked shortlist. Not a capacity guarantee, connection offer, or investment model.",
     bessShortlistSchema.shape,
     auditedToolHandler("shortlist_bess_sites", bessShortlistSchema, shortlistBessSites),
+  );
+}
+
+if (shouldRegister("get_embedded_capacity_register")) {
+  registeredToolNames.push("get_embedded_capacity_register");
+  server.tool(
+    "get_embedded_capacity_register",
+    "UKPN and SPEN Embedded Capacity Register. Shows connected and accepted generation/storage near a location, with energy source, capacity, and connection status. UKPN supports spatial matching; SPEN returns alphabetically (no coordinates). Requires API key for both operators.",
+    embeddedCapacityRegisterSchema.shape,
+    auditedToolHandler("get_embedded_capacity_register", embeddedCapacityRegisterSchema, getEmbeddedCapacityRegister),
+  );
+}
+
+if (shouldRegister("get_flexibility_market")) {
+  registeredToolNames.push("get_flexibility_market");
+  server.tool(
+    "get_flexibility_market",
+    "UKPN and SPEN flexibility market dispatches. Shows historical flex activations with pricing, zones, providers, and technology types. Use to assess flex revenue potential for BESS sites. Requires API key.",
+    flexibilityMarketSchema.shape,
+    auditedToolHandler("get_flexibility_market", flexibilityMarketSchema, getFlexibilityMarket),
+  );
+}
+
+if (shouldRegister("get_constraint_breaches")) {
+  registeredToolNames.push("get_constraint_breaches");
+  server.tool(
+    "get_constraint_breaches",
+    "UKPN grid constraint breach history. Shows where and when network constraints triggered DER curtailment, with duration and energy lost. Direct signal for BESS siting — frequent breaches indicate flex revenue opportunity. Requires API key.",
+    constraintBreachesSchema.shape,
+    auditedToolHandler("get_constraint_breaches", constraintBreachesSchema, getConstraintBreaches),
+  );
+}
+
+if (shouldRegister("get_spen_grid_intelligence")) {
+  registeredToolNames.push("get_spen_grid_intelligence");
+  server.tool(
+    "get_spen_grid_intelligence",
+    "SP Energy Networks composite grid intelligence. Combines GSP queue positions, DG connections network capacity (SPD), and capacity management curtailment events. Filter by GSP name. Requires API key.",
+    spenGridIntelligenceSchema.shape,
+    auditedToolHandler("get_spen_grid_intelligence", spenGridIntelligenceSchema, getSpenGridIntelligence),
+  );
+}
+
+if (shouldRegister("get_ukpn_grid_overview")) {
+  registeredToolNames.push("get_ukpn_grid_overview");
+  server.tool(
+    "get_ukpn_grid_overview",
+    "UKPN composite grid overview. Combines GSP capacity and utilisation, HV flexibility zones with constraint types, and live network faults. Supports spatial filtering by lat/lon. Requires API key.",
+    ukpnGridOverviewSchema.shape,
+    auditedToolHandler("get_ukpn_grid_overview", ukpnGridOverviewSchema, getUkpnGridOverview),
   );
 }
 

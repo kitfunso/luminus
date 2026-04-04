@@ -69,6 +69,22 @@ describe("verifyGisSources", () => {
           results: [{ name: "Armouries Drive", type: "Primary", substation_location: { lat: 53.79, lon: -1.53 } }],
         });
       }
+      if (url.includes("ukpowernetworks.opendatasoft.com")) {
+        const dsMatch = url.match(/datasets\/([^/?]+)/);
+        const dsId = dsMatch ? dsMatch[1] : "unknown";
+        return makeOkResponse({
+          dataset_id: dsId,
+          fields: [{ name: "substation_name" }, { name: "headroom_mw" }, { name: "spatial_coordinates" }],
+        });
+      }
+      if (url.includes("spenergynetworks.opendatasoft.com")) {
+        const dsMatch = url.match(/datasets\/([^/?]+)/);
+        const dsId = dsMatch ? dsMatch[1] : "unknown";
+        return makeOkResponse({
+          dataset_id: dsId,
+          fields: [{ name: "substation_group" }, { name: "headroom_mw" }, { name: "headroom_type" }],
+        });
+      }
       if (url.includes("arcgis.com") || url.includes("environment.data.gov.uk") || url.includes("bio.discomap.eea.europa.eu")) {
         return makeOkResponse({ features: [{ attributes: { NAME: "Test" } }] });
       }
@@ -84,9 +100,9 @@ describe("verifyGisSources", () => {
     const result = await verifyGisSources({});
 
     expect(result.checked_at).toBeDefined();
-    expect(result.sources.length).toBe(14);
-    expect(result.summary.total).toBe(14);
-    expect(result.summary.ok).toBe(14);
+    expect(result.sources.length).toBe(18);
+    expect(result.summary.total).toBe(18);
+    expect(result.summary.ok).toBe(18);
     expect(result.summary.degraded).toBe(0);
     expect(result.summary.unreachable).toBe(0);
   });
@@ -198,6 +214,22 @@ describe("verifyGisSources", () => {
           results: [{ name: "Armouries Drive", type: "Primary", substation_location: { lat: 53.79, lon: -1.53 } }],
         });
       }
+      if (url.includes("ukpowernetworks.opendatasoft.com")) {
+        const dsMatch = url.match(/datasets\/([^/?]+)/);
+        const dsId = dsMatch ? dsMatch[1] : "unknown";
+        return makeOkResponse({
+          dataset_id: dsId,
+          fields: [{ name: "substation_name" }, { name: "headroom_mw" }, { name: "spatial_coordinates" }],
+        });
+      }
+      if (url.includes("spenergynetworks.opendatasoft.com")) {
+        const dsMatch = url.match(/datasets\/([^/?]+)/);
+        const dsId = dsMatch ? dsMatch[1] : "unknown";
+        return makeOkResponse({
+          dataset_id: dsId,
+          fields: [{ name: "substation_group" }, { name: "headroom_mw" }, { name: "headroom_type" }],
+        });
+      }
       if (url.includes("arcgis.com")) {
         throw new Error("Network failure");
       }
@@ -218,10 +250,13 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, npg-heatmap, eea-natura2000, corine, pvgis = 8
+    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, eea-natura2000, corine, pvgis = 10
     // degraded: overpass (429), ea-flood-map (500), plus the two NGED source checks = 4
     // unreachable: natural-england, natural-england-alc (arcgis.com network failure) = 2
-    expect(result.summary.ok).toBe(8);
+    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, ukpn-flex, spen-flex, eea-natura2000, corine, pvgis = 12
+    // degraded: overpass (429), ea-flood-map (500), plus the two NGED source checks = 4
+    // unreachable: natural-england, natural-england-alc (arcgis.com network failure) = 2
+    expect(result.summary.ok).toBe(12);
     expect(result.summary.degraded).toBe(4);
     expect(result.summary.unreachable).toBe(2);
   });

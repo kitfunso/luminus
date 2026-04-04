@@ -4,6 +4,13 @@ import {
   resetDistributionHeadroomCacheForTests,
 } from "./distribution-headroom.js";
 
+vi.mock("../lib/auth.js", () => ({
+  resolveApiKey: vi.fn(async () => "mock-api-key"),
+  ConfigurationError: class extends Error {
+    constructor(name: string) { super(`Key "${name}" not configured`); this.name = "ConfigurationError"; }
+  },
+}));
+
 const MOCK_CSV = [
   "AssetID,GSP Grouping / Default Order,Map / License Area,Substation,Upstream GSP,Upstream BSP,Substation Type,Voltage (kV),Location Latitude,Location Longitude,Grid Reference,Substation Comment,LTDS CIM Nodes,Transformer Nameplate Ratings,Single Transformer Site,Maximum Observed Gross Demand (MVA),Minimum Observed Gross Demand (MVA),Contracted Demand Excl BESS (MVA),Contracted BESS Demand (MVA),Estimated Demand Headroom (MVA),Substation Demand RAG Status,Demand Constraint,TIA Threshold,Connected Generation (MW),Contracted Generation (MW),Technical Limits Agreed at GSP,Estimated Generation Headroom (MW),3-Phase Break Fault Rating (kA),3-Phase Break Fault Level (kA),Substation Generation RAG Status,Generation Constraint,Upstream Reinforcement Works,Upstream Reinforcement Completion Date,Substation Reinforcement Works,Substation Reinforcement Completion Date",
   'E-ALPHA-01,E-ALPHA-01,England / SEPD,Alpha GSP,N/A,N/A,GSP,132,51.5000,-0.1000,TQ 000 000,"Shared with another DNO",1000,"2 x 120MVA",No,30.0,10.0,12.0,0.0,14.5,Amber,Upstream Thermal Capacity,5MW,15.0,20.0,No,80.0,20.0,10.5,Amber,Transmission Constraint,"Transmission works:\nAdd transformer",Sep-26,"Substation works",Oct-26',
@@ -243,9 +250,117 @@ describe("getDistributionHeadroom", () => {
       getDistributionHeadroom({
         lat: 51.5,
         lon: -0.1,
-        operator: "UKPN" as "SSEN",
+        operator: "ENWL",
       }),
-    ).rejects.toThrow('Only operators "SSEN" and "NPG" are currently supported.');
+    ).rejects.toThrow('Supported operators: "SSEN", "NPG", "UKPN", "SPEN".');
+  });
+
+  it("returns the nearest UKPN headroom sites within the search radius", async () => {
+    const mockUkpnResponse = {
+      total_count: 2,
+      results: [
+        {
+          substation_name: "Barking Grid",
+          voltage_kv: 132,
+          licencearea: "LPN",
+          bulksupplypoint: "Barking BSP",
+          gridsupplypoint: "Barking GSP",
+          category: "Demand Headroom",
+          scenario: "Counterfactual",
+          year: "2026",
+          headroom_mw: 45.2,
+          spatial_coordinates: { lat: 51.5352, lon: 0.0812 },
+        },
+        {
+          substation_name: "Barking Grid",
+          voltage_kv: 132,
+          licencearea: "LPN",
+          bulksupplypoint: "Barking BSP",
+          gridsupplypoint: "Barking GSP",
+          category: "Gen inverter headroom",
+          scenario: "Counterfactual",
+          year: "2026",
+          headroom_mw: 22.8,
+          spatial_coordinates: { lat: 51.5352, lon: 0.0812 },
+        },
+      ],
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => mockUkpnResponse,
+      })),
+    );
+
+    const result = await getDistributionHeadroom({
+      lat: 51.535,
+      lon: 0.081,
+      operator: "UKPN",
+    });
+
+    expect(result.operator).toBe("UKPN");
+    expect(result.nearest_site).not.toBeNull();
+    expect(result.nearest_site!.substation).toBe("Barking Grid");
+    expect(result.nearest_site!.estimated_demand_headroom_mva).toBe(45.2);
+    expect(result.nearest_site!.estimated_generation_headroom_mw).toBe(22.8);
+    expect(result.nearest_site!.upstream_gsp).toBe("Barking GSP");
+    expect(result.source_metadata.id).toBe("ukpn-dfes-headroom");
+  });
+
+  it("returns SPEN headroom sites alphabetically (no spatial matching)", async () => {
+    const mockSpenResponse = {
+      total_count: 2,
+      results: [
+        {
+          substation_group: "Chapelcross",
+          voltage_kv: 33,
+          grid_gsp_group: "Chapelcross GSP",
+          headroom_type: "Demand",
+          scenario: "BV",
+          year: "2026/27",
+          headroom_mw: 18.5,
+        },
+        {
+          substation_group: "Chapelcross",
+          voltage_kv: 33,
+          grid_gsp_group: "Chapelcross GSP",
+          headroom_type: "Generation (Synchronous)",
+          scenario: "BV",
+          year: "2026/27",
+          headroom_mw: 7.2,
+        },
+      ],
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => mockSpenResponse,
+      })),
+    );
+
+    const result = await getDistributionHeadroom({
+      lat: 55.0,
+      lon: -3.0,
+      operator: "SPEN",
+    });
+
+    expect(result.operator).toBe("SPEN");
+    expect(result.source_metadata.id).toBe("spen-nshr-headroom");
+    // SPEN has no coordinates — returns records alphabetically, not by proximity
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0].substation).toBe("Chapelcross");
+    expect(result.matches[0].estimated_demand_headroom_mva).toBe(18.5);
+    expect(result.matches[0].estimated_generation_headroom_mw).toBe(7.2);
+    expect(result.matches[0].distance_km).toBe(0);
+    expect(result.confidence_notes).toContain(
+      "SPEN NSHR does not publish substation coordinates — results are returned alphabetically, not by proximity to the queried location",
+    );
   });
 
   it("handles fetch failure", async () => {

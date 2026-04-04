@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 import { guardJsonFields } from "../lib/schema-guard.js";
+import { resolveApiKey, ConfigurationError } from "../lib/auth.js";
 
 const cache = new TtlCache();
 
@@ -9,11 +10,20 @@ const SSEN_PACKAGE_SHOW_URL =
   "https://data-api.ssen.co.uk/api/3/action/package_show?id=generation-availability-and-network-capacity";
 const NPG_DATASET_URL =
   "https://northernpowergrid.opendatasoft.com/api/explore/v2.1/catalog/datasets/heatmapsubstationareas/records";
+const UKPN_DATASET_URL =
+  "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/dfes-network-headroom-report/records";
+const SPEN_SPM_DATASET_URL =
+  "https://spenergynetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/spm-nshr-data-workbook/records";
+const SPEN_SPD_DATASET_URL =
+  "https://spenergynetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/spd-nshr-data-workbook/records";
 const SSEN_CACHE_KEY = "ssen-distribution-headroom:all";
 const NPG_CACHE_KEY = "npg-distribution-headroom:all";
+const UKPN_CACHE_KEY = "ukpn-distribution-headroom:all";
+const SPEN_CACHE_KEY = "spen-distribution-headroom:all";
 const DEFAULT_RADIUS_KM = 25;
 const DEFAULT_LIMIT = 5;
-const NPG_PAGE_LIMIT = 100;
+const ODS_PAGE_LIMIT = 100;
+const NPG_PAGE_LIMIT = ODS_PAGE_LIMIT;
 const NPG_SELECT_FIELDS = [
   "name",
   "type",
@@ -29,13 +39,34 @@ const NPG_SELECT_FIELDS = [
   "worst_case_constraint_gen_colour",
   "worst_case_constraint_dem_colour",
 ].join(",");
+const UKPN_SELECT_FIELDS = [
+  "substation_name",
+  "voltage_kv",
+  "licencearea",
+  "bulksupplypoint",
+  "gridsupplypoint",
+  "category",
+  "scenario",
+  "year",
+  "headroom_mw",
+  "spatial_coordinates",
+].join(",");
+const SPEN_SELECT_FIELDS = [
+  "substation_group",
+  "voltage_kv",
+  "grid_gsp_group",
+  "headroom_type",
+  "scenario",
+  "year",
+  "headroom_mw",
+].join(",");
 
 export const distributionHeadroomSchema = z.object({
   lat: z.number().describe("Latitude (-90 to 90). WGS84."),
   lon: z.number().describe("Longitude (-180 to 180). WGS84."),
   operator: z
     .string()
-    .describe('Distribution operator. Currently "SSEN" and "NPG" are supported.'),
+    .describe('Distribution operator. Supported: "SSEN", "NPG", "UKPN", "SPEN".'),
   radius_km: z
     .number()
     .optional()
@@ -95,6 +126,32 @@ interface NpgHeadroomRawRecord {
     lat?: number | null;
     lon?: number | null;
   } | null;
+}
+
+interface UkpnHeadroomRawRecord {
+  substation_name?: string | null;
+  voltage_kv?: number | null;
+  licencearea?: string | null;
+  bulksupplypoint?: string | null;
+  gridsupplypoint?: string | null;
+  category?: string | null;
+  scenario?: string | null;
+  year?: string | null;
+  headroom_mw?: number | null;
+  spatial_coordinates?: {
+    lat?: number | null;
+    lon?: number | null;
+  } | null;
+}
+
+interface SpenHeadroomRawRecord {
+  substation_group?: string | null;
+  voltage_kv?: number | null;
+  grid_gsp_group?: string | null;
+  headroom_type?: string | null;
+  scenario?: string | null;
+  year?: string | null;
+  headroom_mw?: number | null;
 }
 
 interface DistributionHeadroomSite {
@@ -379,12 +436,20 @@ function toHeadroomSite(
   };
 }
 
-function normalizeOperator(operator: string): "SSEN" | "NPG" | null {
+type SupportedOperator = "SSEN" | "NPG" | "UKPN" | "SPEN";
+
+function normalizeOperator(operator: string): SupportedOperator | null {
   const normalized = operator.trim().toUpperCase();
 
   if (normalized === "SSEN") return "SSEN";
   if (normalized === "NPG" || normalized === "NORTHERN POWERGRID" || normalized === "NORTHERN_POWERGRID") {
     return "NPG";
+  }
+  if (normalized === "UKPN" || normalized === "UK POWER NETWORKS" || normalized === "UK_POWER_NETWORKS") {
+    return "UKPN";
+  }
+  if (normalized === "SPEN" || normalized === "SP ENERGY NETWORKS" || normalized === "SP_ENERGY_NETWORKS" || normalized === "SCOTTISH POWER") {
+    return "SPEN";
   }
 
   return null;
@@ -474,55 +539,383 @@ async function fetchNpgHeadroomRecords(): Promise<DistributionHeadroomRecord[]> 
   return records;
 }
 
-function buildConfidenceNotes(
-  operator: "SSEN" | "NPG",
-  matchesFound: boolean,
-): string[] {
-  if (operator === "SSEN") {
-    const notes = [
-      "Uses SSEN public headroom dashboard data only; UKPN and other DNOs are not inferred by this source",
-      "Headroom values are planning signals, not firm connection rights or a formal offer",
-      "Nearest-site matching is distance-based and does not infer SSEN licence-area boundaries outside the published site list",
-    ];
+async function resolveOdsApiKey(keyName: string, portalName: string): Promise<string> {
+  try {
+    return await resolveApiKey(keyName);
+  } catch (err) {
+    if (err instanceof ConfigurationError) {
+      throw new Error(
+        `${portalName} requires a free API key. Register at the portal, then set ${keyName} in ~/.luminus/keys.json or as an environment variable.`,
+      );
+    }
+    throw err;
+  }
+}
 
-    if (!matchesFound) {
-      notes.push("No SSEN headroom site found within search radius");
+async function fetchUkpnHeadroomRecords(): Promise<DistributionHeadroomRecord[]> {
+  const cached = cache.get<DistributionHeadroomRecord[]>(UKPN_CACHE_KEY);
+  if (cached) return cached;
+
+  const apiKey = await resolveOdsApiKey("UKPN_ODS_API_KEY", "UKPN Open Data Portal");
+
+  // UKPN DFES scenarios: Counterfactual, Electric Engagement, Holistic Transition, Hydrogen Evolution.
+  // "Counterfactual" is the closest to current-state (no policy acceleration).
+  // Categories: "Demand Headroom", "Gen inverter headroom", "Gen synch headroom".
+  // year is a date field — ODS requires date'YYYY-MM-DD' syntax for date comparisons.
+  // Fetch only the current year to stay under ODS 10K offset limit (~3K records per year).
+  const currentYear = new Date().getFullYear();
+  const baselineWhere = `scenario = 'Counterfactual' AND year >= date'${currentYear}-01-01' AND year < date'${currentYear + 1}-01-01'`;
+
+  const allRows: UkpnHeadroomRawRecord[] = [];
+
+  for (let offset = 0; ; offset += ODS_PAGE_LIMIT) {
+    const params = new URLSearchParams({
+      limit: String(ODS_PAGE_LIMIT),
+      offset: String(offset),
+      select: UKPN_SELECT_FIELDS,
+      where: baselineWhere,
+      order_by: "year ASC",
+      apikey: apiKey,
+    });
+    const response = await fetch(`${UKPN_DATASET_URL}?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`UKPN DFES headroom dataset fetch failed: HTTP ${response.status}`);
     }
 
-    return notes;
+    const json = (await response.json()) as { results?: UkpnHeadroomRawRecord[] };
+    const page = Array.isArray(json.results) ? json.results : [];
+    if (page.length === 0) break;
+
+    guardJsonFields(
+      page[0] as unknown as Record<string, unknown>,
+      ["substation_name", "voltage_kv", "headroom_mw", "spatial_coordinates", "category"],
+      "UKPN DFES Network Headroom Report",
+    );
+
+    allRows.push(...page);
+    if (page.length < ODS_PAGE_LIMIT) break;
   }
 
-  const notes = [
-    "Uses Northern Powergrid's public Heat Map Data - Substation Areas dataset only; it does not infer UKPN, SPEN, or ENWL coverage",
-    "NPG generation headroom is published in MW and demand headroom in MVA as planning signals, not firm connection rights or a formal offer",
-    "Nearest-site matching is distance-based to the published NPG site location; the dataset's service-area polygons are not yet used by this tool",
+  // Aggregate by substation: take the nearest year's Baseline row per category,
+  // fold demand and generation headroom into one record per substation.
+  const substationMap = new Map<string, {
+    substation: string;
+    licence_area: string;
+    gsp: string | null;
+    bsp: string | null;
+    voltage_kv: string | null;
+    lat: number;
+    lon: number;
+    demand_headroom_mw: number | null;
+    generation_headroom_mw: number | null;
+  }>();
+
+  for (const row of allRows) {
+    const substation = row.substation_name?.trim();
+    const lat = row.spatial_coordinates?.lat ?? null;
+    const lon = row.spatial_coordinates?.lon ?? null;
+    if (!substation || lat === null || lon === null) continue;
+
+    const key = `${substation}::${lat}::${lon}`;
+    const existing = substationMap.get(key);
+    const category = (row.category ?? "").toLowerCase();
+    const headroom = typeof row.headroom_mw === "number" && Number.isFinite(row.headroom_mw) ? row.headroom_mw : null;
+
+    // Actual categories: "Demand Headroom", "Gen inverter headroom", "Gen synch headroom".
+    // For generation, take the lower (more constrained) of inverter and synchronous.
+    const isDemand = category.includes("demand");
+    const isGeneration = category.includes("gen ");
+
+    if (!existing) {
+      substationMap.set(key, {
+        substation,
+        licence_area: row.licencearea?.trim() ?? "UKPN",
+        gsp: row.gridsupplypoint?.trim() ?? null,
+        bsp: row.bulksupplypoint?.trim() ?? null,
+        voltage_kv: row.voltage_kv !== null && row.voltage_kv !== undefined ? String(row.voltage_kv) : null,
+        lat,
+        lon,
+        demand_headroom_mw: isDemand ? headroom : null,
+        generation_headroom_mw: isGeneration ? headroom : null,
+      });
+    } else {
+      if (isDemand && existing.demand_headroom_mw === null) {
+        existing.demand_headroom_mw = headroom;
+      }
+      if (isGeneration) {
+        // Take min of inverter and synchronous headroom (binding constraint)
+        existing.generation_headroom_mw = pickMinHeadroom(existing.generation_headroom_mw, headroom);
+      }
+    }
+  }
+
+  const records: DistributionHeadroomRecord[] = [];
+  for (const [, entry] of substationMap) {
+    records.push({
+      asset_id: `UKPN:${entry.licence_area}:${entry.substation}`,
+      licence_area: entry.licence_area,
+      substation: entry.substation,
+      upstream_gsp: entry.gsp,
+      upstream_bsp: entry.bsp,
+      substation_type: null,
+      voltage_kv: entry.voltage_kv,
+      lat: entry.lat,
+      lon: entry.lon,
+      estimated_demand_headroom_mva: entry.demand_headroom_mw,
+      demand_rag_status: null,
+      demand_constraint: null,
+      connected_generation_mw: null,
+      contracted_generation_mw: null,
+      estimated_generation_headroom_mw: entry.generation_headroom_mw,
+      generation_rag_status: null,
+      generation_constraint: null,
+      upstream_reinforcement_works: null,
+      upstream_reinforcement_completion_date: null,
+      substation_reinforcement_works: null,
+      substation_reinforcement_completion_date: null,
+    });
+  }
+
+  if (records.length === 0) {
+    throw new Error("UKPN DFES headroom dataset returned no valid records");
+  }
+
+  cache.set(UKPN_CACHE_KEY, records, TTL.STATIC_DATA);
+  return records;
+}
+
+async function fetchSpenHeadroomRecords(): Promise<DistributionHeadroomRecord[]> {
+  const cached = cache.get<DistributionHeadroomRecord[]>(SPEN_CACHE_KEY);
+  if (cached) return cached;
+
+  const apiKey = await resolveOdsApiKey("SPEN_ODS_API_KEY", "SP Energy Networks Open Data Portal");
+
+  // SPEN publishes NSHR data for SPM (Manweb) and SPD (Distribution) as separate datasets.
+  // SPM uses financial-year text ("2026/27"), SPD uses plain year text ("2026").
+  // SPM uses grid_gsp_group, SPD uses grid_grid_group + gsp fields.
+  // SPEN scenarios: "BV" (best view / baseline), "high", "low".
+  const currentYear = new Date().getFullYear();
+
+  const datasets = [
+    { url: SPEN_SPM_DATASET_URL, yearValue: `${currentYear}/${String(currentYear + 1).slice(2)}`, gspField: "grid_gsp_group" as const },
+    { url: SPEN_SPD_DATASET_URL, yearValue: String(currentYear), gspField: "gsp" as const },
   ];
 
+  const allRows: SpenHeadroomRawRecord[] = [];
+
+  for (const dataset of datasets) {
+    const where = `scenario = 'BV' AND year = '${dataset.yearValue}'`;
+
+    for (let offset = 0; ; offset += ODS_PAGE_LIMIT) {
+      const params = new URLSearchParams({
+        limit: String(ODS_PAGE_LIMIT),
+        offset: String(offset),
+        select: `substation_group,voltage_kv,${dataset.gspField},headroom_type,scenario,year,headroom_mw`,
+        where,
+        order_by: "year ASC",
+        apikey: apiKey,
+      });
+
+      let response: Response;
+      try {
+        response = await fetch(`${dataset.url}?${params.toString()}`);
+      } catch {
+        // Dataset might not be reachable; skip gracefully
+        break;
+      }
+
+      if (!response.ok) {
+        // Dataset may not be published or the year value doesn't match; skip
+        if (response.status === 404 || response.status === 400) break;
+        throw new Error(`SPEN NSHR dataset fetch failed: HTTP ${response.status}`);
+      }
+
+      const json = (await response.json()) as { results?: Record<string, unknown>[] };
+      const page = Array.isArray(json.results) ? json.results : [];
+      if (page.length === 0) break;
+
+      guardJsonFields(
+        page[0] as unknown as Record<string, unknown>,
+        ["substation_group", "headroom_mw", "headroom_type"],
+        "SPEN NSHR Data Workbook",
+      );
+
+      // Normalize SPD's different field names to match our internal shape
+      for (const raw of page) {
+        allRows.push({
+          substation_group: raw.substation_group as string | null,
+          voltage_kv: raw.voltage_kv as number | null,
+          grid_gsp_group: (raw[dataset.gspField] ?? raw.grid_gsp_group ?? null) as string | null,
+          headroom_type: raw.headroom_type as string | null,
+          scenario: raw.scenario as string | null,
+          year: raw.year as string | null,
+          headroom_mw: raw.headroom_mw as number | null,
+        });
+      }
+
+      if (page.length < ODS_PAGE_LIMIT) break;
+    }
+  }
+
+  // Aggregate by substation_group: fold demand/generation headroom types into one record.
+  // SPEN does not publish lat/lon in the NSHR dataset, so we cannot do spatial matching.
+  // Year filtering is already done at the API level per dataset.
+  const substationMap = new Map<string, {
+    substation: string;
+    gsp_group: string | null;
+    voltage_kv: string | null;
+    demand_headroom_mw: number | null;
+    generation_sync_headroom_mw: number | null;
+    generation_inverter_headroom_mw: number | null;
+  }>();
+
+  for (const row of allRows) {
+    const substation = row.substation_group?.trim();
+    if (!substation) continue;
+
+    const key = substation;
+    const headroomType = (row.headroom_type ?? "").toLowerCase();
+    const headroom = typeof row.headroom_mw === "number" && Number.isFinite(row.headroom_mw) ? row.headroom_mw : null;
+
+    const existing = substationMap.get(key);
+    if (!existing) {
+      substationMap.set(key, {
+        substation,
+        gsp_group: row.grid_gsp_group?.trim() ?? null,
+        voltage_kv: row.voltage_kv !== null && row.voltage_kv !== undefined ? String(row.voltage_kv) : null,
+        demand_headroom_mw: headroomType === "demand" ? headroom : null,
+        generation_sync_headroom_mw: headroomType.includes("synchronous") ? headroom : null,
+        generation_inverter_headroom_mw: headroomType.includes("converter") ? headroom : null,
+      });
+    } else {
+      if (headroomType === "demand" && existing.demand_headroom_mw === null) {
+        existing.demand_headroom_mw = headroom;
+      }
+      if (headroomType.includes("synchronous") && existing.generation_sync_headroom_mw === null) {
+        existing.generation_sync_headroom_mw = headroom;
+      }
+      if (headroomType.includes("converter") && existing.generation_inverter_headroom_mw === null) {
+        existing.generation_inverter_headroom_mw = headroom;
+      }
+    }
+  }
+
+  // SPEN NSHR doesn't have coordinates. We'll store records without lat/lon
+  // and use name-based matching. For spatial queries, records without coordinates
+  // will be excluded from distance filtering.
+  const records: DistributionHeadroomRecord[] = [];
+  for (const [, entry] of substationMap) {
+    // Use the lower (more constrained) of sync and inverter generation headroom
+    const genHeadroom = pickMinHeadroom(entry.generation_sync_headroom_mw, entry.generation_inverter_headroom_mw);
+
+    records.push({
+      asset_id: `SPEN:${entry.substation}`,
+      licence_area: "SP Energy Networks",
+      substation: entry.substation,
+      upstream_gsp: entry.gsp_group,
+      upstream_bsp: null,
+      substation_type: null,
+      voltage_kv: entry.voltage_kv,
+      lat: 0,
+      lon: 0,
+      estimated_demand_headroom_mva: entry.demand_headroom_mw,
+      demand_rag_status: null,
+      demand_constraint: null,
+      connected_generation_mw: null,
+      contracted_generation_mw: null,
+      estimated_generation_headroom_mw: genHeadroom,
+      generation_rag_status: null,
+      generation_constraint: null,
+      upstream_reinforcement_works: null,
+      upstream_reinforcement_completion_date: null,
+      substation_reinforcement_works: null,
+      substation_reinforcement_completion_date: null,
+    });
+  }
+
+  if (records.length === 0) {
+    throw new Error("SPEN NSHR dataset returned no valid records");
+  }
+
+  cache.set(SPEN_CACHE_KEY, records, TTL.STATIC_DATA);
+  return records;
+}
+
+function pickMinHeadroom(a: number | null, b: number | null): number | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  return Math.min(a, b);
+}
+
+function buildConfidenceNotes(
+  operator: SupportedOperator,
+  matchesFound: boolean,
+): string[] {
+  const operatorNotes: Record<SupportedOperator, string[]> = {
+    SSEN: [
+      "Uses SSEN public headroom dashboard data only; other DNOs are not inferred by this source",
+      "Headroom values are planning signals, not firm connection rights or a formal offer",
+      "Nearest-site matching is distance-based and does not infer SSEN licence-area boundaries outside the published site list",
+    ],
+    NPG: [
+      "Uses Northern Powergrid's public Heat Map Data - Substation Areas dataset only; other DNOs are not inferred",
+      "NPG generation headroom is published in MW and demand headroom in MVA as planning signals, not firm connection rights or a formal offer",
+      "Nearest-site matching is distance-based to the published NPG site location; the dataset's service-area polygons are not yet used by this tool",
+    ],
+    UKPN: [
+      "Uses UKPN's public DFES Network Scenario Headroom Report (Counterfactual scenario, nearest year); other DNOs are not inferred",
+      "UKPN headroom is scenario-projected, not a live operational reading — actual available capacity may differ",
+      "Demand headroom is reported in MW (not MVA) for this source",
+      "Nearest-site matching is distance-based to the published UKPN substation coordinates",
+    ],
+    SPEN: [
+      "Uses SP Energy Networks' public NDP Network Scenario Headroom Report (BV/best view scenario, nearest financial year); other DNOs are not inferred",
+      "SPEN NSHR does not publish substation coordinates — results are returned alphabetically, not by proximity to the queried location",
+      "Generation headroom uses the lower of synchronous and fully-rated converter values as the binding constraint",
+      "SPEN headroom is scenario-projected, not a live operational reading",
+      "Demand headroom is reported in MW (not MVA) for this source",
+    ],
+  };
+
+  const notes = [...operatorNotes[operator]];
+
   if (!matchesFound) {
-    notes.push("No NPG headroom site found within search radius");
+    notes.push(`No ${operator} headroom site found within search radius`);
   }
 
   return notes;
 }
 
-function getSourceMetadata(operator: "SSEN" | "NPG"): GisSourceMetadata {
-  return operator === "SSEN"
-    ? GIS_SOURCES["ssen-distribution-headroom"]
-    : GIS_SOURCES["npg-heatmap-substation-areas"];
+const SOURCE_METADATA_MAP: Record<SupportedOperator, string> = {
+  SSEN: "ssen-distribution-headroom",
+  NPG: "npg-heatmap-substation-areas",
+  UKPN: "ukpn-dfes-headroom",
+  SPEN: "spen-nshr-headroom",
+};
+
+function getSourceMetadata(operator: SupportedOperator): GisSourceMetadata {
+  return GIS_SOURCES[SOURCE_METADATA_MAP[operator]];
 }
 
-function getDisclaimer(operator: "SSEN" | "NPG"): string {
-  if (operator === "SSEN") {
-    return (
-      "This uses SSEN's public distribution headroom dashboard data as a planning signal for SSEN licence areas only. " +
-      "It is not a connection offer, a firm capacity reservation, or a substitute for a formal DNO application."
-    );
-  }
-
-  return (
+const DISCLAIMERS: Record<SupportedOperator, string> = {
+  SSEN:
+    "This uses SSEN's public distribution headroom dashboard data as a planning signal for SSEN licence areas only. " +
+    "It is not a connection offer, a firm capacity reservation, or a substitute for a formal DNO application.",
+  NPG:
     "This uses Northern Powergrid's public Heat Map Data - Substation Areas dataset as a planning signal for Northern Powergrid licence areas only. " +
-    "It is not a connection offer, a firm capacity reservation, or a substitute for a formal DNO application."
-  );
+    "It is not a connection offer, a firm capacity reservation, or a substitute for a formal DNO application.",
+  UKPN:
+    "This uses UKPN's public DFES Network Scenario Headroom Report (Counterfactual scenario) as a planning signal for UKPN licence areas (EPN, LPN, SPN) only. " +
+    "Headroom values are scenario projections, not real-time operational readings. " +
+    "It is not a connection offer, a firm capacity reservation, or a substitute for a formal DNO application.",
+  SPEN:
+    "This uses SP Energy Networks' public NDP Network Scenario Headroom Report (BV scenario) as a planning signal for SPEN licence areas (SPD, SPM) only. " +
+    "Headroom values are scenario projections and substation coordinates are not published. " +
+    "It is not a connection offer, a firm capacity reservation, or a substitute for a formal DNO application.",
+};
+
+function getDisclaimer(operator: SupportedOperator): string {
+  return DISCLAIMERS[operator];
 }
 
 export async function getDistributionHeadroom(
@@ -533,25 +926,39 @@ export async function getDistributionHeadroom(
   const limit = params.limit ?? DEFAULT_LIMIT;
 
   if (!operator) {
-    throw new Error('Only operators "SSEN" and "NPG" are currently supported.');
+    throw new Error('Supported operators: "SSEN", "NPG", "UKPN", "SPEN".');
   }
   if (params.lat < -90 || params.lat > 90) throw new Error("Latitude must be between -90 and 90.");
   if (params.lon < -180 || params.lon > 180) throw new Error("Longitude must be between -180 and 180.");
   if (radiusKm <= 0 || radiusKm > 50) throw new Error("radius_km must be between 0 and 50.");
   if (limit <= 0 || limit > 10) throw new Error("limit must be between 1 and 10.");
 
-  const records = operator === "SSEN"
-    ? await fetchHeadroomRecords()
-    : await fetchNpgHeadroomRecords();
-  const matches = records
-    .map((record) => ({
-      record,
-      distanceKm: haversineKm(params.lat, params.lon, record.lat, record.lon),
-    }))
-    .filter((match) => match.distanceKm <= radiusKm)
-    .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, limit)
-    .map((match) => toHeadroomSite(match.record, match.distanceKm));
+  const fetchMap: Record<SupportedOperator, () => Promise<DistributionHeadroomRecord[]>> = {
+    SSEN: fetchHeadroomRecords,
+    NPG: fetchNpgHeadroomRecords,
+    UKPN: fetchUkpnHeadroomRecords,
+    SPEN: fetchSpenHeadroomRecords,
+  };
+
+  const records = await fetchMap[operator]();
+
+  // SPEN has no coordinates — return all records sorted alphabetically (no spatial filter).
+  // All other operators use distance-based matching.
+  const matches = operator === "SPEN"
+    ? records
+        .slice()
+        .sort((a, b) => a.substation.localeCompare(b.substation))
+        .slice(0, limit)
+        .map((record) => toHeadroomSite(record, 0))
+    : records
+        .map((record) => ({
+          record,
+          distanceKm: haversineKm(params.lat, params.lon, record.lat, record.lon),
+        }))
+        .filter((match) => match.distanceKm <= radiusKm)
+        .sort((a, b) => a.distanceKm - b.distanceKm)
+        .slice(0, limit)
+        .map((match) => toHeadroomSite(match.record, match.distanceKm));
 
   const confidenceNotes = buildConfidenceNotes(operator, matches.length > 0);
 
