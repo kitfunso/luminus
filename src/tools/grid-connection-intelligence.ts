@@ -90,7 +90,7 @@ interface GridConnectionIntelligenceResult {
 }
 
 const DISCLAIMER =
-  "This combines NESO GSP region polygons, nearest-point fallback, the NESO TEC register, distribution headroom from SSEN/NPG/UKPN where public data resolves, NGED public queue and TD-limit data where the matched GSP is covered, and OSM substation data. " +
+  "This combines NESO GSP region polygons, nearest-point fallback, the NESO TEC register, distribution headroom from SSEN/NPG/UKPN/ENWL where public data resolves, NGED public queue and TD-limit data where the matched GSP is covered, and OSM substation data. " +
   "It is not a connection offer, capacity guarantee, or GB-wide DNO headroom assessment. " +
   "Always verify with the relevant network operator before making connection decisions.";
 
@@ -99,7 +99,7 @@ function buildConfidenceNotes(gspResult: GspLookupResult | null): string[] {
     "GSP lookup uses NESO region polygons when available, with nearest-point fallback if boundaries do not resolve a match",
     "TEC register connection sites are matched by GSP name substring, not spatial coordinates",
     "Connection queue data shows contracted positions, not guaranteed available capacity",
-    "Distribution headroom queries SSEN, NPG, UKPN, and SPEN public data; coverage depends on the site's DNO area",
+    "Distribution headroom queries SSEN, NPG, UKPN, SPEN, and ENWL public data; coverage depends on the site's DNO area",
     "NGED public queue and TD-limit context only appears where the matched GSP is covered by NGED's published resources",
   ];
 
@@ -239,7 +239,7 @@ async function queryDistributionHeadroom(
 ): Promise<DistributionHeadroomSummary | null> {
   // Query all spatial operators in parallel and return the closest match.
   // SPEN is excluded because it has no coordinates.
-  const operators = ["SSEN", "NPG", "UKPN"] as const;
+  const operators = ["SSEN", "NPG", "UKPN", "ENWL"] as const;
 
   const results = await Promise.all(
     operators.map(async (operator) => {

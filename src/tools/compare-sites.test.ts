@@ -442,4 +442,65 @@ describe("compareSites", () => {
     expect(result.rankings[0].label).toMatch(/Site/);
     expect(result.rankings[1].label).toMatch(/Site/);
   });
+
+  // --- Technology-aware weights ---
+
+  it("defaults to solar technology and includes it in the result", async () => {
+    screenSiteMock
+      .mockResolvedValueOnce(GOOD_SITE_A)
+      .mockResolvedValueOnce(GOOD_SITE_B);
+
+    const result = await compareSites({
+      sites: [{ lat: 52.0, lon: 0.5 }, { lat: 52.1, lon: 0.6 }],
+      country: "GB",
+    });
+
+    expect(result.technology).toBe("solar");
+    expect(result.heuristics_used[0]).toContain("weight 40%");
+    expect(result.heuristics_used[1]).toContain("weight 30%");
+  });
+
+  it("uses BESS weights where grid proximity is weighted highest", async () => {
+    const siteCloseGrid = makeScreenResult({
+      lat: 52.0, lon: 0.5, irradiance: 1000, nearestSubKm: 0.3, nearestLineKm: 0.2, slopeDeg: 8,
+    });
+    const siteFarGrid = makeScreenResult({
+      lat: 52.1, lon: 0.6, irradiance: 1200, nearestSubKm: 5.0, nearestLineKm: 4.0, slopeDeg: 1,
+    });
+
+    screenSiteMock
+      .mockResolvedValueOnce(siteCloseGrid)
+      .mockResolvedValueOnce(siteFarGrid);
+
+    const result = await compareSites({
+      sites: [{ lat: 52.0, lon: 0.5 }, { lat: 52.1, lon: 0.6 }],
+      country: "GB",
+      technology: "bess",
+    });
+
+    expect(result.technology).toBe("bess");
+    // Grid weight 45%, solar weight 5% -- close grid should win even with lower irradiance
+    expect(result.rankings[0].nearest_grid_km).toBeLessThan(result.rankings[1].nearest_grid_km!);
+    // Heuristics should reflect BESS weights
+    expect(result.heuristics_used[0]).toContain("weight 25%"); // verdict
+    expect(result.heuristics_used[1]).toContain("weight 5%");  // solar
+    expect(result.heuristics_used[2]).toContain("weight 45%"); // grid
+    expect(result.heuristics_used[3]).toContain("weight 25%"); // terrain
+  });
+
+  it("uses hybrid weights", async () => {
+    screenSiteMock
+      .mockResolvedValueOnce(GOOD_SITE_A)
+      .mockResolvedValueOnce(GOOD_SITE_B);
+
+    const result = await compareSites({
+      sites: [{ lat: 52.0, lon: 0.5 }, { lat: 52.1, lon: 0.6 }],
+      country: "GB",
+      technology: "hybrid",
+    });
+
+    expect(result.technology).toBe("hybrid");
+    expect(result.heuristics_used[0]).toContain("weight 30%"); // verdict
+    expect(result.heuristics_used[2]).toContain("weight 35%"); // grid
+  });
 });

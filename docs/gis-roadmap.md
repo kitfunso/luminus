@@ -54,7 +54,7 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 - `get_land_cover` is **not GB-capable** because CORINE 2018 does not cover Great Britain. GB `screen_site` documents this gap and notes that `agricultural_land` provides partial land-use context for England; a real UK source such as UKCEH Land Cover Map via WMS remains a future option.
 - `get_grid_proximity` is **distance/infrastructure only**, not capacity.
 - `get_grid_connection_queue` is **NESO transmission-register only**, not a GB-wide DNO headroom map.
-- `get_distribution_headroom` supports **SSEN, NPG, UKPN, and SPEN**. SSEN and NPG are fully public; UKPN and SPEN require free portal registration. SPEN has no substation coordinates (returns alphabetically). ENWL is not yet covered.
+- `get_distribution_headroom` supports **all 5 GB DNOs with public data: SSEN, NPG, UKPN, SPEN, and ENWL**. SSEN and NPG are fully public; UKPN, SPEN, and ENWL require free portal registration. SPEN has no substation coordinates (returns alphabetically).
 - `get_nged_connection_signal` is **NGED-only** today. It returns public per-GSP queue and TD-limit signals, not DNO headroom or a connection offer.
 - `get_embedded_capacity_register`, `get_flexibility_market`, `get_constraint_breaches`, `get_spen_grid_intelligence`, and `get_ukpn_grid_overview` all require **free API keys** from their respective OpenDataSoft portals.
 - Public GIS services can change field names, service structure, or uptime without warning.

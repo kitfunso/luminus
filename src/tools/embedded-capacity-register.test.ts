@@ -118,7 +118,7 @@ function mockFetchSpenOk(payload: unknown): void {
   );
 }
 
-function mockFetchBothOk(ukpnPayload: unknown, spenPayload: unknown): void {
+function mockFetchAllOk(ukpnPayload: unknown, spenPayload: unknown, enwlPayload?: unknown): void {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input) => {
@@ -135,6 +135,13 @@ function mockFetchBothOk(ukpnPayload: unknown, spenPayload: unknown): void {
           ok: true,
           status: 200,
           json: async () => spenPayload,
+        };
+      }
+      if (url.includes("electricitynorthwest")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => enwlPayload ?? { results: [] },
         };
       }
       throw new Error(`Unexpected URL: ${url}`);
@@ -236,13 +243,98 @@ describe("getEmbeddedCapacityRegister", () => {
       getEmbeddedCapacityRegister({
         lat: 51.5,
         lon: -0.1,
-        operator: "ENWL",
+        operator: "NGED",
       }),
-    ).rejects.toThrow('Supported operators: "UKPN", "SPEN", "all".');
+    ).rejects.toThrow('Supported operators: "UKPN", "SPEN", "ENWL", "all".');
+  });
+
+  it("returns ENWL entries within the search radius with spatial matching", async () => {
+    const mockEnwlResponse = {
+      total_count: 2,
+      results: [
+        {
+          customer_name: "Manchester Solar Farm",
+          energy_source_1: "Solar",
+          energy_conversion_technology_1: "Photovoltaic",
+          connection_status: "Connected",
+          maximum_export_capacity_mw: 12.0,
+          maximum_import_capacity_mw: 0.5,
+          storage_capacity_1_mwh: null,
+          grid_supply_point: "Manchester GSP",
+          bulk_supply_point: "Manchester BSP",
+          primary: "Manchester Primary",
+          licence_area: "Electricity North West",
+          point_of_connection_poc_voltage_kv: 33,
+          geopoint: { lat: 53.483, lon: -2.244 },
+        },
+        {
+          customer_name: "Liverpool Battery",
+          energy_source_1: "Battery Storage",
+          energy_conversion_technology_1: "Lithium Ion",
+          connection_status: "Accepted to Connect",
+          maximum_export_capacity_mw: 25.0,
+          maximum_import_capacity_mw: 25.0,
+          storage_capacity_1_mwh: 50.0,
+          grid_supply_point: "Liverpool GSP",
+          bulk_supply_point: "Liverpool BSP",
+          primary: "Liverpool Primary",
+          licence_area: "Electricity North West",
+          point_of_connection_poc_voltage_kv: 33,
+          geopoint: { lat: 55.0, lon: -3.0 },
+        },
+      ],
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => mockEnwlResponse,
+      })),
+    );
+
+    const result = await getEmbeddedCapacityRegister({
+      lat: 53.483,
+      lon: -2.244,
+      operator: "ENWL",
+      radius_km: 5,
+    });
+
+    expect(result.operator).toBe("ENWL");
+    expect(result.entries.length).toBeGreaterThanOrEqual(1);
+    const names = result.entries.map((e) => e.customer_name);
+    expect(names).toContain("Manchester Solar Farm");
+    // Liverpool is far away, should not match within 5km
+    expect(names).not.toContain("Liverpool Battery");
+    expect(result.entries[0].distance_km).toBeGreaterThanOrEqual(0);
+    expect(result.entries[0].operator).toBe("ENWL");
+    expect(result.total_export_mw).toBeCloseTo(12.0, 1);
   });
 
   it("returns combined results for operator 'all'", async () => {
-    mockFetchBothOk(MOCK_UKPN_RESPONSE, MOCK_SPEN_RESPONSE);
+    const mockEnwlEcrResponse = {
+      total_count: 1,
+      results: [
+        {
+          customer_name: "Bolton Wind",
+          energy_source_1: "Wind",
+          energy_conversion_technology_1: "Wind Turbine",
+          connection_status: "Connected",
+          maximum_export_capacity_mw: 3.0,
+          maximum_import_capacity_mw: 0.0,
+          storage_capacity_1_mwh: null,
+          grid_supply_point: "Bolton GSP",
+          bulk_supply_point: "Bolton BSP",
+          primary: "Bolton Primary",
+          licence_area: "Electricity North West",
+          point_of_connection_poc_voltage_kv: 33,
+          geopoint: { lat: 53.58, lon: -2.43 },
+        },
+      ],
+    };
+
+    mockFetchAllOk(MOCK_UKPN_RESPONSE, MOCK_SPEN_RESPONSE, mockEnwlEcrResponse);
 
     const result = await getEmbeddedCapacityRegister({
       lat: 51.535,
@@ -252,7 +344,7 @@ describe("getEmbeddedCapacityRegister", () => {
     });
 
     expect(result.operator).toBe("all");
-    // Should include nearby UKPN entries + all SPEN entries
+    // Should include nearby UKPN entries + all SPEN entries (ENWL is far away)
     const operators = new Set(result.entries.map((e) => e.operator));
     expect(operators.has("UKPN")).toBe(true);
     expect(operators.has("SPEN")).toBe(true);

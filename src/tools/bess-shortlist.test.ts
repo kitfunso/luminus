@@ -30,6 +30,7 @@ const getDistributionHeadroomMock = vi.mocked(getDistributionHeadroom);
 describe("shortlistBessSites", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: all DNO operators return no match (called 3x per site: SSEN, NPG, UKPN)
     getDistributionHeadroomMock.mockResolvedValue({
       lat: 0,
       lon: 0,
@@ -37,7 +38,7 @@ describe("shortlistBessSites", () => {
       radius_km: 25,
       nearest_site: null,
       matches: [],
-      confidence_notes: ["No SSEN headroom site found within search radius"],
+      confidence_notes: ["No DNO headroom site found within search radius"],
       source_metadata: {} as any,
       disclaimer: "dno",
     });
@@ -404,7 +405,7 @@ describe("shortlistBessSites", () => {
     ).rejects.toThrow("shortlist_size");
   });
 
-  it("uses SSEN DNO headroom to break ties when shortlist inputs are otherwise similar", async () => {
+  it("uses DNO headroom to break ties when shortlist inputs are otherwise similar", async () => {
     compareSitesMock.mockResolvedValue({
       site_count: 2,
       rankings: [
@@ -469,6 +470,19 @@ describe("shortlistBessSites", () => {
       disclaimer: "queue",
     });
 
+    const noMatchDno = {
+      lat: 0,
+      lon: 0,
+      operator: "NPG" as const,
+      radius_km: 25,
+      nearest_site: null,
+      matches: [],
+      confidence_notes: ["No DNO headroom site found within search radius"],
+      source_metadata: {} as any,
+      disclaimer: "dno",
+    };
+
+    // Alpha: SSEN returns low headroom, NPG and UKPN return no match
     getDistributionHeadroomMock
       .mockResolvedValueOnce({
         lat: 51.5,
@@ -502,6 +516,9 @@ describe("shortlistBessSites", () => {
         source_metadata: {} as any,
         disclaimer: "dno",
       })
+      .mockResolvedValueOnce(noMatchDno)  // NPG for Alpha
+      .mockResolvedValueOnce(noMatchDno)  // UKPN for Alpha
+      // Bravo: SSEN returns high headroom, NPG and UKPN return no match
       .mockResolvedValueOnce({
         lat: 51.52,
         lon: -0.12,
@@ -533,7 +550,9 @@ describe("shortlistBessSites", () => {
         confidence_notes: [],
         source_metadata: {} as any,
         disclaimer: "dno",
-      });
+      })
+      .mockResolvedValueOnce(noMatchDno)  // NPG for Bravo
+      .mockResolvedValueOnce(noMatchDno); // UKPN for Bravo
 
     const result = await shortlistBessSites({
       country: "GB",
@@ -546,6 +565,6 @@ describe("shortlistBessSites", () => {
     expect(result.rankings[0].label).toBe("Bravo");
     expect(result.rankings[0].dno_generation_headroom_mw).toBe(45);
     expect(result.rankings[0].dno_headroom_site).toBe("Bravo GSP");
-    expect(result.rankings[0].reasoning).toContain("SSEN DNO headroom");
+    expect(result.rankings[0].reasoning).toContain("DNO headroom");
   });
 });

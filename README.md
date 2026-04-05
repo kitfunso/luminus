@@ -3,9 +3,9 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Latest release: [v0.3.1 release notes](docs/releases/0.3.1.md) | [Changelog](CHANGELOG.md)
+Latest release: [v0.4.0 release notes](docs/releases/0.4.0.md) | [Changelog](CHANGELOG.md)
 
-Current published versions: `luminus-mcp@0.3.1` and `luminus-py==0.3.1`.
+Current published versions: `luminus-mcp@0.4.0` and `luminus-py==0.4.0`.
 
 Real-time European & UK electricity grid data via MCP. 67 tools, most free.
 
@@ -114,9 +114,9 @@ Real-time European & UK electricity grid data via MCP. 67 tools, most free.
 | `get_grid_proximity` | OpenStreetMap | Nearest substations and HV lines within a radius, with distances |
 | `get_grid_connection_queue` | NESO TEC Register | GB transmission TEC register search by connection site, host TO, technology, status, and agreement type |
 | `get_nged_connection_signal` | NGED Connected Data Portal | NGED-only public GSP signal: connection-queue rows plus seasonal TD-limit records where the matched GSP is publicly covered |
-| `get_distribution_headroom` | SSEN + NPG + UKPN + SPEN | Public DNO headroom lookup: nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing. SSEN and NPG are free; UKPN and SPEN require free API keys |
-| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM + DNOs | GB grid connection intelligence: polygon-first GSP lookup, TEC register queue, nearby substations, distribution headroom from SSEN/NPG/UKPN (closest match), and NGED public queue and TD-limit context |
-| `get_embedded_capacity_register` | UKPN + SPEN | Connected and accepted generation/storage near a location, with energy source, capacity, and connection status. Requires API key |
+| `get_distribution_headroom` | SSEN + NPG + UKPN + SPEN + ENWL | All 5 GB DNOs with public data. Nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing. SSEN and NPG are free; UKPN, SPEN, and ENWL require free API keys |
+| `get_grid_connection_intelligence` | NESO GSP + TEC + OSM + DNOs | GB grid connection intelligence: polygon-first GSP lookup, TEC register queue, nearby substations, distribution headroom from SSEN/NPG/UKPN/ENWL (closest match), and NGED public queue and TD-limit context |
+| `get_embedded_capacity_register` | UKPN + SPEN + ENWL | Connected and accepted generation/storage near a location, with energy source, capacity, and connection status. Requires API key |
 | `get_flexibility_market` | UKPN + SPEN | Historical flexibility dispatch events with pricing, zones, providers, and technology types. Requires API key |
 | `get_constraint_breaches` | UKPN | Grid constraint breach history: where/when constraints triggered DER curtailment, with duration and energy lost. Requires API key |
 | `get_spen_grid_intelligence` | SPEN | Composite: GSP queue positions, DG connections network capacity (SPD), and capacity management curtailment events. Requires API key |
@@ -177,6 +177,7 @@ ESIOS_API_TOKEN=your-token-here     # Optional: Spanish market data
 STORMGLASS_API_KEY=your-key-here    # Optional: offshore marine weather
 UKPN_ODS_API_KEY=your-key-here     # Optional: UKPN headroom, ECR, flex, constraints
 SPEN_ODS_API_KEY=your-key-here     # Optional: SPEN headroom, ECR, grid intelligence
+ENWL_ODS_API_KEY=your-key-here     # Optional: ENWL headroom, ECR
 ```
 
 ```json
@@ -185,7 +186,8 @@ SPEN_ODS_API_KEY=your-key-here     # Optional: SPEN headroom, ECR, grid intellig
   "ENTSOE_API_KEY": "your-key-here",
   "GIE_API_KEY": "your-key-here",
   "UKPN_ODS_API_KEY": "your-key-here",
-  "SPEN_ODS_API_KEY": "your-key-here"
+  "SPEN_ODS_API_KEY": "your-key-here",
+  "ENWL_ODS_API_KEY": "your-key-here"
 }
 ```
 
@@ -201,6 +203,7 @@ All keys are free:
 - **Storm Glass**: Register at [stormglass.io](https://stormglass.io/)
 - **UKPN**: Register at [ukpowernetworks.opendatasoft.com](https://ukpowernetworks.opendatasoft.com/) → My API Keys
 - **SPEN**: Register at [spenergynetworks.opendatasoft.com](https://spenergynetworks.opendatasoft.com/) → My API Keys
+- **ENWL**: Register at [electricitynorthwest.opendatasoft.com](https://electricitynorthwest.opendatasoft.com/) → My API Keys
 
 Many tools work without any API key: energy-charts.info, ENTSOG, Elexon BMRS, RTE France, Energi Data Service, ERA5 weather, hydro inflows, Nordpool, SMARD, and more.
 

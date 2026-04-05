@@ -259,6 +259,41 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     ],
     attribution: "Contains data from SP Energy Networks.",
   },
+  "enwl-pry-heatmap": {
+    id: "enwl-pry-heatmap",
+    name: "ENWL PRY Heatmap (Primary Substation Capacity)",
+    provider: "Electricity North West Ltd",
+    licence: "CC BY 4.0 (free registration required for API access)",
+    url: "https://electricitynorthwest.opendatasoft.com/explore/dataset/enwl-pry-heatmap/",
+    api_key_required: true,
+    coverage: "ENWL licence area: North West England",
+    update_frequency: "Monthly",
+    reliability: "medium",
+    caveats: [
+      "Headroom values are firm/non-firm capacity signals at primary substations, not guaranteed connection availability",
+      "No RAG status field — constraint severity must be inferred from headroom thresholds",
+      "Battery storage headroom is published separately but not yet surfaced by this tool",
+      "Coverage is limited to ENWL licence area — does not include any other DNO",
+    ],
+    attribution: "Contains data from Electricity North West Ltd, licensed under CC BY 4.0.",
+  },
+  "enwl-embedded-capacity": {
+    id: "enwl-embedded-capacity",
+    name: "ENWL Embedded Capacity Register (>=1MW)",
+    provider: "Electricity North West Ltd",
+    licence: "CC BY 4.0 (free registration required for API access)",
+    url: "https://electricitynorthwest.opendatasoft.com/explore/dataset/enwl-embedded-capacity-register-2-1mw-and-above/",
+    api_key_required: true,
+    coverage: "ENWL licence area: North West England (>=1MW generators and storage)",
+    update_frequency: "Monthly",
+    reliability: "medium",
+    caveats: [
+      "Covers >=1MW sites only; sub-1MW sites are in a separate dataset",
+      "Coverage is limited to ENWL licence area",
+      "Has spatial coordinates (geopoint) for distance-based matching",
+    ],
+    attribution: "Contains data from Electricity North West Ltd, licensed under CC BY 4.0.",
+  },
   "ukpn-flexibility-dispatches": {
     id: "ukpn-flexibility-dispatches",
     name: "UKPN Flexibility Dispatches",
@@ -571,6 +606,56 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
         }
         const fieldNames = (json.fields ?? []).map((f: { name?: string }) => f.name);
         for (const required of ["substation_name", "headroom_mw", "spatial_coordinates"]) {
+          if (!fieldNames.includes(required)) {
+            return `Dataset schema missing field "${required}"`;
+          }
+        }
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "enwl-pry-heatmap",
+    url:
+      "https://electricitynorthwest.opendatasoft.com/api/explore/v2.1/catalog/datasets/enwl-pry-heatmap",
+    method: "GET",
+    timeout_ms: 10_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.dataset_id !== "enwl-pry-heatmap") {
+          return "Unexpected dataset_id in response";
+        }
+        const fieldNames = (json.fields ?? []).map((f: { name?: string }) => f.name);
+        for (const required of ["pry_number", "dem_hr_firm_mw", "gen_hr_inverter_mw", "geo_point_2d"]) {
+          if (!fieldNames.includes(required)) {
+            return `Dataset schema missing field "${required}"`;
+          }
+        }
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "enwl-embedded-capacity",
+    url:
+      "https://electricitynorthwest.opendatasoft.com/api/explore/v2.1/catalog/datasets/enwl-embedded-capacity-register-2-1mw-and-above",
+    method: "GET",
+    timeout_ms: 10_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.dataset_id !== "enwl-embedded-capacity-register-2-1mw-and-above") {
+          return "Unexpected dataset_id in response";
+        }
+        const fieldNames = (json.fields ?? []).map((f: { name?: string }) => f.name);
+        for (const required of ["customer_name", "connection_status", "maximum_export_capacity_mw", "geopoint"]) {
           if (!fieldNames.includes(required)) {
             return `Dataset schema missing field "${required}"`;
           }

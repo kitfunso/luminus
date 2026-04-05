@@ -397,7 +397,7 @@ describe("getGridConnectionIntelligence", () => {
       "Connection queue data shows contracted positions, not guaranteed available capacity",
     );
     expect(result.confidence_notes).toContain(
-      "Distribution headroom queries SSEN, NPG, UKPN, and SPEN public data; coverage depends on the site's DNO area",
+      "Distribution headroom queries SSEN, NPG, UKPN, SPEN, and ENWL public data; coverage depends on the site's DNO area",
     );
     expect(result.confidence_notes).toContain(
       "NGED public queue and TD-limit context only appears where the matched GSP is covered by NGED's published resources",

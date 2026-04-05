@@ -633,3 +633,242 @@ class SiteRevenueEstimate:
             caveats=[str(item) for item in payload.get("caveats", [])],
             disclaimer=str(payload.get("disclaimer", "")),
         )
+
+
+# ---------------------------------------------------------------------------
+# ECR (Embedded Capacity Register)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class EcrSnapshot:
+    total_matched: int
+    total_export_mw: float
+    total_import_mw: float
+    total_storage_mwh: float
+    energy_source_breakdown: dict[str, int]
+    status_breakdown: dict[str, int]
+    entries: list[dict[str, Any]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "EcrSnapshot":
+        return cls(
+            total_matched=int(payload.get("total_matched", 0)),
+            total_export_mw=float(payload.get("total_export_mw", 0)),
+            total_import_mw=float(payload.get("total_import_mw", 0)),
+            total_storage_mwh=float(payload.get("total_storage_mwh", 0)),
+            energy_source_breakdown={
+                str(k): int(v)
+                for k, v in dict(payload.get("energy_source_breakdown", {})).items()
+            },
+            status_breakdown={
+                str(k): int(v)
+                for k, v in dict(payload.get("status_breakdown", {})).items()
+            },
+            entries=[dict(item) for item in payload.get("entries", [])],
+        )
+
+
+# ---------------------------------------------------------------------------
+# Flexibility Market
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class FlexMarketSnapshot:
+    total_dispatches: int
+    total_mwh: float
+    avg_utilisation_price: float
+    zone_breakdown: dict[str, int]
+    dispatches: list[dict[str, Any]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "FlexMarketSnapshot":
+        return cls(
+            total_dispatches=int(payload.get("total_dispatches", 0)),
+            total_mwh=float(payload.get("total_mwh", 0)),
+            avg_utilisation_price=float(payload.get("avg_utilisation_price", 0)),
+            zone_breakdown={
+                str(k): int(v)
+                for k, v in dict(payload.get("zone_breakdown", {})).items()
+            },
+            dispatches=[dict(item) for item in payload.get("dispatches", [])],
+        )
+
+
+# ---------------------------------------------------------------------------
+# Constraint Breaches
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class ConstraintBreachesSnapshot:
+    total_breaches: int
+    total_curtailment_kwh: float
+    total_curtailment_hours: float
+    scheme_breakdown: dict[str, int]
+    breaches: list[dict[str, Any]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "ConstraintBreachesSnapshot":
+        return cls(
+            total_breaches=int(payload.get("total_breaches", 0)),
+            total_curtailment_kwh=float(payload.get("total_curtailment_kwh", 0)),
+            total_curtailment_hours=float(payload.get("total_curtailment_hours", 0)),
+            scheme_breakdown={
+                str(k): int(v)
+                for k, v in dict(payload.get("scheme_breakdown", {})).items()
+            },
+            breaches=[dict(item) for item in payload.get("breaches", [])],
+        )
+
+
+# ---------------------------------------------------------------------------
+# SPEN Grid Intelligence
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class SpenQueueSummary:
+    total_projects: int
+    total_mw: float
+    projects: list[dict[str, Any]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SpenQueueSummary":
+        return cls(
+            total_projects=int(payload.get("total_projects", 0)),
+            total_mw=float(payload.get("total_mw", 0)),
+            projects=[dict(item) for item in payload.get("projects", [])],
+        )
+
+
+@dataclass(slots=True)
+class SpenDgCapacitySummary:
+    total_substations: int
+    entries: list[dict[str, Any]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SpenDgCapacitySummary":
+        return cls(
+            total_substations=int(payload.get("total_substations", 0)),
+            entries=[dict(item) for item in payload.get("entries", [])],
+        )
+
+
+@dataclass(slots=True)
+class SpenCurtailmentSummary:
+    total_events: int
+    total_curtailed_mwh: float
+    events: list[dict[str, Any]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SpenCurtailmentSummary":
+        return cls(
+            total_events=int(payload.get("total_events", 0)),
+            total_curtailed_mwh=float(payload.get("total_curtailed_mwh", 0)),
+            events=[dict(item) for item in payload.get("events", [])],
+        )
+
+
+@dataclass(slots=True)
+class SpenGridSnapshot:
+    queue: SpenQueueSummary
+    dg_capacity: SpenDgCapacitySummary
+    curtailment: SpenCurtailmentSummary
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SpenGridSnapshot":
+        return cls(
+            queue=SpenQueueSummary.from_dict(dict(payload.get("queue", {}))),
+            dg_capacity=SpenDgCapacitySummary.from_dict(dict(payload.get("dg_capacity", {}))),
+            curtailment=SpenCurtailmentSummary.from_dict(dict(payload.get("curtailment", {}))),
+        )
+
+
+# ---------------------------------------------------------------------------
+# UKPN Grid Overview
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class UkpnGridSnapshot:
+    gsps: list[dict[str, Any]]
+    flex_zones: list[dict[str, Any]]
+    live_faults: list[dict[str, Any]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "UkpnGridSnapshot":
+        return cls(
+            gsps=[dict(item) for item in payload.get("gsps", [])],
+            flex_zones=[dict(item) for item in payload.get("flex_zones", [])],
+            live_faults=[dict(item) for item in payload.get("live_faults", [])],
+        )
+
+
+# ---------------------------------------------------------------------------
+# NGED Connection Signal
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class NgedConnectionSignalSnapshot:
+    resource_name: str
+    summary: dict[str, Any]
+    queue: list[dict[str, Any]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "NgedConnectionSignalSnapshot":
+        return cls(
+            resource_name=str(payload.get("resource_name", "")),
+            summary=dict(payload.get("summary", {})),
+            queue=[dict(item) for item in payload.get("queue", [])],
+        )
+
+
+# ---------------------------------------------------------------------------
+# Terrain Analysis
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class TerrainSnapshot:
+    lat: float
+    lon: float
+    elevation_m: float
+    slope_deg: float
+    aspect_cardinal: str
+    land_cover: str | None
+    flood_risk: str | None
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "TerrainSnapshot":
+        return cls(
+            lat=float(payload.get("lat", 0)),
+            lon=float(payload.get("lon", 0)),
+            elevation_m=float(payload.get("elevation_m", 0)),
+            slope_deg=float(payload.get("slope_deg", 0)),
+            aspect_cardinal=str(payload.get("aspect_cardinal", "")),
+            land_cover=payload.get("land_cover"),
+            flood_risk=payload.get("flood_risk"),
+        )
+
+
+# ---------------------------------------------------------------------------
+# BESS Site Shortlist
+# ---------------------------------------------------------------------------
+
+
+@dataclass(slots=True)
+class BessSiteShortlistSnapshot:
+    total_candidates: int
+    total_shortlisted: int
+    shortlist: list[dict[str, Any]]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "BessSiteShortlistSnapshot":
+        return cls(
+            total_candidates=int(payload.get("total_candidates", 0)),
+            total_shortlisted=int(payload.get("total_shortlisted", 0)),
+            shortlist=[dict(item) for item in payload.get("shortlist", [])],
+        )

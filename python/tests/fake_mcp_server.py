@@ -18,6 +18,21 @@ TOOLS = [
     {"name": "compare_sites", "description": "fake site comparison", "inputSchema": {}},
     {"name": "screen_site", "description": "fake site screen", "inputSchema": {}},
     {"name": "get_server_status", "description": "fake server status", "inputSchema": {}},
+    {"name": "get_embedded_capacity_register", "description": "fake ECR", "inputSchema": {}},
+    {"name": "get_flexibility_market", "description": "fake flex market", "inputSchema": {}},
+    {"name": "get_constraint_breaches", "description": "fake constraint breaches", "inputSchema": {}},
+    {"name": "get_spen_grid_intelligence", "description": "fake SPEN grid", "inputSchema": {}},
+    {"name": "get_ukpn_grid_overview", "description": "fake UKPN grid", "inputSchema": {}},
+    {"name": "get_balancing_prices", "description": "fake balancing prices", "inputSchema": {}},
+    {"name": "get_intraday_prices", "description": "fake intraday prices", "inputSchema": {}},
+    {"name": "get_imbalance_prices", "description": "fake imbalance prices", "inputSchema": {}},
+    {"name": "get_price_spread_analysis", "description": "fake spread analysis", "inputSchema": {}},
+    {"name": "get_ancillary_prices", "description": "fake ancillary prices", "inputSchema": {}},
+    {"name": "get_nged_connection_signal", "description": "fake NGED signal", "inputSchema": {}},
+    {"name": "get_terrain_analysis", "description": "fake terrain", "inputSchema": {}},
+    {"name": "get_land_constraints", "description": "fake land constraints", "inputSchema": {}},
+    {"name": "shortlist_bess_sites", "description": "fake BESS shortlist", "inputSchema": {}},
+    {"name": "verify_gis_sources", "description": "fake GIS sources", "inputSchema": {}},
 ]
 
 
@@ -484,6 +499,217 @@ for line in sys.stdin:
             }
         elif name == "get_server_status":
             payload = {"activeProfile": "full", "registeredTools": len(TOOLS)}
+        elif name == "get_embedded_capacity_register":
+            payload = {
+                "total_matched": 3,
+                "total_export_mw": 45.5,
+                "total_import_mw": 12.0,
+                "total_storage_mwh": 80.0,
+                "energy_source_breakdown": {"Solar": 2, "Battery": 1},
+                "status_breakdown": {"Accepted": 2, "Connected": 1},
+                "entries": [
+                    {
+                        "site_name": "Solar Farm Alpha",
+                        "operator": args.get("operator", "UKPN"),
+                        "export_mw": 20.0,
+                        "import_mw": 5.0,
+                        "storage_mwh": 0.0,
+                        "energy_source": "Solar",
+                        "status": "Accepted",
+                    },
+                    {
+                        "site_name": "Battery Beta",
+                        "operator": args.get("operator", "UKPN"),
+                        "export_mw": 15.5,
+                        "import_mw": 7.0,
+                        "storage_mwh": 80.0,
+                        "energy_source": "Battery",
+                        "status": "Connected",
+                    },
+                    {
+                        "site_name": "Solar Gamma",
+                        "operator": args.get("operator", "UKPN"),
+                        "export_mw": 10.0,
+                        "import_mw": 0.0,
+                        "storage_mwh": 0.0,
+                        "energy_source": "Solar",
+                        "status": "Accepted",
+                    },
+                ],
+            }
+        elif name == "get_flexibility_market":
+            payload = {
+                "total_dispatches": 2,
+                "total_mwh": 18.5,
+                "avg_utilisation_price": 125.0,
+                "zone_breakdown": {"East": 1, "South": 1},
+                "dispatches": [
+                    {
+                        "dispatch_id": "D001",
+                        "zone": "East",
+                        "mwh": 10.0,
+                        "utilisation_price": 130.0,
+                        "date": "2026-03-20",
+                    },
+                    {
+                        "dispatch_id": "D002",
+                        "zone": "South",
+                        "mwh": 8.5,
+                        "utilisation_price": 120.0,
+                        "date": "2026-03-21",
+                    },
+                ],
+            }
+        elif name == "get_constraint_breaches":
+            payload = {
+                "total_breaches": 2,
+                "total_curtailment_kwh": 5500.0,
+                "total_curtailment_hours": 14.0,
+                "scheme_breakdown": {"ANM": 1, "Intertrip": 1},
+                "breaches": [
+                    {
+                        "breach_id": "B001",
+                        "scheme": "ANM",
+                        "curtailment_kwh": 3000.0,
+                        "curtailment_hours": 8.0,
+                        "date": "2026-02-15",
+                    },
+                    {
+                        "breach_id": "B002",
+                        "scheme": "Intertrip",
+                        "curtailment_kwh": 2500.0,
+                        "curtailment_hours": 6.0,
+                        "date": "2026-02-20",
+                    },
+                ],
+            }
+        elif name == "get_spen_grid_intelligence":
+            payload = {
+                "queue": {
+                    "total_projects": 2,
+                    "total_mw": 85.0,
+                    "projects": [
+                        {"name": "Wind North", "mw": 50.0, "status": "Accepted"},
+                        {"name": "Solar South", "mw": 35.0, "status": "Scoping"},
+                    ],
+                },
+                "dg_capacity": {
+                    "total_substations": 2,
+                    "entries": [
+                        {"substation": "SPEN Sub A", "headroom_mw": 12.0},
+                        {"substation": "SPEN Sub B", "headroom_mw": 8.5},
+                    ],
+                },
+                "curtailment": {
+                    "total_events": 2,
+                    "total_curtailed_mwh": 320.0,
+                    "events": [
+                        {"event_id": "C01", "curtailed_mwh": 200.0, "date": "2026-01-10"},
+                        {"event_id": "C02", "curtailed_mwh": 120.0, "date": "2026-01-15"},
+                    ],
+                },
+            }
+        elif name == "get_ukpn_grid_overview":
+            payload = {
+                "gsps": [
+                    {"gsp_name": "Sellindge", "region": "South East", "capacity_mw": 400.0},
+                    {"gsp_name": "Bolney", "region": "South East", "capacity_mw": 350.0},
+                ],
+                "flex_zones": [
+                    {"zone_name": "Kent Flex", "status": "Active", "enrolled_mw": 22.0},
+                ],
+                "live_faults": [
+                    {"fault_id": "F001", "area": "Bromley", "status": "In Progress"},
+                ],
+            }
+        elif name == "get_balancing_prices":
+            payload = {
+                "zone": args.get("zone", "GB"),
+                "prices": [
+                    {"settlement_period": 1, "price_gbp_mwh": 55.0},
+                    {"settlement_period": 2, "price_gbp_mwh": 62.0},
+                ],
+            }
+        elif name == "get_intraday_prices":
+            payload = {
+                "zone": args.get("zone", "GB"),
+                "prices": [
+                    {"hour": 0, "price_eur_mwh": 48.0},
+                    {"hour": 1, "price_eur_mwh": 51.0},
+                ],
+            }
+        elif name == "get_imbalance_prices":
+            payload = {
+                "zone": args.get("zone", "GB"),
+                "prices": [
+                    {"settlement_period": 1, "buy_price": 70.0, "sell_price": 45.0},
+                    {"settlement_period": 2, "buy_price": 75.0, "sell_price": 50.0},
+                ],
+            }
+        elif name == "get_price_spread_analysis":
+            payload = {
+                "zone": args.get("zone", "GB"),
+                "peak_mean": 120.0,
+                "off_peak_mean": 42.0,
+                "spread": 78.0,
+                "periods_analysed": 48,
+            }
+        elif name == "get_ancillary_prices":
+            payload = {
+                "zone": args.get("zone", "GB"),
+                "prices": [
+                    {"service": "DCL", "price_gbp_mw_h": 8.5, "date": "2026-04-02"},
+                    {"service": "DCH", "price_gbp_mw_h": 12.0, "date": "2026-04-02"},
+                ],
+            }
+        elif name == "get_nged_connection_signal":
+            payload = {
+                "resource_name": "Test GSP",
+                "summary": {
+                    "matched_projects": 2,
+                    "total_export_mw": 30.0,
+                },
+                "queue": [
+                    {"project_name": "NGED Proj A", "status": "Accepted", "export_mw": 20.0},
+                    {"project_name": "NGED Proj B", "status": "Scoping", "export_mw": 10.0},
+                ],
+            }
+        elif name == "get_terrain_analysis":
+            payload = {
+                "lat": args.get("lat", 51.5),
+                "lon": args.get("lon", -0.1),
+                "elevation_m": 85.0,
+                "slope_deg": 3.2,
+                "aspect_cardinal": "SW",
+                "land_cover": "Grassland",
+                "flood_risk": "Low",
+            }
+        elif name == "get_land_constraints":
+            payload = {
+                "lat": args.get("lat", 51.5),
+                "lon": args.get("lon", -0.1),
+                "constraints": [
+                    {"type": "SSSI", "name": "Epping Forest", "distance_km": 1.2, "severity": "High"},
+                    {"type": "Flood Zone 3", "name": "Thames Flood Plain", "distance_km": 0.3, "severity": "Medium"},
+                ],
+            }
+        elif name == "shortlist_bess_sites":
+            payload = {
+                "total_candidates": 10,
+                "total_shortlisted": 2,
+                "shortlist": [
+                    {"site_name": "Grid Park Alpha", "score": 0.92, "lat": 51.5, "lon": -0.1, "headroom_mw": 20.0},
+                    {"site_name": "Industrial Zone B", "score": 0.85, "lat": 51.6, "lon": -0.2, "headroom_mw": 15.0},
+                ],
+            }
+        elif name == "verify_gis_sources":
+            payload = {
+                "sources": [
+                    {"source_name": "OS Open Data", "status": "OK", "last_updated": "2026-03-30"},
+                    {"source_name": "LIDAR DTM", "status": "OK", "last_updated": "2026-03-28"},
+                    {"source_name": "EA Flood Map", "status": "Degraded", "last_updated": "2026-03-15"},
+                ],
+            }
         else:
             send(
                 {

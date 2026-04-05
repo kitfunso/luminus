@@ -85,6 +85,17 @@ describe("verifyGisSources", () => {
           fields: [{ name: "substation_group" }, { name: "headroom_mw" }, { name: "headroom_type" }],
         });
       }
+      if (url.includes("electricitynorthwest.opendatasoft.com")) {
+        const dsMatch = url.match(/datasets\/([^/?]+)/);
+        const dsId = dsMatch ? dsMatch[1] : "unknown";
+        const isEcr = dsId.includes("embedded-capacity");
+        return makeOkResponse({
+          dataset_id: dsId,
+          fields: isEcr
+            ? [{ name: "customer_name" }, { name: "connection_status" }, { name: "maximum_export_capacity_mw" }, { name: "geopoint" }]
+            : [{ name: "pry_number" }, { name: "dem_hr_firm_mw" }, { name: "gen_hr_inverter_mw" }, { name: "geo_point_2d" }],
+        });
+      }
       if (url.includes("arcgis.com") || url.includes("environment.data.gov.uk") || url.includes("bio.discomap.eea.europa.eu")) {
         return makeOkResponse({ features: [{ attributes: { NAME: "Test" } }] });
       }
@@ -100,9 +111,9 @@ describe("verifyGisSources", () => {
     const result = await verifyGisSources({});
 
     expect(result.checked_at).toBeDefined();
-    expect(result.sources.length).toBe(18);
-    expect(result.summary.total).toBe(18);
-    expect(result.summary.ok).toBe(18);
+    expect(result.sources.length).toBe(20);
+    expect(result.summary.total).toBe(20);
+    expect(result.summary.ok).toBe(20);
     expect(result.summary.degraded).toBe(0);
     expect(result.summary.unreachable).toBe(0);
   });
@@ -230,6 +241,17 @@ describe("verifyGisSources", () => {
           fields: [{ name: "substation_group" }, { name: "headroom_mw" }, { name: "headroom_type" }],
         });
       }
+      if (url.includes("electricitynorthwest.opendatasoft.com")) {
+        const dsMatch = url.match(/datasets\/([^/?]+)/);
+        const dsId = dsMatch ? dsMatch[1] : "unknown";
+        const isEcr = dsId.includes("embedded-capacity");
+        return makeOkResponse({
+          dataset_id: dsId,
+          fields: isEcr
+            ? [{ name: "customer_name" }, { name: "connection_status" }, { name: "maximum_export_capacity_mw" }, { name: "geopoint" }]
+            : [{ name: "pry_number" }, { name: "dem_hr_firm_mw" }, { name: "gen_hr_inverter_mw" }, { name: "geo_point_2d" }],
+        });
+      }
       if (url.includes("arcgis.com")) {
         throw new Error("Network failure");
       }
@@ -250,13 +272,10 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, eea-natura2000, corine, pvgis = 10
+    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, enwl-pry, enwl-ecr, ukpn-flex, spen-flex, eea-natura2000, corine, pvgis = 14
     // degraded: overpass (429), ea-flood-map (500), plus the two NGED source checks = 4
     // unreachable: natural-england, natural-england-alc (arcgis.com network failure) = 2
-    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, ukpn-flex, spen-flex, eea-natura2000, corine, pvgis = 12
-    // degraded: overpass (429), ea-flood-map (500), plus the two NGED source checks = 4
-    // unreachable: natural-england, natural-england-alc (arcgis.com network failure) = 2
-    expect(result.summary.ok).toBe(12);
+    expect(result.summary.ok).toBe(14);
     expect(result.summary.degraded).toBe(4);
     expect(result.summary.unreachable).toBe(2);
   });

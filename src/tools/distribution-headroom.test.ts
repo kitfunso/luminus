@@ -250,9 +250,78 @@ describe("getDistributionHeadroom", () => {
       getDistributionHeadroom({
         lat: 51.5,
         lon: -0.1,
-        operator: "ENWL",
+        operator: "NGED",
       }),
-    ).rejects.toThrow('Supported operators: "SSEN", "NPG", "UKPN", "SPEN".');
+    ).rejects.toThrow('Supported operators: "SSEN", "NPG", "UKPN", "SPEN", "ENWL".');
+  });
+
+  it("returns the nearest ENWL headroom sites within the search radius", async () => {
+    const mockEnwlResponse = {
+      total_count: 2,
+      results: [
+        {
+          pry_number: "PRY001",
+          bsp_number: "BSP01",
+          gsp_number: "GSP01",
+          class: "Primary",
+          voltage_mw: "6.6kV/11kV",
+          dem_hr_firm_mw: 8.5,
+          dem_hr_non_firm_mw: 12.0,
+          gen_hr_inverter_mw: 5.2,
+          gen_hr_lv_synchronous_mw: 6.1,
+          gen_hr_hv_synchronous_mw: 4.8,
+          batt_storage_hr_mw: 3.0,
+          geo_point_2d: { lat: 53.483, lon: -2.244 },
+        },
+        {
+          pry_number: "PRY002",
+          bsp_number: "BSP02",
+          gsp_number: "GSP01",
+          class: "Primary",
+          voltage_mw: "11kV",
+          dem_hr_firm_mw: 15.0,
+          dem_hr_non_firm_mw: 18.0,
+          gen_hr_inverter_mw: 10.0,
+          gen_hr_lv_synchronous_mw: 9.5,
+          gen_hr_hv_synchronous_mw: 11.0,
+          batt_storage_hr_mw: 5.0,
+          geo_point_2d: { lat: 53.50, lon: -2.30 },
+        },
+      ],
+    };
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => mockEnwlResponse,
+      })),
+    );
+
+    const result = await getDistributionHeadroom({
+      lat: 53.483,
+      lon: -2.244,
+      operator: "ENWL",
+    });
+
+    expect(result.operator).toBe("ENWL");
+    expect(result.nearest_site).not.toBeNull();
+    expect(result.nearest_site!.asset_id).toBe("ENWL:PRY001");
+    expect(result.nearest_site!.substation).toBe("PRY001");
+    expect(result.nearest_site!.upstream_gsp).toBe("GSP01");
+    expect(result.nearest_site!.upstream_bsp).toBe("BSP01");
+    expect(result.nearest_site!.substation_type).toBe("Primary");
+    expect(result.nearest_site!.voltage_kv).toBe("6.6kV/11kV");
+    expect(result.nearest_site!.estimated_demand_headroom_mva).toBe(8.5);
+    // gen headroom = min(inverter=5.2, min(lv_sync=6.1, hv_sync=4.8)) = min(5.2, 4.8) = 4.8
+    expect(result.nearest_site!.estimated_generation_headroom_mw).toBe(4.8);
+    expect(result.nearest_site!.demand_rag_status).toBeNull();
+    expect(result.matches).toHaveLength(2);
+    expect(result.source_metadata.id).toBe("enwl-pry-heatmap");
+    expect(result.confidence_notes).toContain(
+      "Uses ENWL's public PRY Heatmap dataset (current snapshot, monthly refresh); other DNOs are not inferred",
+    );
   });
 
   it("returns the nearest UKPN headroom sites within the search radius", async () => {

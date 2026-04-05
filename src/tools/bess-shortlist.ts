@@ -91,17 +91,19 @@ const WEIGHT_QUEUE = 20;
 const WEIGHT_DNO = 10;
 const NEUTRAL_OPTIONAL_SIGNAL = 0.5;
 
+const DNO_OPERATORS = ["SSEN", "NPG", "UKPN"] as const;
+
 const HEURISTICS_USED = [
   `GIS screen score (weight ${WEIGHT_GIS}%): reuses compare_sites score as the base prospecting signal.`,
   `BESS revenue score (weight ${WEIGHT_REVENUE}%): higher estimated annual revenue ranks better, normalised across successful site-revenue calls.`,
   `Queue burden score (weight ${WEIGHT_QUEUE}%): lower MW already queued at the matched GSP ranks better, normalised across successful queue lookups.`,
-  `SSEN DNO headroom score (weight ${WEIGHT_DNO}%): higher estimated generation headroom ranks better when SSEN public headroom data resolves; unresolved coverage stays neutral rather than penalising non-SSEN sites.`,
-  "Missing revenue or queue data scores 0 for that component; unresolved SSEN headroom coverage stays neutral and is called out in data_gaps.",
+  `DNO headroom score (weight ${WEIGHT_DNO}%): higher estimated generation headroom ranks better when SSEN, NPG, or UKPN public headroom data resolves; sites where no DNO data resolves stay neutral rather than being penalised.`,
+  "Missing revenue or queue data scores 0 for that component; sites where no DNO data resolves stay neutral and are called out in data_gaps.",
   "This is a shortlist heuristic, not a connection-offer, dispatch, or investment recommendation.",
 ];
 
 const DISCLAIMER =
-  "This shortlist combines public GIS screening, a screening-level BESS revenue estimate, GB transmission queue intelligence, and SSEN distribution headroom where public SSEN data resolves. " +
+  "This shortlist combines public GIS screening, a screening-level BESS revenue estimate, GB transmission queue intelligence, and SSEN, NPG, and UKPN distribution headroom where public data resolves. " +
   "It does not infer GB-wide DNO capacity, grid availability, or bankable project returns.";
 
 function normaliseHigherBetter(value: number | null, min: number, max: number): number {
@@ -143,10 +145,10 @@ function buildReasoning(site: ShortlistedSite): string {
 
   if (site.dno_generation_headroom_mw !== null) {
     parts.push(
-      `SSEN DNO headroom ${round2(site.dno_generation_headroom_mw)} MW at ${site.dno_headroom_site ?? "matched site"}${site.dno_generation_rag_status ? ` (${site.dno_generation_rag_status})` : ""}.`,
+      `DNO headroom ${round2(site.dno_generation_headroom_mw)} MW at ${site.dno_headroom_site ?? "matched site"}${site.dno_generation_rag_status ? ` (${site.dno_generation_rag_status})` : ""}.`,
     );
   } else {
-    parts.push("SSEN DNO headroom not resolved.");
+    parts.push("DNO headroom not resolved.");
   }
 
   if (site.data_gaps.length > 0) {
@@ -191,7 +193,7 @@ export async function shortlistBessSites(
       let dnoGenerationHeadroomMw: number | null = null;
       let dnoGenerationRagStatus: string | null = null;
 
-      const [revenueResult, queueResult, dnoResult] = await Promise.allSettled([
+      const [revenueResult, queueResult, ...dnoResults] = await Promise.allSettled([
         estimateSiteRevenue({
           lat: site.lat,
           lon: site.lon,
@@ -205,11 +207,13 @@ export async function shortlistBessSites(
           lon: site.lon,
           country: "GB",
         }),
-        getDistributionHeadroom({
-          lat: site.lat,
-          lon: site.lon,
-          operator: "SSEN",
-        }),
+        ...DNO_OPERATORS.map((op) =>
+          getDistributionHeadroom({
+            lat: site.lat,
+            lon: site.lon,
+            operator: op,
+          }),
+        ),
       ]);
 
       if (revenueResult.status === "fulfilled") {
@@ -225,14 +229,21 @@ export async function shortlistBessSites(
         dataGaps.push("grid_connection_intelligence");
       }
 
-      if (dnoResult.status === "fulfilled") {
-        dnoHeadroomSite = dnoResult.value.nearest_site?.substation ?? null;
-        dnoGenerationHeadroomMw =
-          dnoResult.value.nearest_site?.estimated_generation_headroom_mw ?? null;
-        dnoGenerationRagStatus = dnoResult.value.nearest_site?.generation_rag_status ?? null;
-        if (dnoResult.value.nearest_site === null) {
-          dataGaps.push("distribution_headroom");
+      // Pick the closest DNO headroom match across all operators
+      let bestDno: { operator: string; site: NonNullable<Awaited<ReturnType<typeof getDistributionHeadroom>>["nearest_site"]> } | null = null;
+      for (const dnoResult of dnoResults) {
+        if (dnoResult.status !== "fulfilled") continue;
+        const nearestSite = dnoResult.value.nearest_site;
+        if (!nearestSite) continue;
+        if (!bestDno || nearestSite.distance_km < bestDno.site.distance_km) {
+          bestDno = { operator: dnoResult.value.operator, site: nearestSite };
         }
+      }
+
+      if (bestDno) {
+        dnoHeadroomSite = bestDno.site.substation;
+        dnoGenerationHeadroomMw = bestDno.site.estimated_generation_headroom_mw;
+        dnoGenerationRagStatus = bestDno.site.generation_rag_status;
       } else {
         dataGaps.push("distribution_headroom");
       }

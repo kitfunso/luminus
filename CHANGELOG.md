@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.4.0 - 2026-04-05
+
+Full GB DNO coverage, BESS-specific scoring, and major Python SDK expansion.
+
+### Added
+- ENWL (Electricity North West) added to `get_distribution_headroom` — all 5 GB DNOs with public data now covered (SSEN, NPG, UKPN, SPEN, ENWL)
+- ENWL added to `get_embedded_capacity_register` alongside UKPN and SPEN
+- ENWL added to `get_grid_connection_intelligence` parallel headroom queries
+- `technology` parameter on `compare_sites` — BESS-specific scoring weights (grid proximity 45%, verdict 25%, terrain 25%, solar 5%) vs solar defaults
+- `shortlist_bess_sites` now queries SSEN, NPG, and UKPN headroom in parallel instead of SSEN-only
+- 24 new Python SDK typed helpers covering ECR, flex market, constraint breaches, SPEN/UKPN grid intelligence, trading prices, GIS tools, and BESS shortlisting
+- 9 new Python snapshot models with `from_dict()` classmethods
+
+### Changed
+- bumped `luminus-mcp` to `0.4.0`
+- bumped `luminus-py` to `0.4.0`
+
+### Verification
+- 327 JS tests passed across 33 test files
+- 29 Python tests passed
+- TypeScript build passed
+- Python build passed
+
+For the fuller narrative, see [`docs/releases/0.4.0.md`](docs/releases/0.4.0.md).
+
 ## 0.3.1 - 2026-04-03
 
 Unified npm and Python patch release for the Northern Powergrid headroom tranche and stale package-surface cleanup.

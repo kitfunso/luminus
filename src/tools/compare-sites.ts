@@ -20,6 +20,10 @@ export const compareSitesSchema = z.object({
     .number()
     .optional()
     .describe("Search radius in km for grid and constraints (default 2, max 10)."),
+  technology: z
+    .enum(["solar", "bess", "hybrid"])
+    .optional()
+    .describe('Site technology. Adjusts scoring weights. Default "solar".'),
 });
 
 // --- Types ---
@@ -51,6 +55,7 @@ interface FailedSite {
 
 interface CompareSitesResult {
   site_count: number;
+  technology: "solar" | "bess" | "hybrid";
   rankings: RankedSite[];
   failed_sites: FailedSite[];
   heuristics_used: string[];
@@ -72,19 +77,35 @@ interface CompareSitesResult {
 
 const VERDICT_SCORES: Record<Verdict, number> = { pass: 3, warn: 2, fail: 1 };
 
-const WEIGHT_VERDICT = 40;
-const WEIGHT_SOLAR = 30;
-const WEIGHT_GRID = 20;
-const WEIGHT_TERRAIN = 10;
+interface ScoringWeights {
+  readonly verdict: number;
+  readonly solar: number;
+  readonly grid: number;
+  readonly terrain: number;
+}
 
-const HEURISTICS_USED = [
-  `Verdict tier (weight ${WEIGHT_VERDICT}%): pass=3, warn=2, fail=1. Hard constraints and high flood-planning risk (for example Flood Zone 3) produce fail.`,
-  `Solar resource (weight ${WEIGHT_SOLAR}%): annual irradiance (kWh/m2), higher is better. Normalised across candidates.`,
-  `Grid proximity (weight ${WEIGHT_GRID}%): min(nearest_substation_km, nearest_line_km), closer is better. Normalised across candidates.`,
-  `Terrain flatness (weight ${WEIGHT_TERRAIN}%): slope in degrees, flatter is better. Normalised across candidates.`,
-  "Missing data for a dimension scores 0 for that dimension (conservative penalty).",
-  "Ties broken by input order (stable sort).",
-];
+function getWeights(technology: "solar" | "bess" | "hybrid"): ScoringWeights {
+  switch (technology) {
+    case "bess":
+      return { verdict: 25, solar: 5, grid: 45, terrain: 25 };
+    case "hybrid":
+      return { verdict: 30, solar: 20, grid: 35, terrain: 15 };
+    case "solar":
+    default:
+      return { verdict: 40, solar: 30, grid: 20, terrain: 10 };
+  }
+}
+
+function buildHeuristicsUsed(w: ScoringWeights): string[] {
+  return [
+    `Verdict tier (weight ${w.verdict}%): pass=3, warn=2, fail=1. Hard constraints and high flood-planning risk (for example Flood Zone 3) produce fail.`,
+    `Solar resource (weight ${w.solar}%): annual irradiance (kWh/m2), higher is better. Normalised across candidates.`,
+    `Grid proximity (weight ${w.grid}%): min(nearest_substation_km, nearest_line_km), closer is better. Normalised across candidates.`,
+    `Terrain flatness (weight ${w.terrain}%): slope in degrees, flatter is better. Normalised across candidates.`,
+    "Missing data for a dimension scores 0 for that dimension (conservative penalty).",
+    "Ties broken by input order (stable sort).",
+  ];
+}
 
 const DISCLAIMER =
   "This is an automated comparison using public data. " +
@@ -175,7 +196,9 @@ export async function compareSites(
   params: z.infer<typeof compareSitesSchema>,
 ): Promise<CompareSitesResult> {
   const country = params.country.toUpperCase();
+  const technology = params.technology ?? "solar";
   const radiusKm = params.radius_km;
+  const weights = getWeights(technology);
 
   if (country !== "GB" && !EU_COUNTRY_CODES.has(country)) {
     throw new Error(
@@ -257,10 +280,10 @@ export async function compareSites(
     const slopeNorm = normaliseLowerBetter(slope, slopeMin, slopeMax);
 
     const score =
-      WEIGHT_VERDICT * verdictNorm +
-      WEIGHT_SOLAR * solarNorm +
-      WEIGHT_GRID * gridNorm +
-      WEIGHT_TERRAIN * slopeNorm;
+      weights.verdict * verdictNorm +
+      weights.solar * solarNorm +
+      weights.grid * gridNorm +
+      weights.terrain * slopeNorm;
 
     return {
       index: s.index,
@@ -301,9 +324,10 @@ export async function compareSites(
 
   return {
     site_count: params.sites.length,
+    technology,
     rankings,
     failed_sites: failedSites,
-    heuristics_used: HEURISTICS_USED,
+    heuristics_used: buildHeuristicsUsed(weights),
     disclaimer: DISCLAIMER,
   };
 }

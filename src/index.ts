@@ -702,7 +702,7 @@ if (shouldRegister("get_distribution_headroom")) {
   registeredToolNames.push("get_distribution_headroom");
   server.tool(
     "get_distribution_headroom",
-    "Public DNO headroom lookup for SSEN, Northern Powergrid, UKPN (key required), and SP Energy Networks (key required). Finds nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing where the operator publishes that data. Not a connection offer or firm capacity right.",
+    "Public DNO headroom lookup for SSEN, Northern Powergrid, UKPN (key), SP Energy Networks (key), and ENWL (key). All 5 GB DNOs with public data. Finds nearby published GSP/BSP/primary sites, estimated generation and demand headroom, constraints, and reinforcement timing. Not a connection offer or firm capacity right.",
     distributionHeadroomSchema.shape,
     auditedToolHandler("get_distribution_headroom", distributionHeadroomSchema, getDistributionHeadroom),
   );

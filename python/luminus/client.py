@@ -24,17 +24,25 @@ from .exceptions import (
     LuminusUpstreamError,
 )
 from .models import (
+    BessSiteShortlistSnapshot,
+    ConstraintBreachesSnapshot,
     DistributionHeadroomSnapshot,
+    EcrSnapshot,
+    FlexMarketSnapshot,
     GridConnectionIntelligenceSnapshot,
     GridConnectionQueueSnapshot,
     GridProximitySnapshot,
+    NgedConnectionSignalSnapshot,
     SiteRevenueEstimate,
+    SpenGridSnapshot,
+    TerrainSnapshot,
+    UkpnGridSnapshot,
 )
 from .result import LuminusResult
 
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
 DEFAULT_CLIENT_NAME = "luminus-py"
-DEFAULT_CLIENT_VERSION = "0.3.1"
+DEFAULT_CLIENT_VERSION = "0.4.0"
 
 _ACTIVE_CLIENTS: "weakref.WeakSet[Luminus]" = weakref.WeakSet()
 
@@ -268,6 +276,152 @@ class Luminus:
 
     def estimate_site_revenue_estimate(self, **arguments: Any) -> SiteRevenueEstimate:
         return self.call_tool("estimate_site_revenue", arguments).to_model(SiteRevenueEstimate)
+
+    # ------------------------------------------------------------------
+    # ECR (Embedded Capacity Register)
+    # ------------------------------------------------------------------
+
+    def get_ecr_entries(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_embedded_capacity_register", arguments, data_key="entries")
+
+    def get_ecr_snapshot(self, **arguments: Any) -> EcrSnapshot:
+        return self.call_tool("get_embedded_capacity_register", arguments).to_model(EcrSnapshot)
+
+    # ------------------------------------------------------------------
+    # Flexibility Market
+    # ------------------------------------------------------------------
+
+    def get_flex_dispatches(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_flexibility_market", arguments, data_key="dispatches")
+
+    def get_flex_market_snapshot(self, **arguments: Any) -> FlexMarketSnapshot:
+        return self.call_tool("get_flexibility_market", arguments).to_model(FlexMarketSnapshot)
+
+    # ------------------------------------------------------------------
+    # Constraint Breaches
+    # ------------------------------------------------------------------
+
+    def get_constraint_breaches_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_constraint_breaches", arguments, data_key="breaches")
+
+    def get_constraint_breaches_snapshot(self, **arguments: Any) -> ConstraintBreachesSnapshot:
+        return self.call_tool("get_constraint_breaches", arguments).to_model(ConstraintBreachesSnapshot)
+
+    # ------------------------------------------------------------------
+    # SPEN Grid Intelligence
+    # ------------------------------------------------------------------
+
+    def get_spen_grid_snapshot(self, **arguments: Any) -> SpenGridSnapshot:
+        return self.call_tool("get_spen_grid_intelligence", arguments).to_model(SpenGridSnapshot)
+
+    def get_spen_queue_frame(self, **arguments: Any):
+        result = self.call_tool("get_spen_grid_intelligence", arguments)
+        data = result.to_dict()
+        try:
+            import pandas as pd
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError(
+                "pandas is not installed. Install luminus-py[notebook] or add pandas manually."
+            ) from exc
+        return pd.DataFrame(data.get("queue", {}).get("projects", []))
+
+    def get_spen_dg_capacity_frame(self, **arguments: Any):
+        result = self.call_tool("get_spen_grid_intelligence", arguments)
+        data = result.to_dict()
+        try:
+            import pandas as pd
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError(
+                "pandas is not installed. Install luminus-py[notebook] or add pandas manually."
+            ) from exc
+        return pd.DataFrame(data.get("dg_capacity", {}).get("entries", []))
+
+    def get_spen_curtailment_frame(self, **arguments: Any):
+        result = self.call_tool("get_spen_grid_intelligence", arguments)
+        data = result.to_dict()
+        try:
+            import pandas as pd
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError(
+                "pandas is not installed. Install luminus-py[notebook] or add pandas manually."
+            ) from exc
+        return pd.DataFrame(data.get("curtailment", {}).get("events", []))
+
+    # ------------------------------------------------------------------
+    # UKPN Grid Overview
+    # ------------------------------------------------------------------
+
+    def get_ukpn_grid_snapshot(self, **arguments: Any) -> UkpnGridSnapshot:
+        return self.call_tool("get_ukpn_grid_overview", arguments).to_model(UkpnGridSnapshot)
+
+    def get_ukpn_gsps_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_ukpn_grid_overview", arguments, data_key="gsps")
+
+    def get_ukpn_flex_zones_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_ukpn_grid_overview", arguments, data_key="flex_zones")
+
+    def get_ukpn_faults_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_ukpn_grid_overview", arguments, data_key="live_faults")
+
+    # ------------------------------------------------------------------
+    # Core trading: balancing, intraday, imbalance, spread, ancillary
+    # ------------------------------------------------------------------
+
+    def get_balancing_prices_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_balancing_prices", arguments, data_key="prices")
+
+    def get_intraday_prices_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_intraday_prices", arguments, data_key="prices")
+
+    def get_imbalance_prices_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_imbalance_prices", arguments, data_key="prices")
+
+    def get_spread_analysis_frame(self, **arguments: Any):
+        return self.call_tool("get_price_spread_analysis", arguments).to_flat_pandas()
+
+    def get_ancillary_prices_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_ancillary_prices", arguments, data_key="prices")
+
+    # ------------------------------------------------------------------
+    # NGED Connection Signal
+    # ------------------------------------------------------------------
+
+    def get_nged_signal_snapshot(self, **arguments: Any) -> NgedConnectionSignalSnapshot:
+        return self.call_tool("get_nged_connection_signal", arguments).to_model(NgedConnectionSignalSnapshot)
+
+    def get_nged_queue_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_nged_connection_signal", arguments, data_key="queue")
+
+    # ------------------------------------------------------------------
+    # Terrain Analysis
+    # ------------------------------------------------------------------
+
+    def get_terrain_snapshot(self, **arguments: Any) -> TerrainSnapshot:
+        return self.call_tool("get_terrain_analysis", arguments).to_model(TerrainSnapshot)
+
+    # ------------------------------------------------------------------
+    # Land Constraints
+    # ------------------------------------------------------------------
+
+    def get_land_constraints_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("get_land_constraints", arguments, data_key="constraints")
+
+    # ------------------------------------------------------------------
+    # BESS Site Shortlist
+    # ------------------------------------------------------------------
+
+    def shortlist_bess_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("shortlist_bess_sites", arguments, data_key="shortlist")
+
+    def shortlist_bess_snapshot(self, **arguments: Any) -> BessSiteShortlistSnapshot:
+        return self.call_tool("shortlist_bess_sites", arguments).to_model(BessSiteShortlistSnapshot)
+
+    # ------------------------------------------------------------------
+    # GIS Source Verification
+    # ------------------------------------------------------------------
+
+    def verify_gis_sources_frame(self, **arguments: Any):
+        return self.call_tool_to_pandas("verify_gis_sources", arguments, data_key="sources")
 
     def call_tool_to_pandas(
         self,

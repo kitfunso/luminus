@@ -16,10 +16,13 @@ const SPEN_SPM_DATASET_URL =
   "https://spenergynetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/spm-nshr-data-workbook/records";
 const SPEN_SPD_DATASET_URL =
   "https://spenergynetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/spd-nshr-data-workbook/records";
+const ENWL_DATASET_URL =
+  "https://electricitynorthwest.opendatasoft.com/api/explore/v2.1/catalog/datasets/enwl-pry-heatmap/records";
 const SSEN_CACHE_KEY = "ssen-distribution-headroom:all";
 const NPG_CACHE_KEY = "npg-distribution-headroom:all";
 const UKPN_CACHE_KEY = "ukpn-distribution-headroom:all";
 const SPEN_CACHE_KEY = "spen-distribution-headroom:all";
+const ENWL_CACHE_KEY = "enwl-distribution-headroom:all";
 const DEFAULT_RADIUS_KM = 25;
 const DEFAULT_LIMIT = 5;
 const ODS_PAGE_LIMIT = 100;
@@ -60,13 +63,27 @@ const SPEN_SELECT_FIELDS = [
   "year",
   "headroom_mw",
 ].join(",");
+const ENWL_SELECT_FIELDS = [
+  "pry_number",
+  "bsp_number",
+  "gsp_number",
+  "class",
+  "voltage_mw",
+  "dem_hr_firm_mw",
+  "dem_hr_non_firm_mw",
+  "gen_hr_inverter_mw",
+  "gen_hr_lv_synchronous_mw",
+  "gen_hr_hv_synchronous_mw",
+  "batt_storage_hr_mw",
+  "geo_point_2d",
+].join(",");
 
 export const distributionHeadroomSchema = z.object({
   lat: z.number().describe("Latitude (-90 to 90). WGS84."),
   lon: z.number().describe("Longitude (-180 to 180). WGS84."),
   operator: z
     .string()
-    .describe('Distribution operator. Supported: "SSEN", "NPG", "UKPN", "SPEN".'),
+    .describe('Distribution operator. Supported: "SSEN", "NPG", "UKPN", "SPEN", "ENWL".'),
   radius_km: z
     .number()
     .optional()
@@ -152,6 +169,24 @@ interface SpenHeadroomRawRecord {
   scenario?: string | null;
   year?: string | null;
   headroom_mw?: number | null;
+}
+
+interface EnwlHeadroomRawRecord {
+  pry_number?: string | null;
+  bsp_number?: string | null;
+  gsp_number?: string | null;
+  class?: string | null;
+  voltage_mw?: string | null;
+  dem_hr_firm_mw?: number | null;
+  dem_hr_non_firm_mw?: number | null;
+  gen_hr_inverter_mw?: number | null;
+  gen_hr_lv_synchronous_mw?: number | null;
+  gen_hr_hv_synchronous_mw?: number | null;
+  batt_storage_hr_mw?: number | null;
+  geo_point_2d?: {
+    lat?: number | null;
+    lon?: number | null;
+  } | null;
 }
 
 interface DistributionHeadroomSite {
@@ -436,7 +471,7 @@ function toHeadroomSite(
   };
 }
 
-type SupportedOperator = "SSEN" | "NPG" | "UKPN" | "SPEN";
+type SupportedOperator = "SSEN" | "NPG" | "UKPN" | "SPEN" | "ENWL";
 
 function normalizeOperator(operator: string): SupportedOperator | null {
   const normalized = operator.trim().toUpperCase();
@@ -450,6 +485,9 @@ function normalizeOperator(operator: string): SupportedOperator | null {
   }
   if (normalized === "SPEN" || normalized === "SP ENERGY NETWORKS" || normalized === "SP_ENERGY_NETWORKS" || normalized === "SCOTTISH POWER") {
     return "SPEN";
+  }
+  if (normalized === "ENWL" || normalized === "ELECTRICITY NORTH WEST" || normalized === "ENW") {
+    return "ENWL";
   }
 
   return null;
@@ -841,6 +879,89 @@ async function fetchSpenHeadroomRecords(): Promise<DistributionHeadroomRecord[]>
   return records;
 }
 
+async function fetchEnwlHeadroomRecords(): Promise<DistributionHeadroomRecord[]> {
+  const cached = cache.get<DistributionHeadroomRecord[]>(ENWL_CACHE_KEY);
+  if (cached) return cached;
+
+  const apiKey = await resolveOdsApiKey("ENWL_ODS_API_KEY", "Electricity North West Open Data Portal");
+  const records: DistributionHeadroomRecord[] = [];
+
+  for (let offset = 0; ; offset += ODS_PAGE_LIMIT) {
+    const params = new URLSearchParams({
+      limit: String(ODS_PAGE_LIMIT),
+      offset: String(offset),
+      select: ENWL_SELECT_FIELDS,
+      apikey: apiKey,
+    });
+
+    const response = await fetch(`${ENWL_DATASET_URL}?${params.toString()}`);
+    if (!response.ok) {
+      throw new Error(`ENWL PRY Heatmap dataset fetch failed: HTTP ${response.status}`);
+    }
+
+    const json = (await response.json()) as { results?: EnwlHeadroomRawRecord[] };
+    const page = Array.isArray(json.results) ? json.results : [];
+    if (page.length === 0) break;
+
+    guardJsonFields(
+      page[0] as unknown as Record<string, unknown>,
+      ["pry_number", "dem_hr_firm_mw", "gen_hr_inverter_mw", "geo_point_2d"],
+      "ENWL PRY Heatmap",
+    );
+
+    for (const row of page) {
+      const pryNumber = parseText(row.pry_number ?? undefined);
+      const lat = row.geo_point_2d?.lat ?? null;
+      const lon = row.geo_point_2d?.lon ?? null;
+
+      if (!pryNumber || lat === null || lon === null) {
+        continue;
+      }
+
+      const genHeadroom = pickMinHeadroom(
+        parseNumericValue(row.gen_hr_inverter_mw),
+        pickMinHeadroom(
+          parseNumericValue(row.gen_hr_lv_synchronous_mw),
+          parseNumericValue(row.gen_hr_hv_synchronous_mw),
+        ),
+      );
+
+      records.push({
+        asset_id: `ENWL:${pryNumber}`,
+        licence_area: "Electricity North West",
+        substation: pryNumber,
+        upstream_gsp: parseText(row.gsp_number ?? undefined),
+        upstream_bsp: parseText(row.bsp_number ?? undefined),
+        substation_type: parseText(row.class ?? undefined),
+        voltage_kv: parseText(row.voltage_mw ?? undefined),
+        lat,
+        lon,
+        estimated_demand_headroom_mva: parseNumericValue(row.dem_hr_firm_mw),
+        demand_rag_status: null,
+        demand_constraint: null,
+        connected_generation_mw: null,
+        contracted_generation_mw: null,
+        estimated_generation_headroom_mw: genHeadroom,
+        generation_rag_status: null,
+        generation_constraint: null,
+        upstream_reinforcement_works: null,
+        upstream_reinforcement_completion_date: null,
+        substation_reinforcement_works: null,
+        substation_reinforcement_completion_date: null,
+      });
+    }
+
+    if (page.length < ODS_PAGE_LIMIT) break;
+  }
+
+  if (records.length === 0) {
+    throw new Error("ENWL PRY Heatmap dataset returned no valid records");
+  }
+
+  cache.set(ENWL_CACHE_KEY, records, TTL.STATIC_DATA);
+  return records;
+}
+
 function pickMinHeadroom(a: number | null, b: number | null): number | null {
   if (a === null) return b;
   if (b === null) return a;
@@ -875,6 +996,13 @@ function buildConfidenceNotes(
       "SPEN headroom is scenario-projected, not a live operational reading",
       "Demand headroom is reported in MW (not MVA) for this source",
     ],
+    ENWL: [
+      "Uses ENWL's public PRY Heatmap dataset (current snapshot, monthly refresh); other DNOs are not inferred",
+      "Headroom values are firm capacity signals at primary substations, not guaranteed connection availability",
+      "Demand headroom is reported in MW (not MVA) for this source",
+      "Battery storage headroom is published separately but not yet surfaced by this tool",
+      "Nearest-site matching is distance-based to the published ENWL primary substation coordinates",
+    ],
   };
 
   const notes = [...operatorNotes[operator]];
@@ -891,6 +1019,7 @@ const SOURCE_METADATA_MAP: Record<SupportedOperator, string> = {
   NPG: "npg-heatmap-substation-areas",
   UKPN: "ukpn-dfes-headroom",
   SPEN: "spen-nshr-headroom",
+  ENWL: "enwl-pry-heatmap",
 };
 
 function getSourceMetadata(operator: SupportedOperator): GisSourceMetadata {
@@ -912,6 +1041,9 @@ const DISCLAIMERS: Record<SupportedOperator, string> = {
     "This uses SP Energy Networks' public NDP Network Scenario Headroom Report (BV scenario) as a planning signal for SPEN licence areas (SPD, SPM) only. " +
     "Headroom values are scenario projections and substation coordinates are not published. " +
     "It is not a connection offer, a firm capacity reservation, or a substitute for a formal DNO application.",
+  ENWL:
+    "This uses ENWL's public PRY Heatmap dataset as a planning signal for ENWL licence areas (North West England) only. " +
+    "It is not a connection offer, a firm capacity reservation, or a substitute for a formal DNO application.",
 };
 
 function getDisclaimer(operator: SupportedOperator): string {
@@ -926,7 +1058,7 @@ export async function getDistributionHeadroom(
   const limit = params.limit ?? DEFAULT_LIMIT;
 
   if (!operator) {
-    throw new Error('Supported operators: "SSEN", "NPG", "UKPN", "SPEN".');
+    throw new Error('Supported operators: "SSEN", "NPG", "UKPN", "SPEN", "ENWL".');
   }
   if (params.lat < -90 || params.lat > 90) throw new Error("Latitude must be between -90 and 90.");
   if (params.lon < -180 || params.lon > 180) throw new Error("Longitude must be between -180 and 180.");
@@ -938,6 +1070,7 @@ export async function getDistributionHeadroom(
     NPG: fetchNpgHeadroomRecords,
     UKPN: fetchUkpnHeadroomRecords,
     SPEN: fetchSpenHeadroomRecords,
+    ENWL: fetchEnwlHeadroomRecords,
   };
 
   const records = await fetchMap[operator]();

@@ -8,25 +8,46 @@ from .exceptions import (
     LuminusTransportError,
     LuminusUpstreamError,
 )
-from .models import GridConnectionQueueSnapshot, GridProximitySnapshot, SiteRevenueEstimate
-from .models import DistributionHeadroomSnapshot, GridConnectionIntelligenceSnapshot
+from .models import (
+    BessSiteShortlistSnapshot,
+    ConstraintBreachesSnapshot,
+    DistributionHeadroomSnapshot,
+    EcrSnapshot,
+    FlexMarketSnapshot,
+    GridConnectionIntelligenceSnapshot,
+    GridConnectionQueueSnapshot,
+    GridProximitySnapshot,
+    NgedConnectionSignalSnapshot,
+    SiteRevenueEstimate,
+    SpenGridSnapshot,
+    TerrainSnapshot,
+    UkpnGridSnapshot,
+)
 from .result import LuminusResult
 
 __all__ = [
-    "Luminus",
+    "BessSiteShortlistSnapshot",
+    "ConstraintBreachesSnapshot",
     "DistributionHeadroomSnapshot",
-    "GridConnectionQueueSnapshot",
+    "EcrSnapshot",
+    "FlexMarketSnapshot",
     "GridConnectionIntelligenceSnapshot",
+    "GridConnectionQueueSnapshot",
     "GridProximitySnapshot",
-    "LuminusError",
+    "Luminus",
     "LuminusConfigurationError",
+    "LuminusError",
     "LuminusProtocolError",
+    "LuminusResult",
     "LuminusStartupError",
     "LuminusToolError",
     "LuminusTransportError",
     "LuminusUpstreamError",
-    "LuminusResult",
+    "NgedConnectionSignalSnapshot",
     "SiteRevenueEstimate",
+    "SpenGridSnapshot",
+    "TerrainSnapshot",
+    "UkpnGridSnapshot",
 ]
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"

@@ -3,15 +3,23 @@ from pathlib import Path
 import pytest
 
 from luminus import (
+    BessSiteShortlistSnapshot,
+    ConstraintBreachesSnapshot,
     DistributionHeadroomSnapshot,
-    GridConnectionQueueSnapshot,
+    EcrSnapshot,
+    FlexMarketSnapshot,
     GridConnectionIntelligenceSnapshot,
+    GridConnectionQueueSnapshot,
     GridProximitySnapshot,
     Luminus,
     LuminusConfigurationError,
     LuminusStartupError,
     LuminusUpstreamError,
+    NgedConnectionSignalSnapshot,
     SiteRevenueEstimate,
+    SpenGridSnapshot,
+    TerrainSnapshot,
+    UkpnGridSnapshot,
 )
 
 
@@ -214,6 +222,203 @@ def test_python_side_error_translation():
 
         with pytest.raises(LuminusUpstreamError):
             client.get_outages(zone="UPSTREAM_FAIL", type="generation")
+    finally:
+        client.close()
+
+
+def test_ecr_helpers():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        entries = client.get_ecr_entries(operator="UKPN")
+        assert len(entries) == 3
+        assert entries["site_name"].tolist() == ["Solar Farm Alpha", "Battery Beta", "Solar Gamma"]
+        assert entries["export_mw"].sum() == 45.5
+
+        snapshot = client.get_ecr_snapshot(operator="UKPN")
+        assert isinstance(snapshot, EcrSnapshot)
+        assert snapshot.total_matched == 3
+        assert snapshot.total_export_mw == 45.5
+        assert snapshot.total_import_mw == 12.0
+        assert snapshot.total_storage_mwh == 80.0
+        assert snapshot.energy_source_breakdown == {"Solar": 2, "Battery": 1}
+        assert snapshot.status_breakdown == {"Accepted": 2, "Connected": 1}
+        assert len(snapshot.entries) == 3
+    finally:
+        client.close()
+
+
+def test_flex_market_helpers():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        dispatches = client.get_flex_dispatches(operator="UKPN", days=30)
+        assert len(dispatches) == 2
+        assert dispatches["mwh"].sum() == 18.5
+
+        snapshot = client.get_flex_market_snapshot(operator="UKPN")
+        assert isinstance(snapshot, FlexMarketSnapshot)
+        assert snapshot.total_dispatches == 2
+        assert snapshot.total_mwh == 18.5
+        assert snapshot.avg_utilisation_price == 125.0
+        assert snapshot.zone_breakdown == {"East": 1, "South": 1}
+    finally:
+        client.close()
+
+
+def test_constraint_breaches_helpers():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        breaches = client.get_constraint_breaches_frame(days=90)
+        assert len(breaches) == 2
+        assert breaches["curtailment_kwh"].sum() == 5500.0
+
+        snapshot = client.get_constraint_breaches_snapshot(days=90)
+        assert isinstance(snapshot, ConstraintBreachesSnapshot)
+        assert snapshot.total_breaches == 2
+        assert snapshot.total_curtailment_kwh == 5500.0
+        assert snapshot.total_curtailment_hours == 14.0
+        assert snapshot.scheme_breakdown == {"ANM": 1, "Intertrip": 1}
+    finally:
+        client.close()
+
+
+def test_spen_grid_helpers():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        snapshot = client.get_spen_grid_snapshot()
+        assert isinstance(snapshot, SpenGridSnapshot)
+        assert snapshot.queue.total_projects == 2
+        assert snapshot.queue.total_mw == 85.0
+        assert snapshot.dg_capacity.total_substations == 2
+        assert snapshot.curtailment.total_events == 2
+        assert snapshot.curtailment.total_curtailed_mwh == 320.0
+
+        queue_df = client.get_spen_queue_frame()
+        assert len(queue_df) == 2
+        assert queue_df["name"].tolist() == ["Wind North", "Solar South"]
+
+        dg_df = client.get_spen_dg_capacity_frame()
+        assert len(dg_df) == 2
+        assert dg_df["headroom_mw"].sum() == 20.5
+
+        curtail_df = client.get_spen_curtailment_frame()
+        assert len(curtail_df) == 2
+        assert curtail_df["curtailed_mwh"].sum() == 320.0
+    finally:
+        client.close()
+
+
+def test_ukpn_grid_helpers():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        snapshot = client.get_ukpn_grid_snapshot()
+        assert isinstance(snapshot, UkpnGridSnapshot)
+        assert len(snapshot.gsps) == 2
+        assert len(snapshot.flex_zones) == 1
+        assert len(snapshot.live_faults) == 1
+
+        gsps = client.get_ukpn_gsps_frame()
+        assert gsps["gsp_name"].tolist() == ["Sellindge", "Bolney"]
+
+        flex = client.get_ukpn_flex_zones_frame()
+        assert flex.iloc[0]["zone_name"] == "Kent Flex"
+
+        faults = client.get_ukpn_faults_frame()
+        assert faults.iloc[0]["fault_id"] == "F001"
+    finally:
+        client.close()
+
+
+def test_trading_price_helpers():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        balancing = client.get_balancing_prices_frame(zone="GB")
+        assert len(balancing) == 2
+        assert balancing["price_gbp_mwh"].tolist() == [55.0, 62.0]
+
+        intraday = client.get_intraday_prices_frame(zone="GB")
+        assert len(intraday) == 2
+        assert intraday["price_eur_mwh"].tolist() == [48.0, 51.0]
+
+        imbalance = client.get_imbalance_prices_frame(zone="GB")
+        assert len(imbalance) == 2
+        assert imbalance["buy_price"].tolist() == [70.0, 75.0]
+
+        spread = client.get_spread_analysis_frame(zone="GB")
+        assert spread.iloc[0]["spread"] == 78.0
+        assert spread.iloc[0]["periods_analysed"] == 48
+
+        ancillary = client.get_ancillary_prices_frame(zone="GB")
+        assert len(ancillary) == 2
+        assert ancillary["service"].tolist() == ["DCL", "DCH"]
+    finally:
+        client.close()
+
+
+def test_nged_connection_signal_helpers():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        snapshot = client.get_nged_signal_snapshot()
+        assert isinstance(snapshot, NgedConnectionSignalSnapshot)
+        assert snapshot.resource_name == "Test GSP"
+        assert snapshot.summary["matched_projects"] == 2
+        assert len(snapshot.queue) == 2
+
+        queue_df = client.get_nged_queue_frame()
+        assert len(queue_df) == 2
+        assert queue_df["project_name"].tolist() == ["NGED Proj A", "NGED Proj B"]
+    finally:
+        client.close()
+
+
+def test_terrain_analysis_helper():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        terrain = client.get_terrain_snapshot(lat=51.5, lon=-0.1)
+        assert isinstance(terrain, TerrainSnapshot)
+        assert terrain.elevation_m == 85.0
+        assert terrain.slope_deg == 3.2
+        assert terrain.aspect_cardinal == "SW"
+        assert terrain.land_cover == "Grassland"
+        assert terrain.flood_risk == "Low"
+    finally:
+        client.close()
+
+
+def test_land_constraints_helper():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        constraints = client.get_land_constraints_frame(lat=51.5, lon=-0.1)
+        assert len(constraints) == 2
+        assert constraints["type"].tolist() == ["SSSI", "Flood Zone 3"]
+        assert constraints["severity"].tolist() == ["High", "Medium"]
+    finally:
+        client.close()
+
+
+def test_bess_shortlist_helpers():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        shortlist = client.shortlist_bess_frame()
+        assert len(shortlist) == 2
+        assert shortlist["site_name"].tolist() == ["Grid Park Alpha", "Industrial Zone B"]
+        assert shortlist["score"].tolist() == [0.92, 0.85]
+
+        snapshot = client.shortlist_bess_snapshot()
+        assert isinstance(snapshot, BessSiteShortlistSnapshot)
+        assert snapshot.total_candidates == 10
+        assert snapshot.total_shortlisted == 2
+        assert len(snapshot.shortlist) == 2
+    finally:
+        client.close()
+
+
+def test_verify_gis_sources_helper():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        sources = client.verify_gis_sources_frame()
+        assert len(sources) == 3
+        assert sources["source_name"].tolist() == ["OS Open Data", "LIDAR DTM", "EA Flood Map"]
+        assert sources["status"].tolist() == ["OK", "OK", "Degraded"]
     finally:
         client.close()
 
