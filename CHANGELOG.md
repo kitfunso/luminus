@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1 - 2026-04-06
+
+Version alignment patch. Aligns Python SDK version with published npm package.
+
+### Changed
+- bumped `luminus-py` to `0.4.1` to match `luminus-mcp@0.4.1`
+- aligned all version references across README, pyproject.toml, and Python client
+
 ## 0.4.0 - 2026-04-05
 
 Full GB DNO coverage, BESS-specific scoring, and major Python SDK expansion.

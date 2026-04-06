@@ -28,7 +28,7 @@ You also need `luminus-mcp` itself available on your machine, because the Python
 npm install -g luminus-mcp
 ```
 
-Current published versions: `luminus-mcp@0.4.0` and `luminus-py==0.4.0`.
+Current published versions: `luminus-mcp@0.4.1` and `luminus-py==0.4.1`.
 
 ## API keys
 
