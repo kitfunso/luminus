@@ -3,9 +3,9 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/luminus-mcp)](https://www.npmjs.com/package/luminus-mcp)
 
-Latest release: [v0.4.1 release notes](docs/releases/0.4.1.md) | [Changelog](CHANGELOG.md)
+Latest release: [v0.4.2 release notes](docs/releases/0.4.2.md) | [Changelog](CHANGELOG.md)
 
-Current published versions: `luminus-mcp@0.4.1` and `luminus-py==0.4.1`.
+Current published versions: `luminus-mcp@0.4.2` and `luminus-py==0.4.1`.
 
 Real-time European & GB electricity grid data via MCP. 67 tools, most free.
 
@@ -263,7 +263,7 @@ Ask your AI agent:
 - "Compare day-ahead prices across France, Spain, and Italy"
 - "How full are Europe's gas storage facilities?"
 - "Show me wind generation forecast for tomorrow in Denmark"
-- "What's the carbon intensity in the UK right now?"
+- "What's the carbon intensity in GB right now?"
 - "Are there any nuclear outages in France?"
 - "What's the net transfer capacity between Norway and Germany?"
 - "Show me gas pipeline flows through the Netherlands"
@@ -283,7 +283,7 @@ Ask your AI agent:
 |--------|------|----------|
 | ENTSO-E Transparency Platform | [transparency.entsoe.eu](https://transparency.entsoe.eu/) | 30+ European countries |
 | ENTSOG Transparency Platform | [transparency.entsog.eu](https://transparency.entsog.eu/) | European gas pipelines |
-| National Grid ESO | [carbonintensity.org.uk](https://carbonintensity.org.uk/) | UK |
+| National Grid ESO | [carbonintensity.org.uk](https://carbonintensity.org.uk/) | GB |
 | NESO Data Portal | [api.neso.energy](https://api.neso.energy/) | GB transmission connection registers and GIS boundary datasets |
 | NGED Connected Data Portal | [connecteddata.nationalgrid.co.uk](https://connecteddata.nationalgrid.co.uk/) | NGED public GSP queue and transmission-distribution limit datasets |
 | SSEN Open Data Portal | [data-api.ssen.co.uk](https://data-api.ssen.co.uk/) | SSEN distribution headroom, network capacity, and generation availability datasets |

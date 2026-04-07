@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.2 - 2026-04-07
+
+Corrected UK/GB naming. Northern Ireland is part of the UK but not the GB electricity network.
+
+### Changed
+- Renamed `get_uk_carbon_intensity` to `get_gb_carbon_intensity`
+- Renamed `get_uk_grid_demand` to `get_gb_grid_demand`
+- Renamed `--profile uk` to `--profile gb`
+- Updated display labels from "United Kingdom" to "Great Britain" for electricity data
+- Renamed source files `uk-carbon.ts` / `uk-grid.ts` to `gb-carbon.ts` / `gb-grid.ts`
+
+### Breaking
+- Tool names `get_uk_carbon_intensity` and `get_uk_grid_demand` no longer exist
+- Profile `uk` renamed to `gb`
+
 ## 0.4.1 - 2026-04-06
 
 Version alignment patch. Aligns Python SDK version with published npm package.
