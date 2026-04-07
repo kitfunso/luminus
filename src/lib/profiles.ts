@@ -59,9 +59,9 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_era5_weather',
     'get_hydro_inflows',
   ],
-  uk: [
-    'get_uk_carbon_intensity',
-    'get_uk_grid_demand',
+  gb: [
+    'get_gb_carbon_intensity',
+    'get_gb_grid_demand',
     'get_elexon_bmrs',
   ],
   bess: [
@@ -127,7 +127,7 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   generation: 'Generation mix, real-time output, carbon intensity, and demand forecasts',
   gas: 'Gas storage, LNG terminals, US gas data, EU gas prices, and ENTSOG pipelines',
   renewables: 'Wind/solar forecasts, irradiance, ERA5 reanalysis, and hydro inflows',
-  uk: 'UK-specific carbon intensity, grid demand, and Elexon BMRS data',
+  gb: 'GB-specific carbon intensity, grid demand, and Elexon BMRS data',
   bess: 'Battery storage arbitrage: spreads, ancillary prices, site revenue, DNO headroom, flex market, constraint breaches, embedded capacity, and shortlist generation',
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',

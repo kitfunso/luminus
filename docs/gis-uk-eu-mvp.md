@@ -106,7 +106,7 @@ npx luminus-mcp --profile gis
 Registers the GIS screening tools only. Keeps context window cost low. Could be combined with existing profiles:
 
 ```bash
-npx luminus-mcp --profile gis,uk
+npx luminus-mcp --profile gis,gb
 ```
 
 ---

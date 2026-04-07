@@ -7,7 +7,7 @@ Latest release: [v0.4.1 release notes](docs/releases/0.4.1.md) | [Changelog](CHA
 
 Current published versions: `luminus-mcp@0.4.1` and `luminus-py==0.4.1`.
 
-Real-time European & UK electricity grid data via MCP. 67 tools, most free.
+Real-time European & GB electricity grid data via MCP. 67 tools, most free.
 
 ## Tools
 
@@ -73,12 +73,12 @@ Real-time European & UK electricity grid data via MCP. 67 tools, most free.
 | `get_nged_connection_signal` | NGED Connected Data Portal | NGED-only public GSP signal: connection-queue rows plus seasonal TD-limit records where the matched GSP is publicly covered |
 | `get_eu_frequency` | mainsfrequency.com | Real-time grid frequency (Hz) and deviation |
 
-### UK Specific
+### GB Specific
 
 | Tool | Source | Description |
 |------|--------|-------------|
-| `get_uk_carbon_intensity` | National Grid ESO | UK carbon intensity, index, and fuel mix |
-| `get_uk_grid_demand` | National Grid ESO | UK demand (MW) and grid frequency (Hz) |
+| `get_gb_carbon_intensity` | National Grid ESO | GB carbon intensity, index, and fuel mix |
+| `get_gb_grid_demand` | National Grid ESO | GB demand (MW) and grid frequency (Hz) |
 | `get_elexon_bmrs` | Elexon BMRS | GB imbalance prices, generation by fuel, balancing bids, system warnings |
 
 ### Commodities
@@ -217,7 +217,7 @@ npx luminus-mcp --profile grid       # 17 tools: flows, outages, infrastructure,
 npx luminus-mcp --profile generation # 6 tools: gen mix, forecasts, carbon
 npx luminus-mcp --profile gas        # 5 tools: storage, LNG, pipeline flows
 npx luminus-mcp --profile renewables # 5 tools: wind/solar forecasts, hydro
-npx luminus-mcp --profile uk         # 3 tools: UK carbon, demand, Elexon
+npx luminus-mcp --profile gb         # 3 tools: GB carbon, demand, Elexon
 npx luminus-mcp --profile bess       # 11 tools: arbitrage, ancillary, revenue, shortlist, flex, constraints
 npx luminus-mcp --profile regional   # 8 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine

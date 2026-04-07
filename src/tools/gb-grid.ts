@@ -4,7 +4,7 @@ import { TtlCache, TTL } from "../lib/cache.js";
 const ELEXON_API = "https://data.elexon.co.uk/bmrs/api/v1";
 const cache = new TtlCache();
 
-export const ukGridSchema = z.object({
+export const gbGridSchema = z.object({
   action: z
     .enum(["demand", "frequency"])
     .describe(
@@ -34,7 +34,7 @@ interface FrequencyResult {
   deviation_hz: number;
 }
 
-type UkGridResult = DemandResult | FrequencyResult;
+type GbGridResult = DemandResult | FrequencyResult;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchElexon(path: string): Promise<any> {
@@ -107,9 +107,9 @@ async function getFrequency(): Promise<FrequencyResult> {
   };
 }
 
-export async function getUkGridDemand(
-  params: z.infer<typeof ukGridSchema>
-): Promise<UkGridResult> {
+export async function getGbGridDemand(
+  params: z.infer<typeof gbGridSchema>
+): Promise<GbGridResult> {
   switch (params.action) {
     case "demand":
       return getDemand();

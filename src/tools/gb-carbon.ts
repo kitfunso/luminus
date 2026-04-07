@@ -4,7 +4,7 @@ import { TtlCache, TTL } from "../lib/cache.js";
 const CARBON_API = "https://api.carbonintensity.org.uk";
 const cache = new TtlCache();
 
-export const ukCarbonSchema = z.object({
+export const gbCarbonSchema = z.object({
   action: z
     .enum(["current", "regional", "date"])
     .describe(
@@ -63,7 +63,7 @@ interface CarbonDate {
   };
 }
 
-type UkCarbonResult = CarbonCurrent | CarbonRegional | CarbonDate;
+type GbCarbonResult = CarbonCurrent | CarbonRegional | CarbonDate;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function fetchCarbon(path: string): Promise<any> {
@@ -162,9 +162,9 @@ async function getByDate(date: string): Promise<CarbonDate> {
   };
 }
 
-export async function getUkCarbonIntensity(
-  params: z.infer<typeof ukCarbonSchema>
-): Promise<UkCarbonResult> {
+export async function getGbCarbonIntensity(
+  params: z.infer<typeof gbCarbonSchema>
+): Promise<GbCarbonResult> {
   switch (params.action) {
     case "current":
       return getCurrent();

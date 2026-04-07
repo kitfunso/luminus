@@ -23,8 +23,8 @@ import { carbonSchema, getCarbonIntensity } from "./tools/carbon.js";
 import { gasStorageSchema, getGasStorage } from "./tools/gas-storage.js";
 import { weatherSchema, getWeatherForecast } from "./tools/weather.js";
 import { usGasSchema, getUsGasData } from "./tools/us-gas.js";
-import { ukCarbonSchema, getUkCarbonIntensity } from "./tools/uk-carbon.js";
-import { ukGridSchema, getUkGridDemand } from "./tools/uk-grid.js";
+import { gbCarbonSchema, getGbCarbonIntensity } from "./tools/gb-carbon.js";
+import { gbGridSchema, getGbGridDemand } from "./tools/gb-grid.js";
 import { balancingSchema, getBalancingPrices } from "./tools/balancing.js";
 import { renewableForecastSchema, getRenewableForecast } from "./tools/renewable-forecast.js";
 import { demandForecastSchema, getDemandForecast } from "./tools/demand-forecast.js";
@@ -238,25 +238,25 @@ if (shouldRegister("get_us_gas_data")) {
   );
 }
 
-// --- UK Specific ---
+// --- GB Specific ---
 
-if (shouldRegister("get_uk_carbon_intensity")) {
-  registeredToolNames.push("get_uk_carbon_intensity");
+if (shouldRegister("get_gb_carbon_intensity")) {
+  registeredToolNames.push("get_gb_carbon_intensity");
   server.tool(
-    "get_uk_carbon_intensity",
-    "UK carbon intensity (gCO2/kWh) and generation mix from National Grid ESO. National, regional, or historical.",
-    ukCarbonSchema.shape,
-    auditedToolHandler("get_uk_carbon_intensity", ukCarbonSchema, getUkCarbonIntensity),
+    "get_gb_carbon_intensity",
+    "GB carbon intensity (gCO2/kWh) and generation mix from National Grid ESO. National, regional, or historical.",
+    gbCarbonSchema.shape,
+    auditedToolHandler("get_gb_carbon_intensity", gbCarbonSchema, getGbCarbonIntensity),
   );
 }
 
-if (shouldRegister("get_uk_grid_demand")) {
-  registeredToolNames.push("get_uk_grid_demand");
+if (shouldRegister("get_gb_grid_demand")) {
+  registeredToolNames.push("get_gb_grid_demand");
   server.tool(
-    "get_uk_grid_demand",
-    "UK demand (MW actual + forecast) and grid frequency (Hz) from National Grid ESO.",
-    ukGridSchema.shape,
-    auditedToolHandler("get_uk_grid_demand", ukGridSchema, getUkGridDemand),
+    "get_gb_grid_demand",
+    "GB demand (MW actual + forecast) and grid frequency (Hz) from National Grid ESO.",
+    gbGridSchema.shape,
+    auditedToolHandler("get_gb_grid_demand", gbGridSchema, getGbGridDemand),
   );
 }
 

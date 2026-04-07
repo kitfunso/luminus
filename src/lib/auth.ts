@@ -152,8 +152,8 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
 
   // Public APIs — no key required
   get_weather_forecast: [],
-  get_uk_carbon_intensity: [],
-  get_uk_grid_demand: [],
+  get_gb_carbon_intensity: [],
+  get_gb_grid_demand: [],
   get_power_plants: [],
   get_auction_results: [],
   get_solar_irradiance: [],
