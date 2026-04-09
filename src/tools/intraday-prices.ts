@@ -36,8 +36,8 @@ export async function getIntradayPrices(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = await queryEntsoe(
     {
-      documentType: "A67",
-      processType: "A01",
+      documentType: "A44",
+      processType: "A18",
       in_Domain: eic,
       out_Domain: eic,
       periodStart,
