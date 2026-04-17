@@ -131,7 +131,7 @@ const registeredToolNames: string[] = [];
 
 const server = new McpServer({
   name: "luminus",
-  version: "0.4.2",
+  version: "0.4.3",
 });
 
 // ---------------------------------------------------------------------------
@@ -856,6 +856,38 @@ if (shouldRegister("get_ukpn_grid_overview")) {
     ukpnGridOverviewSchema.shape,
     auditedToolHandler("get_ukpn_grid_overview", ukpnGridOverviewSchema, getUkpnGridOverview),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Prosumer plugin: dynamically load private tools if luminus-prosumer installed
+// ---------------------------------------------------------------------------
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+  const prosumer = require("luminus-prosumer");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tools: Record<string, any> | undefined = prosumer?.PROSUMER_TOOLS;
+
+  if (tools) {
+    let pluginCount = 0;
+    for (const [toolName, toolDef] of Object.entries(tools)) {
+      if (!shouldRegister(toolName)) continue;
+
+      registeredToolNames.push(toolName);
+      server.tool(
+        toolName,
+        String(toolDef.description ?? ""),
+        toolDef.schema.shape,
+        auditedToolHandler(toolName, toolDef.schema, toolDef.handler),
+      );
+      pluginCount++;
+    }
+    process.stderr.write(
+      `[luminus] Prosumer plugin loaded: ${pluginCount} tools registered\n`
+    );
+  }
+} catch {
+  // luminus-prosumer not installed — skip silently
 }
 
 } // end registerDataTools

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.3 - 2026-04-16
+
+### Fixed
+- Intraday prices: corrected ENTSO-E query parameters from `A67/A01` to `A44/A18` (contributed by @antondelorme in #14)
+
 ## 0.4.2 - 2026-04-07
 
 Corrected UK/GB naming. Northern Ireland is part of the UK but not the GB electricity network.
