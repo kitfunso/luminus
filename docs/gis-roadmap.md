@@ -17,6 +17,7 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 - [x] **Sprint 11**: EU `screen_site` mode, Overpass hardening, schema-drift guards, NESO GSP spatial bridge
 - [x] **Sprint 12**: `shortlist_bess_sites` for ranked GB BESS shortlist generation
 - [x] **Sprint 13**: GB connection-intelligence layer — canonical connections schema (`CanonicalConnectionEntry`) + normalisers for TEC / NGED / DNO headroom rows, new `get_site_connection_report` composite tool, and rules-based `get_gate2_readiness_check` with public reference URLs per rule
+- [x] **Sprint 14**: Scotland coverage for screening tools — NatureScot protected areas (SSSI / SAC / SPA / Ramsar / NNR / MPA) in `get_land_constraints`; SEPA Flood Risk Management Maps (river / coastal / surface-water at high / medium / low likelihoods) in `get_flood_risk` with runtime layer-ID discovery; James Hutton Institute Land Capability for Agriculture (1:50k detailed + 1:250k broad with fallback) in `get_agricultural_land`. New `ClassificationBasis` values `lca_detailed` and `lca_broad`. Scottish and English upstreams run in parallel for border-region coordinates, results union'd.
 
 ## Deliberate non-goals
 
@@ -72,6 +73,7 @@ The rationale is honest evidence: we do not have the training data to justify a 
 - `get_nged_connection_signal` is **NGED-only** today. It returns public per-GSP queue and TD-limit signals, not DNO headroom or a connection offer.
 - `get_site_connection_report` is **GB-only** because every upstream (NESO GSP polygons, TEC register, DNO headroom, NGED queue, Natural England constraints, Environment Agency flood map) is GB-only. Coordinates outside the GB bounding box are rejected with a pointer to `screen_site` for EU sites. An EU equivalent would need TYNDP project data and equivalent constraint layers integrated first.
 - `compare_sites` scoring weights are judgment-based heuristics and are **not calibrated against realised project outcomes**. Treat rankings as a first-pass sort, not an investment signal.
+- `get_land_constraints`, `get_flood_risk`, and `get_agricultural_land` now cover **England + Scotland** (since v0.6.0). Scotland upstreams: NatureScot (protected areas), SEPA (flood extents), James Hutton Institute (LCA). Wales (NRW) and Northern Ireland are not yet integrated. James Hutton 1:50k LCA only covers improved agricultural land patches; 1:250k has its own gaps (for example Shetland), so basis `none` is a legitimate outcome rather than a bug for some rural Scottish coordinates.
 - `get_embedded_capacity_register`, `get_flexibility_market`, `get_constraint_breaches`, `get_spen_grid_intelligence`, and `get_ukpn_grid_overview` all require **free API keys** from their respective OpenDataSoft portals.
 - Public GIS services can change field names, service structure, or uptime without warning.
 - Queue or contracted-capacity signals are **not** the same as a guaranteed connection offer.
