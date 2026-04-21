@@ -222,4 +222,42 @@ describe("getFloodRisk", () => {
 
     expect(result.country).toBe("GB");
   });
+
+  it("returns flood_zone '1' for a Scottish coord when SEPA is clear, even if EA services error", async () => {
+    // Regression for 0.6.0 bug: Scottish coords returned 'unknown' because EA
+    // geometries outside England coverage threw errors and no SEPA match was
+    // found. Expected: SEPA's confident empty response clears the coord to '1'.
+    fetchMock.mockImplementation(async (input: unknown) => {
+      const url = String(input);
+      if (url.includes("environment.data.gov.uk")) {
+        return { ok: false, status: 400, text: async () => "out of coverage" };
+      }
+      if (url.includes("map.sepa.org.uk") && url.includes("layers")) {
+        return {
+          ok: true,
+          json: async () => ({
+            layers: [
+              {
+                id: 1,
+                name: "River Flooding Medium Likelihood Extent",
+                geometryType: "esriGeometryPolygon",
+              },
+            ],
+          }),
+        };
+      }
+      if (url.includes("map.sepa.org.uk")) {
+        return { ok: true, json: async () => ({ count: 0 }) };
+      }
+      return { ok: true, json: async () => ({ features: [] }) };
+    });
+
+    // Edinburgh coord — inside the Scottish bbox.
+    const result = await getFloodRisk({ lat: 55.9533, lon: -3.1883, country: "GB" });
+
+    expect(result.flood_zone).toBe("1");
+    expect(result.planning_risk).toBe("low");
+    expect(result.additional_sources?.some((s) => s.id === "sepa-flood-map")).toBe(true);
+    expect(result.sepa_matches).toEqual([]);
+  });
 });

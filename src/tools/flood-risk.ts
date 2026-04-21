@@ -229,8 +229,11 @@ export async function getFloodRisk(
   const eaAllFailed = results.every((result) => result.status === "rejected");
   const eaHasAnyFailure = results.some((result) => result.status === "rejected");
   const sepaAttempted = queryScotland;
+  // A fully-successful SEPA query (zero errors) is a confident result even when
+  // SEPA reports zero matches. Only throw when both EA and SEPA have failed.
+  const sepaSuccessful = sepaAttempted && sepaResult.errors.length === 0;
 
-  if (eaAllFailed && (!sepaAttempted || sepaResult.matches.length === 0)) {
+  if (eaAllFailed && !sepaSuccessful) {
     throw new Error(
       `All flood queries failed (Environment Agency${sepaAttempted ? " and SEPA" : ""}): ${warnings.join("; ")}`,
     );
@@ -251,6 +254,13 @@ export async function getFloodRisk(
   );
   const sepaLow = sepaMatches.some((m) => m.likelihood === "low");
 
+  // A fully-successful SEPA query with no matches is a confident "clear" signal
+  // for a Scottish coordinate, even when the EA service errored (expected, EA
+  // is England-only). This prevents 0.6.0's false "unknown" for Scottish sites.
+  const sepaConfidentlyClear =
+    sepaAttempted && sepaResult.errors.length === 0 && sepaMatches.length === 0;
+  const eaConfidentlyClear = !eaHasAnyFailure;
+
   let floodZone: FloodZone = "1";
   let planningRisk: PlanningRisk = "low";
 
@@ -260,6 +270,9 @@ export async function getFloodRisk(
   } else if (hasZone2 || sepaLow) {
     floodZone = "2";
     planningRisk = "medium";
+  } else if (sepaConfidentlyClear || eaConfidentlyClear) {
+    floodZone = "1";
+    planningRisk = "low";
   } else if (hasWarnings && eaHasAnyFailure) {
     floodZone = "unknown";
     planningRisk = "unknown";

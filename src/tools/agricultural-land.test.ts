@@ -165,7 +165,53 @@ describe("getAgriculturalLand", () => {
     expect(result.classification_basis).toBe("none");
     expect(result.effective_grade).toBeNull();
     expect(result.bmv_status).toBe("unknown");
-    expect(result.explanation).toContain("England-only");
+    expect(result.explanation).toContain("England only");
+    expect(result.explanation).toContain("Scotland");
+  });
+
+  it("uses 'lca_detailed' basis when Scotland LCA returns data and English ALC has no match", async () => {
+    // Regression for 0.6.0: Scottish LCA results were labelled 'post_1988',
+    // which misleadingly implied an English survey. Expected: 'lca_detailed'.
+    fetchMock.mockImplementation(async (input: unknown) => {
+      const url = String(input);
+      // English ALC (both services) return empty
+      if (url.includes("Agricultural_Land_Classification_Post_1988") || url.includes("Provisional")) {
+        return { ok: true, json: async () => ({ features: [] }) };
+      }
+      // LCA 50k returns a Grade 3.1 feature
+      if (url.includes("Hutton_LCA_50K_OSGB")) {
+        return {
+          ok: true,
+          json: async () => ({
+            features: [
+              {
+                attributes: {
+                  LCCODE: "31",
+                  AreaM2: 50000,
+                  Scale: "50K",
+                  Water: "No",
+                },
+              },
+            ],
+          }),
+        };
+      }
+      // LCA 250k also returns something (which should be ignored because 50k wins)
+      if (url.includes("Hutton_LCA250K_UKSO")) {
+        return { ok: true, json: async () => ({ features: [] }) };
+      }
+      return { ok: true, json: async () => ({ features: [] }) };
+    });
+
+    // Carse of Gowrie — Scottish agricultural area.
+    const result = await getAgriculturalLand({ lat: 56.42, lon: -3.15, country: "GB" });
+
+    expect(result.classification_basis).toBe("lca_detailed");
+    expect(result.effective_grade).toBe("3.1");
+    expect(result.bmv_status).toBe("yes");
+    expect(result.explanation).toContain("James Hutton");
+    expect(result.explanation).toContain("1:50k");
+    expect(result.additional_sources?.some((s) => s.id === "james-hutton-lca")).toBe(true);
   });
 
   it("returns warnings when one dataset fails but the other succeeds", async () => {

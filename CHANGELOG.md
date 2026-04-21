@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.1 - 2026-04-21
+
+Polish patch for 0.6.0 Scotland coverage. Two semantic fixes surfaced by live end-to-end smoke across nine GB coordinates.
+
+### Fixed
+- **Scottish coords no longer return `flood_zone: "unknown"` when SEPA is clear.** `get_flood_risk` previously defaulted to "unknown" when the Environment Agency service errored on geometries outside its coverage (expected for Scottish coords) and SEPA returned zero matches. A fully-successful SEPA query with zero matches is a confident "clear" signal and now returns `flood_zone: "1"`, `planning_risk: "low"`.
+- **`classification_basis` now honestly labels Scottish LCA data.** Previously, a Scottish LCA result surfaced as `classification_basis: "post_1988"` or `"provisional"`, falsely implying a Natural England survey. New values `"lca_detailed"` and `"lca_broad"` are introduced; the `ClassificationBasis` type widens accordingly. Explanation strings also updated to attribute James Hutton correctly.
+
+### Changed
+- `flood-risk` throw-on-all-failed now only fires when both EA and SEPA have failed. Previously it threw when EA failed even if SEPA was a fully successful empty response.
+- `buildExplanation` in `agricultural-land.ts` now includes an LCA branch with scale-aware wording (`1:50k detailed` vs `1:250k broad`).
+
+### Verification
+- 400 JS tests passed across 39 test files + 2 env-gated integration tests (was 398 at 0.6.0; +2 explicit regression tests for the two fixes)
+- Live smoke across nine coordinates confirmed both fixes end-to-end: Glasgow and Inverness now resolve to flood_zone "1" (were "unknown"); Edinburgh LCA surfaces as `lca_detailed` (was `post_1988`); Berwick border coordinate correctly merges Natural England and NatureScot results; Cambridge control unchanged.
+- TypeScript build clean
+
+For the fuller narrative, see [`docs/releases/0.6.1.md`](docs/releases/0.6.1.md).
+
 ## 0.6.0 - 2026-04-21
 
 Scotland coverage for the three screening tools (land constraints, flood risk, agricultural land). GB-only tools now return meaningful results for Scottish coordinates using NatureScot, SEPA, and James Hutton Institute public data.

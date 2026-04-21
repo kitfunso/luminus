@@ -21,7 +21,12 @@ export const agriculturalLandSchema = z.object({
 });
 
 type BmvStatus = "yes" | "no" | "uncertain" | "unknown";
-type ClassificationBasis = "post_1988" | "provisional" | "none";
+type ClassificationBasis =
+  | "post_1988"
+  | "provisional"
+  | "lca_detailed"
+  | "lca_broad"
+  | "none";
 
 interface AlcClassification {
   source: "post_1988" | "provisional";
@@ -201,7 +206,18 @@ function buildExplanation(
     return `Provisional ALC classifies this site as ${effectiveGrade ?? "an unknown grade"}. Grade 3 cannot distinguish 3a from 3b, so BMV status is uncertain.`;
   }
 
-  return "No Natural England ALC polygon matched this point. Coverage is England-only and incomplete, so BMV status is unknown rather than clear.";
+  if (basis === "lca_detailed" || basis === "lca_broad") {
+    const scale = basis === "lca_detailed" ? "1:50k detailed" : "1:250k broad";
+    if (bmvStatus === "yes") {
+      return `James Hutton LCA (${scale}) classifies this site as ${effectiveGrade}, equivalent to Best and Most Versatile agricultural land.`;
+    }
+    if (bmvStatus === "no") {
+      return `James Hutton LCA (${scale}) classifies this site as ${effectiveGrade}, not Best and Most Versatile agricultural land.`;
+    }
+    return `James Hutton LCA (${scale}) returned ${effectiveGrade ?? "an unknown class"}. Non-agricultural codes (for example built-up) return bmv_status 'unknown' by design.`;
+  }
+
+  return "No ALC or LCA polygon matched this point. Natural England covers England only; James Hutton LCA covers Scotland. BMV status is unknown rather than clear.";
 }
 
 export async function getAgriculturalLand(
@@ -293,8 +309,9 @@ export async function getAgriculturalLand(
     bmvStatus = provisionalBmvStatus(provisional.grade);
   } else if (lcaHasData && lca !== null) {
     // English ALC missed (expected for Scottish sites); use Scotland LCA.
+    // Surface the LCA origin honestly rather than reusing ALC basis labels.
     classificationBasis =
-      lca.classification_basis === "detailed" ? "post_1988" : "provisional";
+      lca.classification_basis === "detailed" ? "lca_detailed" : "lca_broad";
     effectiveGrade = lca.effective_class;
     bmvStatus = lca.bmv_status;
   }
