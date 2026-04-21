@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 - 2026-04-21
+
+GB connection-intelligence tranche: canonical connections schema, composite site report, and a transparent Gate 2 readiness checklist.
 
 ### Added
 - Canonical GB connections schema `CanonicalConnectionEntry` in `src/lib/gb-connections/schema.ts`, with normalisers in `src/lib/gb-connections/normalise.ts` for TEC, NGED public queue, and DNO headroom rows (SSEN, NPG, UKPN, SPEN, ENWL).
@@ -8,9 +10,20 @@
 - `get_gate2_readiness_check` tool: rules-based checklist against publicly documented NESO Gate 2 entry criteria. Returns pass / warn / fail / not_applicable per rule, each with its own public `reference_url`. Ten rules across planning, land rights, technology, capacity, connection point, grid reference, energisation window, and strategic alignment.
 - New `connections` profile in `src/lib/profiles.ts` grouping the seven GB connection-intelligence tools.
 
+### Changed
+- bumped `luminus-mcp` to `0.5.0`
+- tool count raised to 69 across README, package description, and tool-count test
+- docs/gis-roadmap.md updated with Sprint 13 + an explicit "Deliberate non-goals" section
+
 ### Deliberately out of scope
 - No predictive Gate 2 model, likelihood score, probability, or ML on connection outcomes — we do not have the training data for that and claiming it would be dishonest.
 - No connection queue workflow SaaS, demand-centre siting tool, or portfolio-level ranking in this tranche.
+
+### Verification
+- 368 JS tests passed across 36 test files
+- TypeScript build passed
+
+For the fuller narrative, see [`docs/releases/0.5.0.md`](docs/releases/0.5.0.md).
 
 ## 0.4.3 - 2026-04-16
 
