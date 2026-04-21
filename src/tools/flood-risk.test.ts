@@ -186,7 +186,7 @@ describe("getFloodRisk", () => {
 
     await expect(
       getFloodRisk({ lat: 52.5, lon: 1.0, country: "GB" }),
-    ).rejects.toThrow("All Environment Agency flood queries failed");
+    ).rejects.toThrow("All flood queries failed");
   });
 
   it("returns cached result on second call", async () => {

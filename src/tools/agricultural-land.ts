@@ -2,6 +2,8 @@ import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 import { guardArcGisFields } from "../lib/schema-guard.js";
+import { queryLcaAtPoint, type LcaResult } from "../lib/james-hutton-lca.js";
+import { isScottishCoord } from "../lib/scotland-bbox.js";
 
 const cache = new TtlCache();
 const NE_ARCGIS_BASE =
@@ -34,11 +36,13 @@ interface AgriculturalLandResult {
   country: string;
   post_1988: AlcClassification | null;
   provisional: AlcClassification | null;
+  scotland_lca?: LcaResult;
   effective_grade: string | null;
   bmv_status: BmvStatus;
   classification_basis: ClassificationBasis;
   explanation: string;
   source_metadata: GisSourceMetadata;
+  additional_sources?: GisSourceMetadata[];
   warnings?: string[];
   disclaimer: string;
 }
@@ -222,9 +226,14 @@ export async function getAgriculturalLand(
   const cached = cache.get<AgriculturalLandResult>(cacheKey);
   if (cached) return cached;
 
-  const [post1988Result, provisionalResult] = await Promise.allSettled([
+  const queryScotland = isScottishCoord(lat, lon);
+
+  const [post1988Result, provisionalResult, lcaResult] = await Promise.allSettled([
     queryPointLayer(POST_1988_SERVICE, lon, lat, ["ALC_GRADE", "HECTARES", "RPT"]),
     queryPointLayer(PROVISIONAL_SERVICE, lon, lat, ["ALC_GRADE", "AREA", "GEOGEXT"]),
+    queryScotland
+      ? queryLcaAtPoint(lat, lon)
+      : Promise.resolve(null as LcaResult | null),
   ]);
 
   const warnings: string[] = [];
@@ -249,8 +258,25 @@ export async function getAgriculturalLand(
     );
   }
 
-  if (post1988Result.status === "rejected" && provisionalResult.status === "rejected") {
-    throw new Error(`All Natural England ALC queries failed: ${warnings.join("; ")}`);
+  const lca: LcaResult | null =
+    lcaResult.status === "fulfilled" ? lcaResult.value : null;
+  if (queryScotland && lcaResult.status === "rejected") {
+    warnings.push(
+      `james-hutton-lca: ${lcaResult.reason instanceof Error ? lcaResult.reason.message : String(lcaResult.reason)}`,
+    );
+  }
+
+  const lcaHasData =
+    lca !== null && (lca.detailed !== null || lca.broad !== null);
+
+  if (
+    post1988Result.status === "rejected" &&
+    provisionalResult.status === "rejected" &&
+    !lcaHasData
+  ) {
+    throw new Error(
+      `All agricultural-land queries failed: ${warnings.join("; ")}`,
+    );
   }
 
   let classificationBasis: ClassificationBasis = "none";
@@ -265,6 +291,12 @@ export async function getAgriculturalLand(
     classificationBasis = "provisional";
     effectiveGrade = provisional.grade;
     bmvStatus = provisionalBmvStatus(provisional.grade);
+  } else if (lcaHasData && lca !== null) {
+    // English ALC missed (expected for Scottish sites); use Scotland LCA.
+    classificationBasis =
+      lca.classification_basis === "detailed" ? "post_1988" : "provisional";
+    effectiveGrade = lca.effective_class;
+    bmvStatus = lca.bmv_status;
   }
 
   const result: AgriculturalLandResult = {
@@ -280,6 +312,11 @@ export async function getAgriculturalLand(
     source_metadata: GIS_SOURCES["natural-england-alc"],
     disclaimer: DISCLAIMER,
   };
+
+  if (queryScotland && lca !== null) {
+    result.scotland_lca = lca;
+    result.additional_sources = [GIS_SOURCES["james-hutton-lca"]];
+  }
 
   if (warnings.length > 0) {
     result.warnings = warnings;

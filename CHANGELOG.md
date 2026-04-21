@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.6.0 - 2026-04-21
+
+Scotland coverage for the three screening tools (land constraints, flood risk, agricultural land). GB-only tools now return meaningful results for Scottish coordinates using NatureScot, SEPA, and James Hutton Institute public data.
+
+### Added
+- **NatureScot protected areas** (`src/lib/nature-scot.ts`) — Scottish SSSI, SAC, SPA, Ramsar, NNR, MPA queryable via ArcGIS. Integrated into `get_land_constraints` alongside Natural England for any coord in the Scottish bounding box.
+- **SEPA Flood Risk Management Maps** (`src/lib/sepa-flood.ts`) — river, coastal, and surface-water flood extents at 1-in-10, 1-in-200, 1-in-1000 year return periods. Integrated into `get_flood_risk` with runtime layer-ID discovery and approximate mapping to EA zones (SEPA Medium ≈ EA Zone 3, SEPA Low ≈ EA Zone 2). Raw SEPA matches returned under a new `sepa_matches` field.
+- **James Hutton Institute LCA** (`src/lib/james-hutton-lca.ts`) — Scottish Land Capability for Agriculture, 1:50k detailed and 1:250k broad with fallback. Integrated into `get_agricultural_land` under a new `scotland_lca` field, with BMV mapping: classes 1, 2, 3.1 → BMV; 3.2 and coarser → non-BMV; non-agricultural codes (e.g., 888 built-up) → unknown.
+- New shared helper `isScottishCoord(lat, lon)` in `src/lib/scotland-bbox.ts` for the three tools to gate Scottish-upstream queries.
+- Three new source-metadata entries + three health checks in `verify_gis_sources`: `nature-scot`, `sepa-flood-map`, `james-hutton-lca`. Total GIS source coverage is now 24.
+- New `additional_sources` optional field on `get_land_constraints`, `get_flood_risk`, `get_agricultural_land` result types — present when Scottish upstreams contributed data. Non-breaking; `source_metadata` still returns the primary (English) source.
+
+### Changed
+- Error message strings when all upstreams fail now reflect the composite query: `All protected-area queries failed` (land-constraints), `All flood queries failed (Environment Agency...)` (flood-risk), `All agricultural-land queries failed` (agricultural-land).
+- `src/lib/natural-england.ts` exports `buildEnvelopeGeometry` (no behaviour change; reused by `nature-scot.ts`).
+
+### Verification
+- 398 JS tests passed across 39 test files + 2 env-gated integration tests (was 373 at 0.5.1; +25 new tests: 4 NatureScot, 7 SEPA, 12 LCA, +2 tool-level warning flows)
+- 33 Python tests passed (unchanged)
+- TypeScript build clean
+
+For the fuller narrative, see [`docs/releases/0.6.0.md`](docs/releases/0.6.0.md).
+
 ## 0.5.1 - 2026-04-21
 
 Critical fix for a GB GSP lookup bug that shipped in 0.5.0, plus post-0.5.0 polish: Python SDK parity, a connection-intelligence notebook, a GB bounding-box guard, and surfacing of previously-silent polygon-path degradations.

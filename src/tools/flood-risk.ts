@@ -2,6 +2,11 @@ import { z } from "zod";
 import { TtlCache, TTL } from "../lib/cache.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 import { guardArcGisFields } from "../lib/schema-guard.js";
+import {
+  querySepaFloodAtPoint,
+  type SepaFloodMatch,
+} from "../lib/sepa-flood.js";
+import { isScottishCoord } from "../lib/scotland-bbox.js";
 
 const cache = new TtlCache();
 const EA_FLOOD_MAP_BASE =
@@ -47,8 +52,10 @@ interface FloodRiskResult {
   flood_zone_3: FloodMatch[];
   flood_zone_2: FloodMatch[];
   flood_storage_areas: FloodMatch[];
+  sepa_matches?: SepaFloodMatch[];
   explanation: string;
   source_metadata: GisSourceMetadata;
+  additional_sources?: GisSourceMetadata[];
   warnings?: string[];
   disclaimer: string;
 }
@@ -176,9 +183,17 @@ export async function getFloodRisk(
   const cached = cache.get<FloodRiskResult>(cacheKey);
   if (cached) return cached;
 
-  const results = await Promise.allSettled(
-    FLOOD_LAYERS.map((layer) => queryLayer(layer, lon, lat)),
-  );
+  const queryScotland = isScottishCoord(lat, lon);
+  const [eaResults, sepaResult] = await Promise.all([
+    Promise.allSettled(FLOOD_LAYERS.map((layer) => queryLayer(layer, lon, lat))),
+    queryScotland
+      ? querySepaFloodAtPoint(lat, lon).catch((err: unknown) => ({
+          matches: [] as SepaFloodMatch[],
+          errors: [err instanceof Error ? err.message : String(err)],
+        }))
+      : Promise.resolve({ matches: [] as SepaFloodMatch[], errors: [] as string[] }),
+  ]);
+  const results = eaResults;
 
   const warnings: string[] = [];
 
@@ -206,8 +221,19 @@ export async function getFloodRisk(
     );
   }
 
-  if (results.every((result) => result.status === "rejected")) {
-    throw new Error(`All Environment Agency flood queries failed: ${warnings.join("; ")}`);
+  // SEPA warnings flow into the same bucket as EA warnings so callers see one list.
+  for (const err of sepaResult.errors) {
+    warnings.push(`sepa-flood: ${err}`);
+  }
+
+  const eaAllFailed = results.every((result) => result.status === "rejected");
+  const eaHasAnyFailure = results.some((result) => result.status === "rejected");
+  const sepaAttempted = queryScotland;
+
+  if (eaAllFailed && (!sepaAttempted || sepaResult.matches.length === 0)) {
+    throw new Error(
+      `All flood queries failed (Environment Agency${sepaAttempted ? " and SEPA" : ""}): ${warnings.join("; ")}`,
+    );
   }
 
   const hasFloodStorageArea = storageAreas.length > 0;
@@ -215,16 +241,26 @@ export async function getFloodRisk(
   const hasZone2 = zone2.length > 0;
   const hasWarnings = warnings.length > 0;
 
+  // SEPA likelihood -> EA zone mapping:
+  //   SEPA High (1-in-10yr)       -> equivalent-or-worse than EA Zone 3
+  //   SEPA Medium (1-in-200yr)    -> equivalent to EA Zone 3
+  //   SEPA Low (1-in-1000yr)      -> equivalent to EA Zone 2
+  const sepaMatches = sepaResult.matches;
+  const sepaHigh = sepaMatches.some(
+    (m) => m.likelihood === "high" || m.likelihood === "medium",
+  );
+  const sepaLow = sepaMatches.some((m) => m.likelihood === "low");
+
   let floodZone: FloodZone = "1";
   let planningRisk: PlanningRisk = "low";
 
-  if (hasZone3) {
+  if (hasZone3 || sepaHigh) {
     floodZone = "3";
     planningRisk = "high";
-  } else if (hasZone2) {
+  } else if (hasZone2 || sepaLow) {
     floodZone = "2";
     planningRisk = "medium";
-  } else if (hasWarnings) {
+  } else if (hasWarnings && eaHasAnyFailure) {
     floodZone = "unknown";
     planningRisk = "unknown";
   }
@@ -247,6 +283,11 @@ export async function getFloodRisk(
     source_metadata: GIS_SOURCES["ea-flood-map"],
     disclaimer: DISCLAIMER,
   };
+
+  if (sepaAttempted) {
+    result.sepa_matches = sepaMatches;
+    result.additional_sources = [GIS_SOURCES["sepa-flood-map"]];
+  }
 
   if (warnings.length > 0) {
     result.warnings = warnings;

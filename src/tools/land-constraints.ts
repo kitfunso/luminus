@@ -5,8 +5,13 @@ import {
   queryLayer,
   type ConstraintFeature,
 } from "../lib/natural-england.js";
+import {
+  SCOTTISH_PROTECTED_AREA_LAYERS,
+  queryScottishLayer,
+} from "../lib/nature-scot.js";
 import { queryNatura2000Layer } from "../lib/eea-natura2000.js";
 import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
+import { isScottishCoord } from "../lib/scotland-bbox.js";
 
 const cache = new TtlCache();
 
@@ -35,6 +40,7 @@ interface LandConstraintsResult {
   constraints: ConstraintFeature[];
   summary: LandConstraintsSummary;
   source_metadata: GisSourceMetadata;
+  additional_sources?: GisSourceMetadata[];
   warnings?: string[];
 }
 
@@ -125,36 +131,67 @@ export async function getLandConstraints(
   if (cached) return cached;
 
   if (country === "GB") {
-    const layerResults = await Promise.allSettled(
-      GB_PROTECTED_AREA_LAYERS.map((layer) =>
-        queryLayer(layer, lat, lon, radiusKm),
-      ),
+    const queryScotland = isScottishCoord(lat, lon);
+
+    // Always query Natural England (England-wide). If coord is in the Scottish
+    // bbox, query NatureScot in parallel. Border-region coords get both; each
+    // upstream returns empty for points outside its coverage.
+    const englandPromises = GB_PROTECTED_AREA_LAYERS.map((layer) =>
+      queryLayer(layer, lat, lon, radiusKm),
     );
+    const scotlandPromises = queryScotland
+      ? SCOTTISH_PROTECTED_AREA_LAYERS.map((layer) =>
+          queryScottishLayer(layer, lat, lon, radiusKm),
+        )
+      : [];
+
+    const layerResults = await Promise.allSettled([
+      ...englandPromises,
+      ...scotlandPromises,
+    ]);
 
     const constraints: ConstraintFeature[] = [];
-    const warnings: string[] = [];
+    const englandWarnings: string[] = [];
+    const scotlandWarnings: string[] = [];
+    let englandOk = 0;
+    let scotlandOk = 0;
 
     for (let i = 0; i < layerResults.length; i++) {
       const result = layerResults[i];
+      const isEnglandLayer = i < GB_PROTECTED_AREA_LAYERS.length;
+      const layerType = isEnglandLayer
+        ? GB_PROTECTED_AREA_LAYERS[i].constraintType
+        : SCOTTISH_PROTECTED_AREA_LAYERS[i - GB_PROTECTED_AREA_LAYERS.length]
+            .constraintType;
+
       if (result.status === "fulfilled") {
         constraints.push(...result.value);
+        if (isEnglandLayer) englandOk++;
+        else scotlandOk++;
       } else {
-        const layerType = GB_PROTECTED_AREA_LAYERS[i].constraintType;
         const msg =
           result.reason instanceof Error
             ? result.reason.message
             : String(result.reason);
-        warnings.push(`${layerType}: ${msg}`);
+        const prefix = isEnglandLayer ? "natural-england" : "nature-scot";
+        const bucket = isEnglandLayer ? englandWarnings : scotlandWarnings;
+        bucket.push(`${prefix} ${layerType}: ${msg}`);
       }
     }
 
-    if (warnings.length === GB_PROTECTED_AREA_LAYERS.length) {
+    if (englandOk === 0 && (scotlandPromises.length === 0 || scotlandOk === 0)) {
+      const allWarnings = [...englandWarnings, ...scotlandWarnings];
       throw new Error(
-        `All Natural England API queries failed: ${warnings.join("; ")}`,
+        `All protected-area queries failed: ${allWarnings.join("; ")}`,
       );
     }
 
     const deduped = dedupeConstraints(constraints);
+    const warnings = [...englandWarnings, ...scotlandWarnings];
+    const additionalSources = queryScotland
+      ? [GIS_SOURCES["nature-scot"]]
+      : undefined;
+
     const result: LandConstraintsResult = {
       lat,
       lon,
@@ -165,9 +202,8 @@ export async function getLandConstraints(
       source_metadata: GIS_SOURCES["natural-england"],
     };
 
-    if (warnings.length > 0) {
-      result.warnings = warnings;
-    }
+    if (additionalSources) result.additional_sources = additionalSources;
+    if (warnings.length > 0) result.warnings = warnings;
 
     cache.set(cacheKey, result, TTL.STATIC_DATA);
     return result;

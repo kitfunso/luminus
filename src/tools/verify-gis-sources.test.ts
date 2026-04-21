@@ -104,8 +104,11 @@ describe("verifyGisSources", () => {
             : [{ name: "pry_number" }, { name: "dem_hr_firm_mw" }, { name: "gen_hr_inverter_mw" }, { name: "geo_point_2d" }],
         });
       }
-      if (url.includes("arcgis.com") || url.includes("environment.data.gov.uk") || url.includes("bio.discomap.eea.europa.eu")) {
+      if (url.includes("arcgis.com") || url.includes("environment.data.gov.uk") || url.includes("bio.discomap.eea.europa.eu") || url.includes("services1.arcgis.com/LM9GyVFsughzHdbO") || url.includes("druid.hutton.ac.uk")) {
         return makeOkResponse({ features: [{ attributes: { NAME: "Test" } }] });
+      }
+      if (url.includes("map.sepa.org.uk")) {
+        return makeOkResponse({ layers: [{ id: 1, name: "River Flooding Medium Likelihood Extent", geometryType: "esriGeometryPolygon" }] });
       }
       if (url.includes("image.discomap.eea.europa.eu")) {
         return makeOkResponse({ features: [{ attributes: { Code_18: "211" } }] });
@@ -119,9 +122,9 @@ describe("verifyGisSources", () => {
     const result = await verifyGisSources({});
 
     expect(result.checked_at).toBeDefined();
-    expect(result.sources.length).toBe(21);
-    expect(result.summary.total).toBe(21);
-    expect(result.summary.ok).toBe(21);
+    expect(result.sources.length).toBe(24);
+    expect(result.summary.total).toBe(24);
+    expect(result.summary.ok).toBe(24);
     expect(result.summary.degraded).toBe(0);
     expect(result.summary.unreachable).toBe(0);
   });
@@ -268,6 +271,12 @@ describe("verifyGisSources", () => {
             : [{ name: "pry_number" }, { name: "dem_hr_firm_mw" }, { name: "gen_hr_inverter_mw" }, { name: "geo_point_2d" }],
         });
       }
+      if (url.includes("map.sepa.org.uk")) {
+        return makeOkResponse({ layers: [{ id: 1, name: "River Flooding Medium Likelihood Extent", geometryType: "esriGeometryPolygon" }] });
+      }
+      if (url.includes("druid.hutton.ac.uk")) {
+        throw new Error("Network failure");
+      }
       if (url.includes("arcgis.com")) {
         throw new Error("Network failure");
       }
@@ -288,12 +297,12 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    // ok: open-meteo, neso-gsp-lookup, neso-gsp-boundaries, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, enwl-pry, enwl-ecr, ukpn-flex, spen-flex, eea-natura2000, corine, pvgis = 15
+    // ok: open-meteo, neso-gsp-lookup, neso-gsp-boundaries, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, enwl-pry, enwl-ecr, ukpn-flex, spen-flex, eea-natura2000, corine, pvgis, sepa-flood-map = 16
     // degraded: overpass (429), ea-flood-map (500), plus the two NGED source checks = 4
-    // unreachable: natural-england, natural-england-alc (arcgis.com network failure) = 2
-    expect(result.summary.ok).toBe(15);
+    // unreachable: natural-england, natural-england-alc, nature-scot, james-hutton-lca (arcgis.com + druid.hutton.ac.uk network failures) = 4
+    expect(result.summary.ok).toBe(16);
     expect(result.summary.degraded).toBe(4);
-    expect(result.summary.unreachable).toBe(2);
+    expect(result.summary.unreachable).toBe(4);
   });
 
   it("reports degraded when Overpass response lacks elements array", async () => {

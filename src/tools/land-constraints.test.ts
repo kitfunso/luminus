@@ -240,7 +240,7 @@ describe("getLandConstraints", () => {
 
     await expect(
       getLandConstraints({ lat: 51.68, lon: 0.08, country: "GB" }),
-    ).rejects.toThrow("All Natural England API queries failed");
+    ).rejects.toThrow("All protected-area queries failed");
   });
 
   it("throws when the EU Natura 2000 query fails", async () => {
@@ -275,7 +275,7 @@ describe("getLandConstraints", () => {
 
     await expect(
       getLandConstraints({ lat: 51.72, lon: 0.12, country: "GB" }),
-    ).rejects.toThrow("All Natural England API queries failed");
+    ).rejects.toThrow("All protected-area queries failed");
   });
 
   it("returns cached result on second GB call", async () => {

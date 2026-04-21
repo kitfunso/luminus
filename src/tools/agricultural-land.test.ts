@@ -196,7 +196,7 @@ describe("getAgriculturalLand", () => {
 
     await expect(
       getAgriculturalLand({ lat: 52.4, lon: 0.7, country: "GB" }),
-    ).rejects.toThrow("All Natural England ALC queries failed");
+    ).rejects.toThrow("All agricultural-land queries failed");
   });
 
   it("handles ArcGIS JSON error bodies", async () => {
@@ -209,7 +209,7 @@ describe("getAgriculturalLand", () => {
 
     await expect(
       getAgriculturalLand({ lat: 52.45, lon: 0.75, country: "GB" }),
-    ).rejects.toThrow("All Natural England ALC queries failed");
+    ).rejects.toThrow("All agricultural-land queries failed");
   });
 
   it("returns cached result on second call", async () => {

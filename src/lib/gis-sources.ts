@@ -76,6 +76,63 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     attribution:
       "Contains Natural England data. Contains Ordnance Survey data. Crown copyright and database rights.",
   },
+  "nature-scot": {
+    id: "nature-scot",
+    name: "NatureScot Spatial Data Hub",
+    provider: "NatureScot / ArcGIS Online",
+    licence: "OGL v3 (Open Government Licence)",
+    url: "https://opendata.nature.scot/",
+    api_key_required: false,
+    coverage: "Scotland only — SSSI, SAC, SPA, Ramsar, NNR, Marine Protected Areas",
+    update_frequency: "Updated periodically as NatureScot revises designations",
+    reliability: "high",
+    caveats: [
+      "Scotland only — use natural-england for England designations",
+      "Does not yet include National Scenic Areas (NSA), the Scottish AONB-equivalent; add in a later tranche if needed",
+      "NatureScot is the current name for what was previously Scottish Natural Heritage (SNH); older copyright strings may still reference SNH",
+    ],
+    attribution:
+      "Contains NatureScot data. Contains Ordnance Survey data (c) Crown copyright and database right.",
+  },
+  "sepa-flood-map": {
+    id: "sepa-flood-map",
+    name: "SEPA Flood Risk Management Maps",
+    provider: "Scottish Environment Protection Agency (SEPA)",
+    licence: "OGL v3 (Open Government Licence)",
+    url: "https://map.sepa.org.uk/floodmap/map.htm",
+    api_key_required: false,
+    coverage: "Scotland only — river, coastal, and surface-water flood extents at 1-in-10, 1-in-200, and 1-in-1000 year return periods",
+    update_frequency: "Published as part of SEPA flood-hazard map releases",
+    reliability: "medium",
+    caveats: [
+      "Scotland only — use ea-flood-map for England",
+      "SEPA Medium likelihood (1-in-200yr) approximates EA Flood Zone 3; SEPA Low (1-in-1000yr) approximates EA Flood Zone 2",
+      "Surface-water flood extents are additional to fluvial and coastal; planning policy treats them differently",
+      "Flood extents are planning-screening signals, not property-level flood advice",
+    ],
+    attribution:
+      "Contains SEPA flood-hazard data licensed under the Open Government Licence v3.0.",
+  },
+  "james-hutton-lca": {
+    id: "james-hutton-lca",
+    name: "James Hutton Institute Land Capability for Agriculture (Scotland)",
+    provider: "James Hutton Institute",
+    licence: "OGL v3 (per data.gov.uk listing)",
+    url: "https://www.hutton.ac.uk/learning/natural-resource-datasets/soilshutton/soils-maps-scotland/land-capability-agriculture",
+    api_key_required: false,
+    coverage: "Scotland only — 1:50k partial (improved agricultural land) + 1:250k national. Classes 1 through 7 plus non-agricultural codes (for example built-up).",
+    update_frequency: "Static datasets updated infrequently as new soil surveys complete",
+    reliability: "medium",
+    caveats: [
+      "Scotland only — use natural-england-alc for England",
+      "LCA classes (1, 2, 3.1, 3.2, 4.1, 4.2, 5.x, 6.x, 7) are not identical to ALC grades. BMV mapping treats classes 1, 2, 3.1 as BMV; 3.2 and coarser as non-BMV",
+      "1:50k dataset covers only improved agricultural land (roughly one third of Scotland). 1:250k covers the whole country but at coarser resolution",
+      "Hosted on a single institutional server with no CDN; queries may be slower than Esri-hosted services",
+      "LCCODE values include non-agricultural codes such as 888 (built-up) which map to bmv_status of 'unknown'",
+    ],
+    attribution:
+      "Contains James Hutton Institute Land Capability for Agriculture data.",
+  },
   "eea-natura2000": {
     id: "eea-natura2000",
     name: "EEA Natura 2000 Protected Sites",
@@ -453,6 +510,57 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
     url: "https://services.arcgis.com/JJzESW51TqeY9uat/arcgis/rest/services/SSSI_England/FeatureServer/0/query?where=1%3D1&resultRecordCount=1&outFields=NAME&returnGeometry=false&f=json",
     method: "GET",
     timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.error) return `ArcGIS error: ${json.error.message ?? "unknown"}`;
+        if (!Array.isArray(json.features)) return "Response missing features array";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "nature-scot",
+    url: "https://services1.arcgis.com/LM9GyVFsughzHdbO/arcgis/rest/services/Sites_of_Special_Scientific_Interest/FeatureServer/0/query?where=1%3D1&resultRecordCount=1&outFields=NAME&returnGeometry=false&f=json",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.error) return `ArcGIS error: ${json.error.message ?? "unknown"}`;
+        if (!Array.isArray(json.features)) return "Response missing features array";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "sepa-flood-map",
+    url: "https://map.sepa.org.uk/server/rest/services/Open/River_Flooding_Medium_Likelihood/FeatureServer/layers?f=json",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (json.error) return `ArcGIS error: ${json.error.message ?? "unknown"}`;
+        if (!Array.isArray(json.layers)) return "Response missing layers array";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
+    },
+  },
+  {
+    source_id: "james-hutton-lca",
+    url: "https://druid.hutton.ac.uk/arcgis/rest/services/Hutton_LCA_50K_OSGB/MapServer/0/query?where=1%3D1&resultRecordCount=1&outFields=LCCODE&returnGeometry=false&f=json",
+    method: "GET",
+    timeout_ms: 20_000,
     validate: (status, body) => {
       if (status !== 200) return `HTTP ${status}`;
       try {

@@ -70,7 +70,7 @@ export interface ConstraintFeature {
  * Build a WGS84 bounding box string from a point and radius.
  * Returns "xmin,ymin,xmax,ymax" suitable for ArcGIS REST envelope queries.
  */
-function buildEnvelopeGeometry(
+export function buildEnvelopeGeometry(
   lat: number,
   lon: number,
   radiusKm: number,
