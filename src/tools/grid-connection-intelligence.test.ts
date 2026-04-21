@@ -421,6 +421,30 @@ describe("getGridConnectionIntelligence", () => {
     expect(result.confidence_notes).toContain("No GSP found within search radius");
   });
 
+  it("surfaces lookupGspRegion warnings in confidence_notes", async () => {
+    mockLookupGspRegion.mockResolvedValue({
+      ...MOCK_GSP_RESULT,
+      warnings: [
+        "NESO GSP polygon fetch failed: HTTP 500. Falling back to nearest-point CSV lookup.",
+      ],
+    });
+    mockGetGridConnectionQueue.mockResolvedValue(MOCK_TEC_RESULT);
+    mockGetGridProximity.mockResolvedValue(MOCK_PROXIMITY_RESULT);
+    mockGetDistributionHeadroom.mockResolvedValue(MOCK_DNO_RESULT);
+
+    const result = await getGridConnectionIntelligence({
+      lat: 52.39,
+      lon: -1.64,
+      country: "GB",
+    });
+
+    expect(
+      result.confidence_notes.some((note) =>
+        note.includes("polygon fetch failed") && note.includes("HTTP 500"),
+      ),
+    ).toBe(true);
+  });
+
   it("source_metadata includes NGED provenance alongside the existing sources", async () => {
     mockLookupGspRegion.mockResolvedValue(MOCK_GSP_RESULT);
     mockGetGridConnectionQueue.mockResolvedValue(MOCK_TEC_RESULT);

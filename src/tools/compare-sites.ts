@@ -104,12 +104,15 @@ function buildHeuristicsUsed(w: ScoringWeights): string[] {
     `Terrain flatness (weight ${w.terrain}%): slope in degrees, flatter is better. Normalised across candidates.`,
     "Missing data for a dimension scores 0 for that dimension (conservative penalty).",
     "Ties broken by input order (stable sort).",
+    "Weights are judgment-based heuristics chosen for internal consistency. They are NOT calibrated against realised development outcomes or commercial returns.",
   ];
 }
 
 const DISCLAIMER =
   "This is an automated comparison using public data. " +
   "Rankings reflect heuristic scoring, not commercial viability. " +
+  "Weights are judgment-based and have not been calibrated against realised project outcomes: " +
+  "treat the ranking as a first-pass sort, not an investment recommendation. " +
   "Professional due diligence is required before any development decision.";
 
 // --- Helpers ---

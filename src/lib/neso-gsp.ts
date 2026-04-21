@@ -190,13 +190,18 @@ function pointOnSegment(
   x2: number,
   y2: number,
 ): boolean {
+  const squaredLength = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+  // Degenerate zero-length segment: treat as a point, not a segment to avoid
+  // false positives. GeoJSON rings close by repeating the first vertex as the
+  // last, so the closing edge (i=0, j=last) is always zero-length.
+  if (squaredLength < 1e-18) return false;
+
   const cross = (y - y1) * (x2 - x1) - (x - x1) * (y2 - y1);
   if (Math.abs(cross) > 1e-9) return false;
 
   const dot = (x - x1) * (x2 - x1) + (y - y1) * (y2 - y1);
   if (dot < 0) return false;
 
-  const squaredLength = (x2 - x1) ** 2 + (y2 - y1) ** 2;
   return dot <= squaredLength;
 }
 
@@ -287,17 +292,28 @@ async function readBoundaryGeoJsonFromZip(): Promise<string> {
   return geoJsonFile.async("text");
 }
 
-async function fetchGspBoundaries(): Promise<GspBoundary[]> {
+interface BoundaryFetchOutcome {
+  boundaries: GspBoundary[];
+  warning: string | null;
+}
+
+async function fetchGspBoundaries(): Promise<BoundaryFetchOutcome> {
   const cached = cache.get<GspBoundary[]>(BOUNDARY_CACHE_KEY);
-  if (cached) return cached;
+  if (cached) return { boundaries: cached, warning: null };
 
   try {
     const geoJsonText = await readBoundaryGeoJsonFromZip();
     const boundaries = parseBoundaryFeatureCollection(geoJsonText);
     cache.set(BOUNDARY_CACHE_KEY, boundaries, TTL.STATIC_DATA);
-    return boundaries;
-  } catch {
-    return [];
+    return { boundaries, warning: null };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // The fallback to nearest-point CSV is intentional, but surface the reason
+    // so callers can include it in their confidence_notes.
+    return {
+      boundaries: [],
+      warning: `NESO GSP polygon fetch failed: ${message}. Falling back to nearest-point CSV lookup.`,
+    };
   }
 }
 
@@ -320,14 +336,19 @@ function findNearestRecord(
   return nearest ? { record: nearest, distanceKm: nearestDist } : null;
 }
 
+interface ContainedRecordOutcome {
+  match: { record: GspRecord; distanceKm: number } | null;
+  warning: string | null;
+}
+
 function findContainedRecord(
   records: GspRecord[],
   boundaries: GspBoundary[],
   lat: number,
   lon: number,
-): { record: GspRecord; distanceKm: number } | null {
+): ContainedRecordOutcome {
   const boundary = findContainingBoundary(boundaries, lat, lon);
-  if (!boundary) return null;
+  if (!boundary) return { match: null, warning: null };
 
   const recordByCode = new Map(
     records.map((record) => [normalizeGspCode(record.gsp_name), record]),
@@ -336,7 +357,15 @@ function findContainedRecord(
     .map((code) => recordByCode.get(code))
     .filter((record): record is GspRecord => record !== undefined);
 
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) {
+    // Polygon containment matched but the boundary's GSP codes do not map to
+    // any CSV record. Surface as a warning so the caller can see that the
+    // polygon path degraded and nearest-point fallback is about to run.
+    return {
+      match: null,
+      warning: `NESO GSP boundary contains point but its codes [${boundary.gsp_codes.join(", ")}] do not match any CSV record. Falling back to nearest-point.`,
+    };
+  }
 
   let bestRecord = candidates[0];
   let bestDistance = haversineKm(lat, lon, bestRecord.lat, bestRecord.lon);
@@ -350,7 +379,7 @@ function findContainedRecord(
     }
   }
 
-  return { record: bestRecord, distanceKm: bestDistance };
+  return { match: { record: bestRecord, distanceKm: bestDistance }, warning: null };
 }
 
 function toLookupResult(
@@ -367,11 +396,18 @@ function toLookupResult(
 
 export interface GspLookupResult extends GspRegion {
   distance_km: number;
+  /** Non-fatal diagnostics from the lookup (polygon fetch failure, code-mismatch). Present only when the polygon path degraded. */
+  warnings?: string[];
 }
 
 /**
  * Find the GSP region for a given lat/lon using polygon containment when available.
  * Falls back to the nearest GSP reference point within `radiusKm` (default 50).
+ *
+ * Non-fatal degradations of the polygon path (ZIP fetch failure, parse failure,
+ * boundary-code-to-CSV-record mismatch) are surfaced via `result.warnings`. The
+ * lookup still returns a nearest-point fallback result in those cases — the
+ * warnings exist so callers can record the degradation in their confidence_notes.
  */
 export async function lookupGspRegion(
   lat: number,
@@ -379,19 +415,32 @@ export async function lookupGspRegion(
   radiusKm: number = DEFAULT_RADIUS_KM,
 ): Promise<GspLookupResult | null> {
   const records = await fetchGspRecords();
-  const boundaries = await fetchGspBoundaries();
+  const boundaryOutcome = await fetchGspBoundaries();
+  const warnings: string[] = [];
+  if (boundaryOutcome.warning) warnings.push(boundaryOutcome.warning);
 
-  const contained = findContainedRecord(records, boundaries, lat, lon);
-  if (contained) {
-    return toLookupResult(contained);
+  const contained = findContainedRecord(records, boundaryOutcome.boundaries, lat, lon);
+  if (contained.warning) warnings.push(contained.warning);
+
+  const attachWarnings = (result: GspLookupResult): GspLookupResult =>
+    warnings.length > 0 ? { ...result, warnings } : result;
+
+  if (contained.match) {
+    return attachWarnings(toLookupResult(contained.match));
   }
 
   const nearest = findNearestRecord(records, lat, lon);
   if (!nearest || nearest.distanceKm > radiusKm) {
+    // Log to stderr for operator visibility when the lookup returns null after
+    // a degraded polygon path. Downstream tools get a null result plus an
+    // existing "No GSP found" confidence note either way.
+    if (warnings.length > 0) {
+      console.error("[luminus] lookupGspRegion returned null after polygon-path warnings:", warnings.join(" | "));
+    }
     return null;
   }
 
-  return toLookupResult(nearest);
+  return attachWarnings(toLookupResult(nearest));
 }
 
 /** Reset cache — exposed for tests. */

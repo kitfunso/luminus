@@ -46,6 +46,14 @@ describe("verifyGisSources", () => {
       if (url.includes("api.neso.energy") && url.includes("gsp_gnode")) {
         return { ok: true, status: 200, text: async () => "gsp_id,gsp_name,gsp_lat,gsp_lon\nGSP1,TEST,51.5,-0.1" };
       }
+      if (url.includes("api.neso.energy") && url.includes("package_show")) {
+        return makeOkResponse({
+          success: true,
+          result: {
+            resources: [{ name: "gsp_regions_20251204", format: "ZIP" }],
+          },
+        });
+      }
       if (url.includes("api.neso.energy")) {
         return makeOkResponse({ success: true, result: { records: [{}] } });
       }
@@ -111,9 +119,9 @@ describe("verifyGisSources", () => {
     const result = await verifyGisSources({});
 
     expect(result.checked_at).toBeDefined();
-    expect(result.sources.length).toBe(20);
-    expect(result.summary.total).toBe(20);
-    expect(result.summary.ok).toBe(20);
+    expect(result.sources.length).toBe(21);
+    expect(result.summary.total).toBe(21);
+    expect(result.summary.ok).toBe(21);
     expect(result.summary.degraded).toBe(0);
     expect(result.summary.unreachable).toBe(0);
   });
@@ -210,6 +218,14 @@ describe("verifyGisSources", () => {
       if (url.includes("api.neso.energy") && url.includes("gsp_gnode")) {
         return { ok: true, status: 200, text: async () => "gsp_id,gsp_name,gsp_lat,gsp_lon\nGSP1,TEST,51.5,-0.1" };
       }
+      if (url.includes("api.neso.energy") && url.includes("package_show")) {
+        return makeOkResponse({
+          success: true,
+          result: {
+            resources: [{ name: "gsp_regions_20251204", format: "ZIP" }],
+          },
+        });
+      }
       if (url.includes("api.neso.energy")) {
         return makeOkResponse({ success: true, result: { records: [{}] } });
       }
@@ -272,10 +288,10 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    // ok: open-meteo, neso-gsp-lookup, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, enwl-pry, enwl-ecr, ukpn-flex, spen-flex, eea-natura2000, corine, pvgis = 14
+    // ok: open-meteo, neso-gsp-lookup, neso-gsp-boundaries, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, enwl-pry, enwl-ecr, ukpn-flex, spen-flex, eea-natura2000, corine, pvgis = 15
     // degraded: overpass (429), ea-flood-map (500), plus the two NGED source checks = 4
     // unreachable: natural-england, natural-england-alc (arcgis.com network failure) = 2
-    expect(result.summary.ok).toBe(14);
+    expect(result.summary.ok).toBe(15);
     expect(result.summary.degraded).toBe(4);
     expect(result.summary.unreachable).toBe(2);
   });

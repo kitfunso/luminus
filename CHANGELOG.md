@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.1 - 2026-04-21
+
+Critical fix for a GB GSP lookup bug that shipped in 0.5.0, plus post-0.5.0 polish: Python SDK parity, a connection-intelligence notebook, a GB bounding-box guard, and surfacing of previously-silent polygon-path degradations.
+
+### Fixed
+- **Critical: `lookupGspRegion()` returned `WALP_1` (Walpole, Norfolk) for every GB coordinate.** `pointOnSegment()` in `src/lib/neso-gsp.ts` treated the closed-ring degenerate zero-length segment (GeoJSON rings repeat the first vertex as the last) as containing every point, so `pointInRing` short-circuited to `true` on the closing edge before ray-casting ran. The first feature to be checked (WALP_1 early in iteration order) always won. Fix: early-return `false` when `squaredLength < 1e-18` so degenerate segments are treated as points, not segments. Bug shipped in 0.5.0 (and likely earlier). Caught by a live end-to-end smoke against real NESO data, not by existing mocked unit tests.
+- Impact of the fix: `get_grid_connection_intelligence`, `get_site_connection_report`, and `shortlist_bess_sites` now return the correct nearest GSP, TEC queue data for the right GSP, and DNO headroom for the right area. Verified end-to-end against Berkswell (-> BESW_1 @ 1.83 km), Canary Wharf (-> WHAM_1 @ 2.15 km), Birmingham (-> NECE_1 @ 3.49 km), and Manchester (-> STAL_1 @ 12.72 km).
+- New env-gated live integration test `src/lib/neso-gsp.integration.test.ts` hits real NESO data to assert known coordinates resolve correctly. Run with `LUMINUS_RUN_INTEGRATION=1`.
+- New mock-based regression test covering the closed-ring degenerate-segment case in `src/lib/neso-gsp.test.ts`.
+- **Silent polygon degradation now surfaces.** `fetchGspBoundaries()` previously swallowed all polygon-fetch/parse errors with an empty `catch { return []; }`, silently falling back to nearest-point CSV with no diagnostic. It now returns a structured outcome with a warning message. Separately, `findContainedRecord()` previously returned a silent null when a polygon contained the query point but its `GSPs` property codes did not match any CSV `gsp_name`; it now returns a warning naming the mismatched codes. Both warnings flow into `GspLookupResult.warnings` and are surfaced by `get_grid_connection_intelligence` and `get_nged_connection_signal` in their `confidence_notes`, so future NESO format changes stop being invisible.
+
+### Added
+- Python SDK parity for the 0.5.0 composite tools: `get_site_connection_report_snapshot` and `get_gate2_readiness_check_snapshot` on the `Luminus` client, plus typed `SiteConnectionReportSnapshot`, `Gate2ReadinessCheckSnapshot`, `CanonicalConnectionEntrySnapshot`, `Gate2ReadinessProject`, `Gate2ReadinessRuleResult`, and `Gate2ReadinessSummary` dataclasses.
+- `luminus-py` bumped to `0.5.0` in lockstep with `luminus-mcp@0.5.0`.
+- New Jupyter notebook `python/examples/connection_intelligence_workflow.ipynb` walking through `get_site_connection_report` + `get_gate2_readiness_check` against a Berkswell GSP test site, via the new Python helpers.
+- New health check for `neso-gsp-boundaries` in `verify_gis_sources` — validates that the NESO GSP dataset still publishes a ZIP resource with the region-boundary GeoJSON (the runtime hardcodes the current ZIP URL by filename, so any rotation that drops the resource now surfaces here instead of silently falling back to nearest-point CSV).
+
+### Changed
+- `get_site_connection_report` now rejects coordinates outside a generous GB bounding box (49.5 to 61.0 lat, -8.5 to 2.0 lon) with a clear error pointing EU callers to `screen_site`. Previously the tool silently returned a mostly-empty "GB" report for EU coordinates.
+- `compare_sites` disclaimer and `heuristics_used` now explicitly state that the scoring weights are judgment-based and have not been calibrated against realised project outcomes. No weight changes.
+- `docs/gis-roadmap.md` updated with the GB-only constraint on `get_site_connection_report`, the `compare_sites` calibration caveat, and the expanded `verify_gis_sources` coverage (21 sources total).
+
+### Verification
+- 375 JS tests passed across 36 test files + 2 env-gated integration tests (was 368 at 0.5.0; +4 regression tests covering the closed-ring bug, polygon-fetch failure, code-mismatch, clean-path warnings, and +2 tool-level warning flow tests, +1 GB bbox regression)
+- 33 Python tests passed (was 29 at 0.5.0; four new tests covering the two new snapshot helpers)
+- TypeScript build clean
+- Live integration passes: Berkswell -> BESW_1 (1.83 km), Canary Wharf -> WHAM_1 (2.15 km)
+
+For the fuller narrative, see [`docs/releases/0.5.1.md`](docs/releases/0.5.1.md).
+
 ## 0.5.0 - 2026-04-21
 
 GB connection-intelligence tranche: canonical connections schema, composite site report, and a transparent Gate 2 readiness checklist.

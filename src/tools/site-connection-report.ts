@@ -37,6 +37,16 @@ const DEFAULT_RADIUS_KM = 25;
 const MAX_RADIUS_KM = 50;
 const TOP_TEC_ENTRIES = 5;
 
+// Generous GB bounding box (Isles of Scilly to Shetland, west of Ireland to
+// eastern England). Coordinates outside this box cannot return a meaningful
+// GB connection-intelligence report — every upstream is GB-only today.
+const GB_BBOX = {
+  min_lat: 49.5,
+  max_lat: 61.0,
+  min_lon: -8.5,
+  max_lon: 2.0,
+} as const;
+
 const DISCLAIMER =
   "This report is based on public data snapshots and is not a connection offer, capacity guarantee, " +
   "or Gate 2 decision. Rules and datasets change frequently; always verify with the relevant " +
@@ -289,6 +299,20 @@ export async function getSiteConnectionReport(
   if (lon < -180 || lon > 180) throw new Error("Longitude must be between -180 and 180.");
   if (radiusKm <= 0 || radiusKm > MAX_RADIUS_KM) {
     throw new Error(`radius_km must be between 0 and ${MAX_RADIUS_KM}.`);
+  }
+  if (
+    lat < GB_BBOX.min_lat ||
+    lat > GB_BBOX.max_lat ||
+    lon < GB_BBOX.min_lon ||
+    lon > GB_BBOX.max_lon
+  ) {
+    throw new Error(
+      `Coordinates (${lat}, ${lon}) are outside Great Britain. ` +
+        "get_site_connection_report is GB-only because every connection-intelligence upstream " +
+        "(NESO GSP polygons, TEC register, DNO headroom, NGED queue, Natural England constraints, " +
+        "Environment Agency flood map) is GB-only. For EU sites use screen_site with country set " +
+        "to the relevant ISO code.",
+    );
   }
 
   const [gridResult, landResult, floodResult, alcResult] = await Promise.allSettled([

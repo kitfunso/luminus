@@ -28,7 +28,7 @@ You also need `luminus-mcp` itself available on your machine, because the Python
 npm install -g luminus-mcp
 ```
 
-Current published versions: `luminus-mcp@0.5.0` and `luminus-py==0.4.1`.
+Current published versions: `luminus-mcp@0.5.1` and `luminus-py==0.5.0`.
 
 ## API keys
 
@@ -96,6 +96,7 @@ Polished notebook demos live in [`examples/`](examples/):
 - [Trader workflow](examples/trader_workflow.ipynb)
 - [GIS siting workflow](examples/gis_siting_workflow.ipynb)
 - [BESS shortlist workflow](examples/bess_shortlist_workflow.ipynb)
+- [GB connection intelligence workflow](examples/connection_intelligence_workflow.ipynb)
 
 ## Notebook-first helpers
 

@@ -4,10 +4,12 @@ import pytest
 
 from luminus import (
     BessSiteShortlistSnapshot,
+    CanonicalConnectionEntrySnapshot,
     ConstraintBreachesSnapshot,
     DistributionHeadroomSnapshot,
     EcrSnapshot,
     FlexMarketSnapshot,
+    Gate2ReadinessCheckSnapshot,
     GridConnectionIntelligenceSnapshot,
     GridConnectionQueueSnapshot,
     GridProximitySnapshot,
@@ -16,6 +18,7 @@ from luminus import (
     LuminusStartupError,
     LuminusUpstreamError,
     NgedConnectionSignalSnapshot,
+    SiteConnectionReportSnapshot,
     SiteRevenueEstimate,
     SpenGridSnapshot,
     TerrainSnapshot,
@@ -426,6 +429,143 @@ def test_verify_gis_sources_helper():
 def test_startup_failures_raise_startup_error():
     with pytest.raises(LuminusStartupError):
         Luminus(command=["python", "-c", "import sys; sys.exit(2)"])
+
+
+def test_site_connection_report_snapshot_helper():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        snapshot = client.get_site_connection_report_snapshot(
+            lat=50.84,
+            lon=-1.08,
+            capacity_kind="storage",
+            project_name="Lovedean BESS",
+        )
+        assert isinstance(snapshot, SiteConnectionReportSnapshot)
+        assert snapshot.project_name == "Lovedean BESS"
+        assert snapshot.lat == 50.84
+        assert snapshot.lon == -1.08
+        assert snapshot.capacity_kind == "storage"
+        assert snapshot.radius_km == 25
+        assert snapshot.traffic_lights.queue == "green"
+        assert snapshot.traffic_lights.headroom == "green"
+        assert snapshot.traffic_lights.land_constraints == "green"
+
+        assert snapshot.structured.nearest_gsp is not None
+        assert snapshot.structured.nearest_gsp.gsp_name == "LOVE_1"
+        assert snapshot.structured.nearest_gsp.distance_km == 6.3
+
+        assert snapshot.structured.tec_queue.total_mw_queued == 0
+        assert snapshot.structured.tec_queue.project_count == 0
+        assert len(snapshot.structured.tec_queue.top_entries) == 1
+        entry = snapshot.structured.tec_queue.top_entries[0]
+        assert isinstance(entry, CanonicalConnectionEntrySnapshot)
+        assert entry.source == "neso-tec"
+        assert entry.mw_capacity == 150.0
+        assert entry.connection_site == "Lovedean GSP"
+
+        assert snapshot.structured.dno_headroom.operator == "SSEN"
+        assert snapshot.structured.dno_headroom.substation == "Portsmouth"
+        assert snapshot.structured.dno_headroom.canonical is not None
+        assert snapshot.structured.dno_headroom.canonical.source == "ssen"
+
+        assert snapshot.structured.nged_context is not None
+        assert snapshot.structured.nged_context.queue_matched_projects == 0
+        assert snapshot.structured.nged_context.td_max_export_mw == 63.9
+
+        assert snapshot.structured.constraints.protected_area.flag is False
+        assert snapshot.structured.constraints.flood.flag is False
+        assert snapshot.structured.constraints.alc_grade.flag is False
+
+        assert len(snapshot.confidence_notes) == 2
+        assert isinstance(snapshot.confidence_notes, tuple)
+        assert snapshot.disclaimer == "Planning signal only."
+        assert "grid_connection_intelligence" in snapshot.source_metadata
+    finally:
+        client.close()
+
+
+def test_site_connection_report_snapshot_handles_missing_nested_fields():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        snapshot = client.get_site_connection_report_snapshot(
+            lat=50.84,
+            lon=-1.08,
+            capacity_kind="generation",
+        )
+        # Ensure that when canonical/nearest_gsp are present we parse them,
+        # and that from_dict works end-to-end from a realistic payload.
+        assert snapshot.structured.tec_queue.top_entries[0].lifecycle_stage == "queued"
+        # Frozen dataclass should reject attribute mutation.
+        with pytest.raises((AttributeError, TypeError)):
+            snapshot.lat = 0.0  # type: ignore[misc]
+    finally:
+        client.close()
+
+
+def test_gate2_readiness_check_snapshot_helper():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        snapshot = client.get_gate2_readiness_check_snapshot(
+            project_name="Test BESS",
+            technology="battery",
+            capacity_mw=50.0,
+            planning_status="granted",
+            land_rights_status="lease",
+            nominated_connection_point="Berkswell GSP",
+            grid_reference="SP123456",
+            target_energisation_year=2028,
+        )
+        assert isinstance(snapshot, Gate2ReadinessCheckSnapshot)
+
+        assert snapshot.project.name == "Test BESS"
+        assert snapshot.project.technology == "battery"
+        assert snapshot.project.capacity_mw == 50.0
+        assert snapshot.project.planning_status == "granted"
+        assert snapshot.project.land_rights_status == "lease"
+        assert snapshot.project.nominated_connection_point == "Berkswell GSP"
+        assert snapshot.project.grid_reference == "SP123456"
+        assert snapshot.project.target_energisation_year == 2028
+        assert snapshot.project.connection_voltage_kv is None
+
+        assert isinstance(snapshot.results, tuple)
+        assert len(snapshot.results) == 3
+        first = snapshot.results[0]
+        assert first.rule_id == "gate2.technology_declared"
+        assert first.status == "pass"
+        assert first.category == "technology"
+        assert first.severity == "required"
+        assert first.reference_url.startswith("https://")
+
+        assert snapshot.summary.pass_ == 3
+        assert snapshot.summary.warn == 0
+        assert snapshot.summary.fail == 0
+        assert snapshot.summary.not_applicable == 0
+        assert snapshot.summary.total == 3
+
+        assert snapshot.source_metadata["id"] == "gate2-rules-v0"
+        assert snapshot.disclaimer == "Not a Gate 2 decision."
+        assert isinstance(snapshot.confidence_notes, tuple)
+        assert len(snapshot.confidence_notes) == 2
+    finally:
+        client.close()
+
+
+def test_gate2_readiness_check_snapshot_is_frozen():
+    client = Luminus(command=["python", str(FAKE_SERVER)])
+    try:
+        snapshot = client.get_gate2_readiness_check_snapshot(
+            project_name="Test BESS",
+            technology="battery",
+            capacity_mw=50.0,
+            planning_status="granted",
+            land_rights_status="lease",
+        )
+        with pytest.raises((AttributeError, TypeError)):
+            snapshot.disclaimer = "tampered"  # type: ignore[misc]
+        with pytest.raises((AttributeError, TypeError)):
+            snapshot.results[0].status = "fail"  # type: ignore[misc]
+    finally:
+        client.close()
 
 
 def test_real_luminus_server_smoke():

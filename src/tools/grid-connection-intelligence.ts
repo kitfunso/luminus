@@ -105,6 +105,8 @@ function buildConfidenceNotes(gspResult: GspLookupResult | null): string[] {
 
   if (!gspResult) {
     notes.push("No GSP found within search radius");
+  } else if (gspResult.warnings) {
+    for (const warning of gspResult.warnings) notes.push(warning);
   }
 
   return notes;

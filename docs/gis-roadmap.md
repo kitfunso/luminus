@@ -52,11 +52,14 @@ The rationale is honest evidence: we do not have the training data to justify a 
 4. [x] Build a ranked BESS site-screening flow that combines `screen_site` / `compare_sites` with storage-specific economics and queue signals for shortlist generation
    shipped: `shortlist_bess_sites` reuses `compare_sites`, `estimate_site_revenue`, `get_grid_connection_intelligence`, and `get_distribution_headroom` for a GB-only shortlist with transparent scoring and optional SSEN DNO context
 5. [ ] Revisit `compare_sites` scoring weights after real usage feedback
+   partial: weights are now flagged inline as judgment-based heuristics (not calibrated against realised outcomes); actual reweighting waits for real usage evidence
 6. [ ] Decide where larger pre-processed GIS assets should live if spatial indexing becomes necessary
 7. [x] Upgrade GSP lookup from nearest-point to polygon containment
    shipped: runtime fetch of NESO's WGS84 boundary GeoJSON from the official ZIP, polygon containment first, nearest-point fallback for unresolved matches
 8. [x] Explore DNO-level open data (UKPN, NGED, SSEN, NPG) for distribution-level capacity signals
    shipped: SSEN (public, no key), Northern Powergrid (public, no key), UKPN DFES (free key), and SPEN NSHR (free key) all wired into `get_distribution_headroom`; NGED public per-GSP queue and TD-limit datasets wired into `get_nged_connection_signal`; UKPN and SPEN portals require free registration for API access
+9. [x] Surface stale upstream schemas through `verify_gis_sources`
+   shipped: health checks now cover all 5 GB DNO headroom portals, NESO GSP CSV lookup, NESO GSP boundary ZIP package, NGED queue, NGED TD-limits, UKPN/SPEN flex dispatch, and ENWL ECR (21 sources total)
 
 ## Key constraints and caveats
 
@@ -67,6 +70,8 @@ The rationale is honest evidence: we do not have the training data to justify a 
 - `get_grid_connection_queue` is **NESO transmission-register only**, not a GB-wide DNO headroom map.
 - `get_distribution_headroom` supports **all 5 GB DNOs with public data: SSEN, NPG, UKPN, SPEN, and ENWL**. SSEN and NPG are fully public; UKPN, SPEN, and ENWL require free portal registration. SPEN has no substation coordinates (returns alphabetically).
 - `get_nged_connection_signal` is **NGED-only** today. It returns public per-GSP queue and TD-limit signals, not DNO headroom or a connection offer.
+- `get_site_connection_report` is **GB-only** because every upstream (NESO GSP polygons, TEC register, DNO headroom, NGED queue, Natural England constraints, Environment Agency flood map) is GB-only. Coordinates outside the GB bounding box are rejected with a pointer to `screen_site` for EU sites. An EU equivalent would need TYNDP project data and equivalent constraint layers integrated first.
+- `compare_sites` scoring weights are judgment-based heuristics and are **not calibrated against realised project outcomes**. Treat rankings as a first-pass sort, not an investment signal.
 - `get_embedded_capacity_register`, `get_flexibility_market`, `get_constraint_breaches`, `get_spen_grid_intelligence`, and `get_ukpn_grid_overview` all require **free API keys** from their respective OpenDataSoft portals.
 - Public GIS services can change field names, service structure, or uptime without warning.
 - Queue or contracted-capacity signals are **not** the same as a guaranteed connection offer.

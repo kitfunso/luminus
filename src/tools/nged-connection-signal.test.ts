@@ -290,6 +290,28 @@ describe("getNgedConnectionSignal", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("surfaces lookupGspRegion warnings in confidence_notes", async () => {
+    mockLookupGspRegion.mockResolvedValue({
+      ...MOCK_GSP_RESULT,
+      warnings: [
+        "NESO GSP boundary contains point but its codes [GHOST_1] do not match any CSV record. Falling back to nearest-point.",
+      ],
+    });
+    mockFetchSuccess();
+
+    const result = await getNgedConnectionSignal({
+      lat: 52.39,
+      lon: -1.64,
+      country: "GB",
+    });
+
+    expect(
+      result.confidence_notes.some((note) =>
+        note.includes("do not match any CSV record") && note.includes("GHOST_1"),
+      ),
+    ).toBe(true);
+  });
+
   it("returns null NGED sections when the matched GSP is outside NGED public coverage", async () => {
     mockLookupGspRegion.mockResolvedValue({
       ...MOCK_GSP_RESULT,

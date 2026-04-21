@@ -29,10 +29,12 @@ from .models import (
     DistributionHeadroomSnapshot,
     EcrSnapshot,
     FlexMarketSnapshot,
+    Gate2ReadinessCheckSnapshot,
     GridConnectionIntelligenceSnapshot,
     GridConnectionQueueSnapshot,
     GridProximitySnapshot,
     NgedConnectionSignalSnapshot,
+    SiteConnectionReportSnapshot,
     SiteRevenueEstimate,
     SpenGridSnapshot,
     TerrainSnapshot,
@@ -42,7 +44,7 @@ from .result import LuminusResult
 
 DEFAULT_PROTOCOL_VERSION = "2025-03-26"
 DEFAULT_CLIENT_NAME = "luminus-py"
-DEFAULT_CLIENT_VERSION = "0.4.1"
+DEFAULT_CLIENT_VERSION = "0.5.0"
 
 _ACTIVE_CLIENTS: "weakref.WeakSet[Luminus]" = weakref.WeakSet()
 
@@ -269,6 +271,16 @@ class Luminus:
     def get_grid_connection_intelligence_snapshot(self, **arguments: Any) -> GridConnectionIntelligenceSnapshot:
         return self.call_tool("get_grid_connection_intelligence", arguments).to_model(
             GridConnectionIntelligenceSnapshot
+        )
+
+    def get_site_connection_report_snapshot(self, **arguments: Any) -> SiteConnectionReportSnapshot:
+        return self.call_tool("get_site_connection_report", arguments).to_model(
+            SiteConnectionReportSnapshot
+        )
+
+    def get_gate2_readiness_check_snapshot(self, **arguments: Any) -> Gate2ReadinessCheckSnapshot:
+        return self.call_tool("get_gate2_readiness_check", arguments).to_model(
+            Gate2ReadinessCheckSnapshot
         )
 
     def estimate_site_revenue_frame(self, **arguments: Any):

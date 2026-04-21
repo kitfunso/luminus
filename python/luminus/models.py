@@ -872,3 +872,346 @@ class BessSiteShortlistSnapshot:
             total_shortlisted=int(payload.get("total_shortlisted", 0)),
             shortlist=[dict(item) for item in payload.get("shortlist", [])],
         )
+
+
+# ---------------------------------------------------------------------------
+# Site Connection Report
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CanonicalConnectionEntrySnapshot:
+    source: str
+    source_row_id: str
+    connection_site: str
+    capacity_kind: str
+    lifecycle_stage: str
+    gsp_name_raw: str | None
+    gsp_id_normalised: str | None
+    mw_capacity: float | None
+    mva_capacity: float | None
+    agreement_type: str | None
+    application_date: str | None
+    mw_connection_date: str | None
+    status_text_raw: str | None
+    raw: Mapping[str, Any]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "CanonicalConnectionEntrySnapshot":
+        return cls(
+            source=str(payload.get("source", "")),
+            source_row_id=str(payload.get("source_row_id", "")),
+            connection_site=str(payload.get("connection_site", "")),
+            capacity_kind=str(payload.get("capacity_kind", "unknown")),
+            lifecycle_stage=str(payload.get("lifecycle_stage", "unknown")),
+            gsp_name_raw=payload.get("gsp_name_raw"),
+            gsp_id_normalised=payload.get("gsp_id_normalised"),
+            mw_capacity=_optional_float(payload.get("mw_capacity")),
+            mva_capacity=_optional_float(payload.get("mva_capacity")),
+            agreement_type=payload.get("agreement_type"),
+            application_date=payload.get("application_date"),
+            mw_connection_date=payload.get("mw_connection_date"),
+            status_text_raw=payload.get("status_text_raw"),
+            raw=dict(payload.get("raw", {})),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConnectionReportTrafficLights:
+    queue: str
+    headroom: str
+    land_constraints: str
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SiteConnectionReportTrafficLights":
+        return cls(
+            queue=str(payload.get("queue", "unknown")),
+            headroom=str(payload.get("headroom", "unknown")),
+            land_constraints=str(payload.get("land_constraints", "unknown")),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConnectionReportConstraintFlag:
+    flag: bool
+    reason: str | None
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SiteConnectionReportConstraintFlag":
+        return cls(
+            flag=bool(payload.get("flag", False)),
+            reason=payload.get("reason"),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConnectionReportNearestGsp:
+    gsp_id: str
+    gsp_name: str
+    region_name: str
+    distance_km: float
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SiteConnectionReportNearestGsp":
+        return cls(
+            gsp_id=str(payload["gsp_id"]),
+            gsp_name=str(payload["gsp_name"]),
+            region_name=str(payload["region_name"]),
+            distance_km=float(payload["distance_km"]),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConnectionReportTecQueue:
+    total_mw_queued: float | None
+    project_count: int | None
+    top_entries: tuple[CanonicalConnectionEntrySnapshot, ...]
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SiteConnectionReportTecQueue":
+        return cls(
+            total_mw_queued=_optional_float(payload.get("total_mw_queued")),
+            project_count=_optional_int(payload.get("project_count")),
+            top_entries=tuple(
+                CanonicalConnectionEntrySnapshot.from_dict(item)
+                for item in payload.get("top_entries", [])
+                if isinstance(item, Mapping)
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConnectionReportDnoHeadroom:
+    operator: str | None
+    substation: str | None
+    distance_km: float | None
+    generation_headroom_mw: float | None
+    demand_headroom_mva: float | None
+    generation_rag_status: str | None
+    demand_rag_status: str | None
+    canonical: CanonicalConnectionEntrySnapshot | None
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SiteConnectionReportDnoHeadroom":
+        canonical_payload = payload.get("canonical")
+        return cls(
+            operator=payload.get("operator"),
+            substation=payload.get("substation"),
+            distance_km=_optional_float(payload.get("distance_km")),
+            generation_headroom_mw=_optional_float(payload.get("generation_headroom_mw")),
+            demand_headroom_mva=_optional_float(payload.get("demand_headroom_mva")),
+            generation_rag_status=payload.get("generation_rag_status"),
+            demand_rag_status=payload.get("demand_rag_status"),
+            canonical=(
+                CanonicalConnectionEntrySnapshot.from_dict(canonical_payload)
+                if isinstance(canonical_payload, Mapping)
+                else None
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConnectionReportNgedContext:
+    queue_matched_projects: int | None
+    queue_total_mw_export: float | None
+    td_limits_resource: str | None
+    td_max_export_mw: float | None
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SiteConnectionReportNgedContext":
+        return cls(
+            queue_matched_projects=_optional_int(payload.get("queue_matched_projects")),
+            queue_total_mw_export=_optional_float(payload.get("queue_total_mw_export")),
+            td_limits_resource=payload.get("td_limits_resource"),
+            td_max_export_mw=_optional_float(payload.get("td_max_export_mw")),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConnectionReportConstraints:
+    protected_area: SiteConnectionReportConstraintFlag
+    flood: SiteConnectionReportConstraintFlag
+    alc_grade: SiteConnectionReportConstraintFlag
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SiteConnectionReportConstraints":
+        return cls(
+            protected_area=SiteConnectionReportConstraintFlag.from_dict(
+                dict(payload.get("protected_area", {}))
+            ),
+            flood=SiteConnectionReportConstraintFlag.from_dict(dict(payload.get("flood", {}))),
+            alc_grade=SiteConnectionReportConstraintFlag.from_dict(
+                dict(payload.get("alc_grade", {}))
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConnectionReportStructured:
+    nearest_gsp: SiteConnectionReportNearestGsp | None
+    tec_queue: SiteConnectionReportTecQueue
+    dno_headroom: SiteConnectionReportDnoHeadroom
+    nged_context: SiteConnectionReportNgedContext | None
+    constraints: SiteConnectionReportConstraints
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SiteConnectionReportStructured":
+        nearest_gsp_payload = payload.get("nearest_gsp")
+        nged_context_payload = payload.get("nged_context")
+        return cls(
+            nearest_gsp=(
+                SiteConnectionReportNearestGsp.from_dict(nearest_gsp_payload)
+                if isinstance(nearest_gsp_payload, Mapping)
+                else None
+            ),
+            tec_queue=SiteConnectionReportTecQueue.from_dict(
+                dict(payload.get("tec_queue", {}))
+            ),
+            dno_headroom=SiteConnectionReportDnoHeadroom.from_dict(
+                dict(payload.get("dno_headroom", {}))
+            ),
+            nged_context=(
+                SiteConnectionReportNgedContext.from_dict(nged_context_payload)
+                if isinstance(nged_context_payload, Mapping)
+                else None
+            ),
+            constraints=SiteConnectionReportConstraints.from_dict(
+                dict(payload.get("constraints", {}))
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class SiteConnectionReportSnapshot:
+    project_name: str | None
+    lat: float
+    lon: float
+    capacity_kind: str
+    radius_km: float
+    summary: str
+    structured: SiteConnectionReportStructured
+    traffic_lights: SiteConnectionReportTrafficLights
+    traffic_light_thresholds: Mapping[str, Any]
+    source_metadata: Mapping[str, Any]
+    confidence_notes: tuple[str, ...]
+    disclaimer: str
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "SiteConnectionReportSnapshot":
+        return cls(
+            project_name=payload.get("project_name"),
+            lat=float(payload["lat"]),
+            lon=float(payload["lon"]),
+            capacity_kind=str(payload.get("capacity_kind", "")),
+            radius_km=float(payload.get("radius_km", 0.0)),
+            summary=str(payload.get("summary", "")),
+            structured=SiteConnectionReportStructured.from_dict(
+                dict(payload.get("structured", {}))
+            ),
+            traffic_lights=SiteConnectionReportTrafficLights.from_dict(
+                dict(payload.get("traffic_lights", {}))
+            ),
+            traffic_light_thresholds=dict(payload.get("traffic_light_thresholds", {})),
+            source_metadata=dict(payload.get("source_metadata", {})),
+            confidence_notes=tuple(str(item) for item in payload.get("confidence_notes", [])),
+            disclaimer=str(payload.get("disclaimer", "")),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Gate 2 Readiness Check
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Gate2ReadinessProject:
+    name: str
+    technology: str
+    capacity_mw: float
+    connection_voltage_kv: float | None
+    planning_status: str
+    land_rights_status: str
+    nominated_connection_point: str | None
+    grid_reference: str | None
+    target_energisation_year: int | None
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "Gate2ReadinessProject":
+        return cls(
+            name=str(payload.get("name", "")),
+            technology=str(payload.get("technology", "")),
+            capacity_mw=float(payload.get("capacity_mw", 0.0)),
+            connection_voltage_kv=_optional_float(payload.get("connection_voltage_kv")),
+            planning_status=str(payload.get("planning_status", "")),
+            land_rights_status=str(payload.get("land_rights_status", "")),
+            nominated_connection_point=payload.get("nominated_connection_point"),
+            grid_reference=payload.get("grid_reference"),
+            target_energisation_year=_optional_int(payload.get("target_energisation_year")),
+        )
+
+
+@dataclass(frozen=True)
+class Gate2ReadinessRuleResult:
+    rule_id: str
+    label: str
+    category: str
+    severity: str
+    status: str
+    reason: str
+    reference_url: str
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "Gate2ReadinessRuleResult":
+        return cls(
+            rule_id=str(payload.get("rule_id", "")),
+            label=str(payload.get("label", "")),
+            category=str(payload.get("category", "")),
+            severity=str(payload.get("severity", "")),
+            status=str(payload.get("status", "")),
+            reason=str(payload.get("reason", "")),
+            reference_url=str(payload.get("reference_url", "")),
+        )
+
+
+@dataclass(frozen=True)
+class Gate2ReadinessSummary:
+    pass_: int
+    warn: int
+    fail: int
+    not_applicable: int
+    total: int
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "Gate2ReadinessSummary":
+        return cls(
+            pass_=int(payload.get("pass", 0)),
+            warn=int(payload.get("warn", 0)),
+            fail=int(payload.get("fail", 0)),
+            not_applicable=int(payload.get("not_applicable", 0)),
+            total=int(payload.get("total", 0)),
+        )
+
+
+@dataclass(frozen=True)
+class Gate2ReadinessCheckSnapshot:
+    project: Gate2ReadinessProject
+    results: tuple[Gate2ReadinessRuleResult, ...]
+    summary: Gate2ReadinessSummary
+    confidence_notes: tuple[str, ...]
+    source_metadata: Mapping[str, Any]
+    disclaimer: str
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "Gate2ReadinessCheckSnapshot":
+        return cls(
+            project=Gate2ReadinessProject.from_dict(dict(payload.get("project", {}))),
+            results=tuple(
+                Gate2ReadinessRuleResult.from_dict(item)
+                for item in payload.get("results", [])
+                if isinstance(item, Mapping)
+            ),
+            summary=Gate2ReadinessSummary.from_dict(dict(payload.get("summary", {}))),
+            confidence_notes=tuple(str(item) for item in payload.get("confidence_notes", [])),
+            source_metadata=dict(payload.get("source_metadata", {})),
+            disclaimer=str(payload.get("disclaimer", "")),
+        )

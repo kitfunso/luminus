@@ -33,6 +33,16 @@ TOOLS = [
     {"name": "get_land_constraints", "description": "fake land constraints", "inputSchema": {}},
     {"name": "shortlist_bess_sites", "description": "fake BESS shortlist", "inputSchema": {}},
     {"name": "verify_gis_sources", "description": "fake GIS sources", "inputSchema": {}},
+    {
+        "name": "get_site_connection_report",
+        "description": "fake site connection report",
+        "inputSchema": {},
+    },
+    {
+        "name": "get_gate2_readiness_check",
+        "description": "fake gate 2 readiness check",
+        "inputSchema": {},
+    },
 ]
 
 
@@ -709,6 +719,159 @@ for line in sys.stdin:
                     {"source_name": "LIDAR DTM", "status": "OK", "last_updated": "2026-03-28"},
                     {"source_name": "EA Flood Map", "status": "Degraded", "last_updated": "2026-03-15"},
                 ],
+            }
+        elif name == "get_site_connection_report":
+            payload = {
+                "project_name": args.get("project_name", "Lovedean BESS"),
+                "lat": args.get("lat", 50.84),
+                "lon": args.get("lon", -1.08),
+                "capacity_kind": args.get("capacity_kind", "storage"),
+                "radius_km": args.get("radius_km", 25),
+                "summary": "# Site connection report: Lovedean BESS\nCoordinates: 50.84000, -1.08000 (WGS84).",
+                "structured": {
+                    "nearest_gsp": {
+                        "gsp_id": "GSP-01",
+                        "gsp_name": "LOVE_1",
+                        "region_name": "Lovedean",
+                        "distance_km": 6.3,
+                    },
+                    "tec_queue": {
+                        "total_mw_queued": 0,
+                        "project_count": 0,
+                        "top_entries": [
+                            {
+                                "source": "neso-tec",
+                                "source_row_id": "neso-tec-001",
+                                "connection_site": "Lovedean GSP",
+                                "capacity_kind": "storage",
+                                "lifecycle_stage": "queued",
+                                "mw_capacity": 150.0,
+                                "status_text_raw": "Scoping",
+                                "raw": {"project_name": "Battery South"},
+                            }
+                        ],
+                    },
+                    "dno_headroom": {
+                        "operator": "SSEN",
+                        "substation": "Portsmouth",
+                        "distance_km": 2.1,
+                        "generation_headroom_mw": 18.5,
+                        "demand_headroom_mva": 9.0,
+                        "generation_rag_status": "Green",
+                        "demand_rag_status": "Amber",
+                        "canonical": {
+                            "source": "ssen",
+                            "source_row_id": "ssen-001",
+                            "connection_site": "Portsmouth",
+                            "capacity_kind": "generation",
+                            "lifecycle_stage": "energised",
+                            "mw_capacity": 18.5,
+                            "mva_capacity": 9.0,
+                            "raw": {"substation": "Portsmouth"},
+                        },
+                    },
+                    "nged_context": {
+                        "queue_matched_projects": 0,
+                        "queue_total_mw_export": 0.0,
+                        "td_limits_resource": "Lovedean Td Limits",
+                        "td_max_export_mw": 63.9,
+                    },
+                    "constraints": {
+                        "protected_area": {"flag": False, "reason": None},
+                        "flood": {"flag": False, "reason": None},
+                        "alc_grade": {"flag": False, "reason": None},
+                    },
+                },
+                "traffic_lights": {
+                    "queue": "green",
+                    "headroom": "green",
+                    "land_constraints": "green",
+                },
+                "traffic_light_thresholds": {
+                    "queue": ["green: zero queued MW", "unknown: any positive"],
+                    "headroom": ["green / amber / red: DNO RAG"],
+                    "land_constraints": ["red: hard exclusion", "green: no constraints"],
+                },
+                "source_metadata": {
+                    "grid_connection_intelligence": {
+                        "gsp_lookup": {"source": "fake-neso-gsp"},
+                        "tec_register": {"source": "fake-neso-tec"},
+                        "distribution_headroom": {"source": "fake-ssen"},
+                        "nged_queue_signal": {"source": "fake-nged-queue"},
+                    },
+                    "land_constraints": {"source": "fake-natural-england"},
+                    "flood_risk": {"source": "fake-ea-flood"},
+                    "agricultural_land": {"source": "fake-alc"},
+                },
+                "confidence_notes": [
+                    "Traffic lights use published upstream signals only.",
+                    "Report is a composition over existing Luminus tools.",
+                ],
+                "disclaimer": "Planning signal only.",
+            }
+        elif name == "get_gate2_readiness_check":
+            payload = {
+                "project": {
+                    "name": args.get("project_name", "Test BESS"),
+                    "technology": args.get("technology", "battery"),
+                    "capacity_mw": args.get("capacity_mw", 50.0),
+                    "connection_voltage_kv": args.get("connection_voltage_kv"),
+                    "planning_status": args.get("planning_status", "granted"),
+                    "land_rights_status": args.get("land_rights_status", "lease"),
+                    "nominated_connection_point": args.get(
+                        "nominated_connection_point", "Berkswell GSP"
+                    ),
+                    "grid_reference": args.get("grid_reference", "SP123456"),
+                    "target_energisation_year": args.get("target_energisation_year", 2028),
+                },
+                "results": [
+                    {
+                        "rule_id": "gate2.technology_declared",
+                        "label": "Technology type declared",
+                        "category": "technology",
+                        "severity": "required",
+                        "status": "pass",
+                        "reason": "Technology declared as battery.",
+                        "reference_url": "https://www.neso.energy/industry-information/connections",
+                    },
+                    {
+                        "rule_id": "gate2.capacity_declared",
+                        "label": "Capacity declared in MW",
+                        "category": "capacity",
+                        "severity": "required",
+                        "status": "pass",
+                        "reason": "Capacity declared as 50.0 MW.",
+                        "reference_url": "https://www.neso.energy/industry-information/connections",
+                    },
+                    {
+                        "rule_id": "gate2.planning_status_granted",
+                        "label": "Planning permission granted",
+                        "category": "planning",
+                        "severity": "required",
+                        "status": "pass",
+                        "reason": "Planning is granted.",
+                        "reference_url": "https://www.neso.energy/industry-information/connections-reform",
+                    },
+                ],
+                "summary": {
+                    "pass": 3,
+                    "warn": 0,
+                    "fail": 0,
+                    "not_applicable": 0,
+                    "total": 3,
+                },
+                "confidence_notes": [
+                    "Rules are public-sourced at a single point in time.",
+                    "Fields marked not_applicable are skipped, not inferred.",
+                ],
+                "source_metadata": {
+                    "id": "gate2-rules-v0",
+                    "name": "Gate 2 Readiness Rules (rules-based)",
+                    "provider": "Luminus",
+                    "url": "https://www.neso.energy/industry-information/connections-reform",
+                    "description": "Transparent checklist against public NESO sources.",
+                },
+                "disclaimer": "Not a Gate 2 decision.",
             }
         else:
             send(

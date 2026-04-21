@@ -410,4 +410,23 @@ describe("getSiteConnectionReport", () => {
       }),
     ).rejects.toThrow("radius_km must be between 0 and 50");
   });
+
+  it("rejects coordinates outside Great Britain with a pointer to screen_site", async () => {
+    await expect(
+      getSiteConnectionReport({
+        // Paris — valid lat/lon, outside GB bounding box.
+        lat: 48.85,
+        lon: 2.35,
+        capacity_kind: "generation",
+      }),
+    ).rejects.toThrow(/outside Great Britain/);
+
+    await expect(
+      getSiteConnectionReport({
+        lat: 48.85,
+        lon: 2.35,
+        capacity_kind: "generation",
+      }),
+    ).rejects.toThrow(/screen_site/);
+  });
 });

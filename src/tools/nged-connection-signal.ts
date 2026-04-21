@@ -463,6 +463,10 @@ function buildConfidenceNotes(
     return notes;
   }
 
+  if (gspResult.warnings) {
+    for (const warning of gspResult.warnings) notes.push(warning);
+  }
+
   if (queueStatus === "not_covered" && tdLimitStatus === "not_covered") {
     notes.push("Matched GSP is not covered by the current NGED public queue or TD-limit resources.");
   }

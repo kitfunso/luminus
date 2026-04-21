@@ -171,6 +171,24 @@ export const GIS_SOURCES: Readonly<Record<string, GisSourceMetadata>> = {
     ],
     attribution: "Contains data from the National Energy System Operator (NESO) GSP-Gnode lookup.",
   },
+  "neso-gsp-boundaries": {
+    id: "neso-gsp-boundaries",
+    name: "NESO GSP Region Boundaries (GeoJSON)",
+    provider: "National Energy System Operator (NESO)",
+    licence: "NESO Open Data Licence",
+    url: "https://api.neso.energy/dataset/2810092e-d4b2-472f-b955-d8bea01f9ec0",
+    api_key_required: false,
+    coverage: "Great Britain Grid Supply Point region polygons, WGS84",
+    update_frequency: "Updated when NESO republishes the GSP region boundary file",
+    reliability: "high",
+    caveats: [
+      "Published as a ZIP containing a GeoJSON feature collection of GSP polygons",
+      "Resource file name embeds a date (for example gsp_regions_20251204.zip) and rotates over time",
+      "The polygon path is a hard match; nearest-point CSV fallback runs when a point does not fall inside any polygon",
+      "Coverage is GB only — does not include Northern Ireland or offshore",
+    ],
+    attribution: "Contains data from the National Energy System Operator (NESO) GSP region boundaries.",
+  },
   "neso-tec-register": {
     id: "neso-tec-register",
     name: "NESO Transmission Entry Capacity Register",
@@ -526,6 +544,33 @@ export const GIS_HEALTH_CHECKS: readonly GisHealthCheckConfig[] = [
       if (status !== 200) return `HTTP ${status}`;
       if (!body.includes("gsp_id")) return "Response missing gsp_id column header";
       return null;
+    },
+  },
+  {
+    source_id: "neso-gsp-boundaries",
+    // CKAN package_show — validates that the dataset still publishes a ZIP resource
+    // containing the GSP region boundaries. The runtime hardcodes the current ZIP
+    // URL by filename (which embeds a date), so any rotation that drops the ZIP
+    // resource from the dataset must surface here.
+    url: "https://api.neso.energy/api/3/action/package_show?id=2810092e-d4b2-472f-b955-d8bea01f9ec0",
+    method: "GET",
+    timeout_ms: 15_000,
+    validate: (status, body) => {
+      if (status !== 200) return `HTTP ${status}`;
+      try {
+        const json = JSON.parse(body);
+        if (!json.success) return json.error?.message ?? "NESO API reported failure";
+        const resources = Array.isArray(json.result?.resources) ? json.result.resources : [];
+        const hasBoundaryZip = resources.some((resource: { format?: string; name?: string }) => {
+          const format = (resource.format ?? "").toUpperCase();
+          const name = (resource.name ?? "").toLowerCase();
+          return format === "ZIP" && (name.includes("gsp") || name.includes("region") || name.includes("boundar"));
+        });
+        if (!hasBoundaryZip) return "Response missing a GSP boundary ZIP resource";
+        return null;
+      } catch {
+        return "Response is not valid JSON";
+      }
     },
   },
   {
