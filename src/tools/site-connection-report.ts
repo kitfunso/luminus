@@ -271,9 +271,11 @@ function queueTrafficLight(
   ngedMatchedProjects: number | null,
 ): TrafficLight {
   if (tecTotalMw === null && ngedMatchedProjects === null) return "unknown";
-  const tecZero = tecTotalMw === 0 && (tecProjectCount ?? 0) === 0;
-  const ngedZero = ngedMatchedProjects === 0 || ngedMatchedProjects === null;
-  if (tecZero && ngedZero) return "green";
+  // Green requires positive evidence of zero entries from BOTH the TEC
+  // register and NGED — absence of data is not the same as absence of queue.
+  const tecPositivelyZero = tecTotalMw === 0 && tecProjectCount === 0;
+  const ngedPositivelyZero = ngedMatchedProjects === 0;
+  if (tecPositivelyZero && ngedPositivelyZero) return "green";
   return "unknown";
 }
 
@@ -324,8 +326,10 @@ export async function getSiteConnectionReport(
   }
 
   // --- TEC queue summary ---
+  // A null connection_queue means "no GSP matched" or "TEC upstream failed"
+  // inside grid-connection-intelligence; both are unknown signals, not zero.
   const tecProjects = (grid?.connection_queue?.projects ?? []) as TecRowInput[];
-  const tecTotalMw = grid?.connection_queue?.total_mw_queued ?? (grid ? 0 : null);
+  const tecTotalMw = grid?.connection_queue?.total_mw_queued ?? null;
   const tecProjectCount = grid?.connection_queue ? tecProjects.length : null;
   const topTecEntries = tecProjects.slice(0, TOP_TEC_ENTRIES).map((row) => normaliseTecRow(row));
 

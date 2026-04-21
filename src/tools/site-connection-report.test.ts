@@ -268,6 +268,28 @@ describe("getSiteConnectionReport", () => {
     expect(result.structured.tec_queue.total_mw_queued).toBeNull();
   });
 
+  it("does not upgrade to green when grid resolved but connection_queue is null", async () => {
+    mockGridIntel.mockResolvedValue({
+      ...BASE_GRID_RESULT,
+      nearest_gsp: null,
+      connection_queue: null,
+      nged_connection_signal: null,
+    });
+    mockLandConstraints.mockResolvedValue(BASE_LAND_RESULT);
+    mockFloodRisk.mockResolvedValue(BASE_FLOOD_RESULT);
+    mockAgriLand.mockResolvedValue(BASE_ALC_RESULT);
+
+    const result = await getSiteConnectionReport({
+      lat: 52.39,
+      lon: -1.64,
+      capacity_kind: "generation",
+    });
+
+    expect(result.traffic_lights.queue).toBe("unknown");
+    expect(result.structured.tec_queue.total_mw_queued).toBeNull();
+    expect(result.structured.tec_queue.project_count).toBeNull();
+  });
+
   it("marks queue traffic light green only when zero TEC and zero NGED entries", async () => {
     mockGridIntel.mockResolvedValue({
       ...BASE_GRID_RESULT,
