@@ -16,6 +16,17 @@ Lightweight status tracker for the UK/EU GIS prospecting tranche inside Luminus.
 - [x] **Sprint 10**: `get_grid_connection_queue` via NESO public TEC register, plus NESO GIS health check
 - [x] **Sprint 11**: EU `screen_site` mode, Overpass hardening, schema-drift guards, NESO GSP spatial bridge
 - [x] **Sprint 12**: `shortlist_bess_sites` for ranked GB BESS shortlist generation
+- [x] **Sprint 13**: GB connection-intelligence layer — canonical connections schema (`CanonicalConnectionEntry`) + normalisers for TEC / NGED / DNO headroom rows, new `get_site_connection_report` composite tool, and rules-based `get_gate2_readiness_check` with public reference URLs per rule
+
+## Deliberate non-goals
+
+This tranche explicitly does NOT add:
+- A predictive Gate 2 likelihood model, score, or probability
+- A GB-wide "queue oracle" or machine-learning overlay on the public data
+- A workflow SaaS, hosted layer, persistence, or auth
+- A demand-centre siting or portfolio ranker
+
+The rationale is honest evidence: we do not have the training data to justify a predictive Gate 2 model, and shipping one would burn credibility with the network operators we depend on for upstream data. `get_gate2_readiness_check` is a transparent rules checklist, not a prediction.
 
 ## Current active tranche
 

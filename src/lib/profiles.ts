@@ -118,6 +118,15 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
     'get_spen_grid_intelligence',
     'get_ukpn_grid_overview',
   ],
+  connections: [
+    'get_grid_connection_queue',
+    'get_distribution_headroom',
+    'get_nged_connection_signal',
+    'get_grid_connection_intelligence',
+    'get_embedded_capacity_register',
+    'get_site_connection_report',
+    'get_gate2_readiness_check',
+  ],
 } as const;
 
 /** Short descriptions for each profile, used by the discovery tool. */
@@ -132,6 +141,7 @@ const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   regional: 'Country-specific sources: Energy Charts, SMARD, RTE, Energinet, Fingrid, Terna, REE',
   weather: 'Weather forecasts, solar irradiance, ERA5 reanalysis, and marine/offshore data',
   gis: 'GIS site prospecting: solar, terrain, grid proximity, connection signals (NESO TEC + NGED), DNO headroom (SSEN/NPG/UKPN/SPEN), embedded capacity registers, flex market, constraint breaches, SPEN/UKPN grid intelligence, land constraints, land cover, agricultural land, flood risk, site screening, comparison, BESS shortlist, and source verification',
+  connections: 'GB grid connection intelligence: NESO TEC queue, NGED per-GSP signal, DNO headroom, embedded capacity, composite per-site report, and rules-based Gate 2 readiness checklist (no predictive scoring)',
   full: 'All registered data tools by default, plus 2 meta-tools',
 };
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Canonical GB connections schema `CanonicalConnectionEntry` in `src/lib/gb-connections/schema.ts`, with normalisers in `src/lib/gb-connections/normalise.ts` for TEC, NGED public queue, and DNO headroom rows (SSEN, NPG, UKPN, SPEN, ENWL).
+- `get_site_connection_report` tool: GB-only composite memo that aggregates `get_grid_connection_intelligence`, `get_land_constraints`, `get_flood_risk`, and `get_agricultural_land` into one structured report with markdown summary, traffic lights, confidence notes, source metadata, and disclaimer. Traffic lights use published upstream signals only (DNO generation RAG, hard-constraint designations, literal-zero queue counts) — no invented thresholds.
+- `get_gate2_readiness_check` tool: rules-based checklist against publicly documented NESO Gate 2 entry criteria. Returns pass / warn / fail / not_applicable per rule, each with its own public `reference_url`. Ten rules across planning, land rights, technology, capacity, connection point, grid reference, energisation window, and strategic alignment.
+- New `connections` profile in `src/lib/profiles.ts` grouping the seven GB connection-intelligence tools.
+
+### Deliberately out of scope
+- No predictive Gate 2 model, likelihood score, probability, or ML on connection outcomes — we do not have the training data for that and claiming it would be dishonest.
+- No connection queue workflow SaaS, demand-centre siting tool, or portfolio-level ranking in this tranche.
+
 ## 0.4.3 - 2026-04-16
 
 ### Fixed

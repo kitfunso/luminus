@@ -78,6 +78,8 @@ import { verifyGisSourcesSchema, verifyGisSources } from "./tools/verify-gis-sou
 import { compareSitesSchema, compareSites } from "./tools/compare-sites.js";
 import { siteRevenueSchema, estimateSiteRevenue } from "./tools/site-revenue.js";
 import { bessShortlistSchema, shortlistBessSites } from "./tools/bess-shortlist.js";
+import { siteConnectionReportSchema, getSiteConnectionReport } from "./tools/site-connection-report.js";
+import { gate2ReadinessCheckSchema, getGate2ReadinessCheck } from "./tools/gate2-readiness-check.js";
 import { embeddedCapacityRegisterSchema, getEmbeddedCapacityRegister } from "./tools/embedded-capacity-register.js";
 import { flexibilityMarketSchema, getFlexibilityMarket } from "./tools/flexibility-market.js";
 import { constraintBreachesSchema, getConstraintBreaches } from "./tools/constraint-breaches.js";
@@ -805,6 +807,26 @@ if (shouldRegister("shortlist_bess_sites")) {
     "GB-only BESS shortlist flow. Combines compare_sites, screening-level BESS revenue estimates, GB transmission queue intelligence, and SSEN distribution headroom where public SSEN data resolves into a transparent ranked shortlist. Not a capacity guarantee, connection offer, or investment model.",
     bessShortlistSchema.shape,
     auditedToolHandler("shortlist_bess_sites", bessShortlistSchema, shortlistBessSites),
+  );
+}
+
+if (shouldRegister("get_site_connection_report")) {
+  registeredToolNames.push("get_site_connection_report");
+  server.tool(
+    "get_site_connection_report",
+    "GB-only per-site connection context report. Aggregates existing Luminus tools (grid connection intelligence, land constraints, flood risk, agricultural land) into one structured memo with traffic lights driven by published upstream signals. Not a connection offer, capacity guarantee, or Gate 2 decision.",
+    siteConnectionReportSchema.shape,
+    auditedToolHandler("get_site_connection_report", siteConnectionReportSchema, getSiteConnectionReport),
+  );
+}
+
+if (shouldRegister("get_gate2_readiness_check")) {
+  registeredToolNames.push("get_gate2_readiness_check");
+  server.tool(
+    "get_gate2_readiness_check",
+    "Rules-based Gate 2 readiness checklist. Evaluates project inputs against publicly documented NESO Gate 2 entry criteria and returns pass/warn/fail/not_applicable per rule, each with its own public reference URL. Not a prediction of Gate 2 outcome.",
+    gate2ReadinessCheckSchema.shape,
+    auditedToolHandler("get_gate2_readiness_check", gate2ReadinessCheckSchema, getGate2ReadinessCheck),
   );
 }
 

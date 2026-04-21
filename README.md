@@ -7,7 +7,7 @@ Latest release: [v0.4.3 release notes](docs/releases/0.4.3.md) | [Changelog](CHA
 
 Current published versions: `luminus-mcp@0.4.3` and `luminus-py==0.4.1`.
 
-Real-time European & GB electricity grid data via MCP. 67 tools, most free.
+Real-time European & GB electricity grid data via MCP. 69 tools, most free.
 
 ## Tools
 
@@ -129,6 +129,8 @@ Real-time European & GB electricity grid data via MCP. 67 tools, most free.
 | `compare_sites` | Composite | Compare and rank 2-10 candidate PV/BESS sites by verdict, solar resource, grid proximity, and terrain (GB + EU) |
 | `estimate_site_revenue` | PVGIS + ENTSO-E | Estimate annual PV generation revenue or BESS arbitrage revenue for a candidate site. Requires ENTSO-E key. |
 | `shortlist_bess_sites` | Composite | GB-only BESS shortlist: combines `compare_sites`, screening-level revenue estimates, GB transmission queue intelligence, and SSEN DNO headroom where public SSEN data resolves. Requires ENTSO-E key. |
+| `get_site_connection_report` | Composite | GB-only per-site connection context memo. Aggregates existing Luminus tools into one structured report with traffic lights driven by published upstream signals (DNO RAG, hard-constraint designations, literal-zero queue counts). Not a connection offer, capacity guarantee, or Gate 2 decision. |
+| `get_gate2_readiness_check` | NESO / gov.uk (rules only) | Rules-based checklist against publicly documented NESO Gate 2 entry criteria. Returns pass/warn/fail per rule with a public reference URL. Not a prediction of Gate 2 outcome. |
 | `verify_gis_sources` | All GIS providers | Health check for upstream GIS data sources. Reports status, response time, and provenance metadata |
 
 Roadmap: see [`docs/gis-roadmap.md`](docs/gis-roadmap.md).
@@ -222,7 +224,8 @@ npx luminus-mcp --profile bess       # 11 tools: arbitrage, ancillary, revenue, 
 npx luminus-mcp --profile regional   # 8 tools: country-specific sources
 npx luminus-mcp --profile weather    # 5 tools: forecasts, ERA5, marine
 npx luminus-mcp --profile gis        # 22 tools: solar, terrain, grid, queue, screening, comparison, shortlist, DNO data, verification
-npx luminus-mcp --profile full       # all 67 tools (default)
+npx luminus-mcp --profile connections # 7 tools: NESO TEC queue, NGED signal, DNO headroom, embedded capacity, composite site report, rules-based Gate 2 readiness checklist
+npx luminus-mcp --profile full       # all 69 tools (default)
 ```
 
 Two meta-tools are always registered regardless of profile:
