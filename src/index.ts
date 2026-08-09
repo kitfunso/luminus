@@ -134,7 +134,7 @@ const registeredToolNames: string[] = [];
 
 const server = new McpServer({
   name: "luminus",
-  version: "0.6.1",
+  version: "0.7.0",
 });
 
 // ---------------------------------------------------------------------------

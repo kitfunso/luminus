@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.0 - 2026-08-09
+
+ENTSO-E imbalance-data correctness release. All seven findings from issue #21 (external report) addressed; four parser/query defects fixed and verified against the live ENTSO-E API, plus a new authoritative German data source.
+
+### Fixed
+- **`get_imbalance_prices` queried the wrong ENTSO-E document type.** It requested A86 (imbalance VOLUME) and read `Point.quantity` as if it were a EUR/MWh price. It now queries A85 (imbalance prices) and reads only price keys (`imbalance_Price.amount` / `price.amount`); a quantity is never read as a price. Verified against the entsoe-py reference client and a live DE query.
+- **ZIP responses parse.** ENTSO-E imbalance endpoints can return a ZIP of XML documents; `queryEntsoe` now detects ZIP by magic bytes and merges multi-file archives' TimeSeries under one document root. Fixed at the client, so every ENTSO-E tool benefits.
+- **`Balancing_MarketDocument` root recognized.** A85/A86 responses arrive under this root; both price tools now check it first (the XML parser already listed it as a known array path, but no tool ever looked).
+- **curveType A03 step curves expand to the full day.** Omitted repeated points previously produced fewer than 96 quarter-hour rows. A shared `entsoe-timeseries` helper expands each period from timeInterval/resolution and forward-fills gaps: fill carries across periods within one TimeSeries, never across series; period numbers are timestamp-anchored so overlapping price-category series share numbers 1-96.
+- **`processType` dropped from A85 queries.** The reference client sends `documentType` + `controlArea_Domain` only.
+- **Dependency advisories cleared.** Lockfile-only in-range bumps past the hono 4.12.x batch, ip-address, and qs advisories that had accumulated since June (transitives of `@modelcontextprotocol/sdk`); `npm audit` clean.
+
+### Added
+- **netztransparenz.de source for full German imbalance data.** ENTSO-E has no German imbalance price before 2022-09-30 and its per-TSO volumes undercount. `get_imbalance_prices` for DE now falls back to the authoritative reBAP series when ENTSO-E returns nothing, and results carry a new additive `source` field (`entsoe` / `netztransparenz_rebap`). New tool `get_german_system_imbalance` serves NRV-Saldo (MW per quarter-hour). Requires free registration at netztransparenz.de/en/Web-API (`NETZTRANSPARENZ_CLIENT_ID` / `NETZTRANSPARENZ_CLIENT_SECRET` via env or `~/.luminus/keys.json`); endpoint shape verified against two working open-source clients, live call pending credentials.
+
+### Verification
+- 423 JS tests passing (was 400 at 0.6.1; +23 covering A85 parameters, ZIP single/multi-file handling, step-curve expansion, series-boundary fill, overlapping-series numbering, German CSV parsing, and the DE fallback on/off paths)
+- Live E2E against ENTSO-E: DE 2026-08-08 returns both price-category series correctly sharing quarter-hour periods 1-96 with plausible EUR/MWh values
+- TypeScript build clean; CI green on every release commit
+
 ## 0.6.1 - 2026-04-21
 
 Polish patch for 0.6.0 Scotland coverage. Two semantic fixes surfaced by live end-to-end smoke across nine GB coordinates.
