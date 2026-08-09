@@ -97,6 +97,37 @@ describe("extractSeriesPoints", () => {
     expect(points[2]).toEqual({ period: 4, value: 42 });
   });
 
+  it("gives overlapping TimeSeries (same interval, e.g. price categories) the same period numbers", () => {
+    const interval = { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" };
+    const doc = {
+      TimeSeries: [
+        {
+          Period: [
+            {
+              timeInterval: interval,
+              resolution: "PT15M",
+              Point: [{ position: "1", "imbalance_Price.amount": "30" }],
+            },
+          ],
+        },
+        {
+          Period: [
+            {
+              timeInterval: interval,
+              resolution: "PT15M",
+              Point: [{ position: "1", "imbalance_Price.amount": "45" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const points = extractSeriesPoints(doc, ["imbalance_Price.amount"]);
+    // Both series cover periods 1-4; the second must NOT be numbered 5-8.
+    expect(points.map((p) => p.period)).toEqual([1, 2, 3, 4, 1, 2, 3, 4]);
+    expect(Math.max(...points.map((p) => p.period))).toBe(4);
+  });
+
   it("falls back to max explicit position when interval or resolution is missing", () => {
     const doc = {
       TimeSeries: [

@@ -35,11 +35,12 @@ export async function getImbalancePrices(
 
   // A85 = imbalance prices; A86 is imbalance VOLUME (issue #21 - this tool
   // previously queried A86 and read Point.quantity as if it were a price).
+  // No processType: the reference client (entsoe-py query_imbalance_prices)
+  // sends documentType + controlArea_Domain only.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = await queryEntsoe(
     {
       documentType: "A85",
-      processType: "A16",
       controlArea_Domain: eic,
       periodStart,
       periodEnd,

@@ -8,8 +8,13 @@ import { ensureArray } from "./xml-parser.js";
  * (e.g. 41 rows instead of 96 quarter-hours). Per the ENTSO-E curve-type spec
  * the omitted positions carry the last seen value forward until the period end.
  * This helper expands every period to its full slot count from timeInterval /
- * resolution and forward-fills the gaps, numbering positions continuously
- * across multi-period documents (1..96 for a PT15M day).
+ * resolution and forward-fills the gaps.
+ *
+ * Period numbering is anchored to the period's timeInterval relative to the
+ * earliest interval in the document: two TimeSeries covering the SAME interval
+ * (e.g. A85 price categories) share period numbers, while sequential periods
+ * (multi-period days, ZIP-merged pages) number continuously (1..96 for a PT15M
+ * day). Documents without parseable intervals fall back to sequential offsets.
  */
 
 interface SeriesPoint {
@@ -34,10 +39,16 @@ export function resolutionToMinutes(resolution: string | undefined): number {
  * reading the value from the first key in `valueKeys` present on a Point.
  * Points without any of the keys are skipped (never coerced to 0).
  */
+interface ParsedPeriod {
+  explicit: Map<number, number>;
+  slots: number;
+  startMs: number; // NaN when the interval is unparseable
+  minutes: number;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[] {
-  const out: SeriesPoint[] = [];
-  let offset = 0;
+  const periods: ParsedPeriod[] = [];
 
   for (const ts of ensureArray<Record<string, unknown>>(doc.TimeSeries)) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,16 +83,33 @@ export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[
         slots = Math.round((end - start) / 60000 / minutes);
       }
 
-      // Forward-fill A03 gaps: an omitted position repeats the last seen value.
-      let last: number | undefined;
-      for (let pos = 1; pos <= slots; pos++) {
-        const value = explicit.get(pos) ?? last;
-        if (value == null) continue; // gap before the first explicit point
-        out.push({ period: offset + pos, value });
-        last = value;
-      }
-      offset += slots;
+      periods.push({ explicit, slots, startMs: start, minutes });
     }
+  }
+
+  // Anchor period numbering to timestamps so overlapping TimeSeries (same
+  // interval, different category) share numbers instead of stacking offsets.
+  const anchored = periods.filter((p) => Number.isFinite(p.startMs) && p.minutes > 0);
+  const docStartMs = anchored.length > 0 ? Math.min(...anchored.map((p) => p.startMs)) : NaN;
+
+  const out: SeriesPoint[] = [];
+  let sequentialOffset = 0;
+
+  for (const p of periods) {
+    const base =
+      Number.isFinite(docStartMs) && Number.isFinite(p.startMs) && p.minutes > 0
+        ? Math.round((p.startMs - docStartMs) / 60000 / p.minutes)
+        : sequentialOffset;
+
+    // Forward-fill A03 gaps: an omitted position repeats the last seen value.
+    let last: number | undefined;
+    for (let pos = 1; pos <= p.slots; pos++) {
+      const value = p.explicit.get(pos) ?? last;
+      if (value == null) continue; // gap before the first explicit point
+      out.push({ period: base + pos, value });
+      last = value;
+    }
+    sequentialOffset = base + p.slots;
   }
 
   return out;

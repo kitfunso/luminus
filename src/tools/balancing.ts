@@ -33,11 +33,12 @@ export async function getBalancingPrices(
   const eic = resolveZone(params.zone);
   const { periodStart, periodEnd } = dayRange(params.date);
 
+  // No processType: the reference client (entsoe-py query_imbalance_prices)
+  // sends documentType + controlArea_Domain only.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = await queryEntsoe(
     {
       documentType: "A85",
-      processType: "A16",
       controlArea_Domain: eic,
       periodStart,
       periodEnd,
