@@ -97,6 +97,51 @@ describe("extractSeriesPoints", () => {
     expect(points[2]).toEqual({ period: 4, value: 42 });
   });
 
+  it("carries A03 fill across period boundaries within one series, never across series", () => {
+    const doc = {
+      TimeSeries: [
+        {
+          Period: [
+            {
+              timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" },
+              resolution: "PT15M",
+              Point: [{ position: "1", "price.amount": "10" }],
+            },
+            {
+              // Same series: first two positions omitted (step continues at 10).
+              timeInterval: { start: "2026-08-01T01:00Z", end: "2026-08-01T02:00Z" },
+              resolution: "PT15M",
+              Point: [{ position: "3", "price.amount": "30" }],
+            },
+          ],
+        },
+        {
+          // Different series over the same day: fill must NOT leak 30 into it.
+          Period: [
+            {
+              timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" },
+              resolution: "PT15M",
+              Point: [{ position: "2", "price.amount": "99" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const points = extractSeriesPoints(doc, ["price.amount"]);
+    const s1 = points.slice(0, 8);
+    // Periods 5-6 (positions 1-2 of the second period) fill from the first period's 10.
+    expect(s1.map((p) => [p.period, p.value])).toEqual([
+      [1, 10], [2, 10], [3, 10], [4, 10],
+      [5, 10], [6, 10], [7, 30], [8, 30],
+    ]);
+    // Second series starts fresh: nothing before its first explicit point.
+    const s2 = points.slice(8);
+    expect(s2.map((p) => [p.period, p.value])).toEqual([
+      [2, 99], [3, 99], [4, 99],
+    ]);
+  });
+
   it("gives overlapping TimeSeries (same interval, e.g. price categories) the same period numbers", () => {
     const interval = { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" };
     const doc = {

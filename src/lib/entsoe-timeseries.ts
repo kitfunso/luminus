@@ -44,13 +44,16 @@ interface ParsedPeriod {
   slots: number;
   startMs: number; // NaN when the interval is unparseable
   minutes: number;
+  seriesIdx: number; // forward-fill carries across periods of one series only
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[] {
   const periods: ParsedPeriod[] = [];
+  let seriesIdx = -1;
 
   for (const ts of ensureArray<Record<string, unknown>>(doc.TimeSeries)) {
+    seriesIdx++;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for (const period of ensureArray<Record<string, unknown>>(ts.Period as any)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,7 +86,7 @@ export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[
         slots = Math.round((end - start) / 60000 / minutes);
       }
 
-      periods.push({ explicit, slots, startMs: start, minutes });
+      periods.push({ explicit, slots, startMs: start, minutes, seriesIdx });
     }
   }
 
@@ -94,6 +97,8 @@ export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[
 
   const out: SeriesPoint[] = [];
   let sequentialOffset = 0;
+  let last: number | undefined;
+  let lastSeriesIdx = -1;
 
   for (const p of periods) {
     const base =
@@ -102,7 +107,13 @@ export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[
         : sequentialOffset;
 
     // Forward-fill A03 gaps: an omitted position repeats the last seen value.
-    let last: number | undefined;
+    // The fill carries across period boundaries WITHIN one TimeSeries (a step
+    // can span the boundary, per the reference client's multi-period handling)
+    // but never across series - a different series is a different curve.
+    if (p.seriesIdx !== lastSeriesIdx) {
+      last = undefined;
+      lastSeriesIdx = p.seriesIdx;
+    }
     for (let pos = 1; pos <= p.slots; pos++) {
       const value = p.explicit.get(pos) ?? last;
       if (value == null) continue; // gap before the first explicit point
