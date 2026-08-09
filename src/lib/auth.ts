@@ -127,6 +127,8 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   get_hydro_reservoir: ["ENTSOE_API_KEY"],
   get_intraday_prices: ["ENTSOE_API_KEY"],
   get_imbalance_prices: ["ENTSOE_API_KEY"],
+  // Netztransparenz tools (free registration at netztransparenz.de/en/Web-API)
+  get_german_system_imbalance: ["NETZTRANSPARENZ_CLIENT_ID", "NETZTRANSPARENZ_CLIENT_SECRET"],
   get_intraday_da_spread: ["ENTSOE_API_KEY"],
   get_realtime_generation: ["ENTSOE_API_KEY"],
   get_balancing_actions: ["ENTSOE_API_KEY"],

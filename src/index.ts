@@ -40,6 +40,7 @@ import { hydroSchema, getHydroReservoir } from "./tools/hydro.js";
 import { transmissionSchema, getTransmissionLines } from "./tools/transmission.js";
 import { intradayPricesSchema, getIntradayPrices } from "./tools/intraday-prices.js";
 import { imbalancePricesSchema, getImbalancePrices } from "./tools/imbalance-prices.js";
+import { germanImbalanceSchema, getGermanSystemImbalance } from "./tools/german-imbalance.js";
 import { intradaySpreadSchema, getIntradayDaSpread } from "./tools/intraday-spread.js";
 import { realtimeGenerationSchema, getRealtimeGeneration } from "./tools/realtime-generation.js";
 import { balancingActionsSchema, getBalancingActions } from "./tools/balancing-actions.js";
@@ -412,9 +413,19 @@ if (shouldRegister("get_imbalance_prices")) {
   registeredToolNames.push("get_imbalance_prices");
   server.tool(
     "get_imbalance_prices",
-    "Imbalance settlement prices (EUR/MWh) per period. Price for deviations from scheduled position. DE caveat: ENTSO-E has no DE imbalance price before 2022-09-30 and TSO-area gaps; full DE history needs reBAP (not yet integrated).",
+    "Imbalance settlement prices (EUR/MWh) per period. Price for deviations from scheduled position. DE: falls back to the authoritative reBAP series (netztransparenz.de, free key) when ENTSO-E has no data, e.g. before 2022-09-30.",
     imbalancePricesSchema.shape,
     auditedToolHandler("get_imbalance_prices", imbalancePricesSchema, getImbalancePrices),
+  );
+}
+
+if (shouldRegister("get_german_system_imbalance")) {
+  registeredToolNames.push("get_german_system_imbalance");
+  server.tool(
+    "get_german_system_imbalance",
+    "German system imbalance (NRV-Saldo, MW) per quarter-hour from netztransparenz.de - the authoritative national series; ENTSO-E per-TSO volumes undercount. Needs free NETZTRANSPARENZ credentials.",
+    germanImbalanceSchema.shape,
+    auditedToolHandler("get_german_system_imbalance", germanImbalanceSchema, getGermanSystemImbalance),
   );
 }
 
