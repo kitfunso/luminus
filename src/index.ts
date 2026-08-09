@@ -412,7 +412,7 @@ if (shouldRegister("get_imbalance_prices")) {
   registeredToolNames.push("get_imbalance_prices");
   server.tool(
     "get_imbalance_prices",
-    "Imbalance settlement prices (EUR/MWh) per period. Price for deviations from scheduled position.",
+    "Imbalance settlement prices (EUR/MWh) per period. Price for deviations from scheduled position. DE caveat: ENTSO-E has no DE imbalance price before 2022-09-30 and TSO-area gaps; full DE history needs reBAP (not yet integrated).",
     imbalancePricesSchema.shape,
     auditedToolHandler("get_imbalance_prices", imbalancePricesSchema, getImbalancePrices),
   );

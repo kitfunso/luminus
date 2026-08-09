@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { queryEntsoe, dayRange } from "../lib/entsoe-client.js";
 import { resolveZone, AVAILABLE_ZONES } from "../lib/zone-codes.js";
-import { ensureArray } from "../lib/xml-parser.js";
+import { extractSeriesPoints } from "../lib/entsoe-timeseries.js";
 import { TTL } from "../lib/cache.js";
 
 export const balancingSchema = z.object({
@@ -45,25 +45,18 @@ export async function getBalancingPrices(
     TTL.BALANCING
   );
 
-  const doc = data.Imbalance_MarketDocument ?? data.GL_MarketDocument ?? data.Publication_MarketDocument;
+  const doc =
+    data.Balancing_MarketDocument ??
+    data.Imbalance_MarketDocument ??
+    data.GL_MarketDocument ??
+    data.Publication_MarketDocument;
   if (!doc) throw new Error("No balancing price data returned for this zone/date.");
 
-  const timeSeries = ensureArray(doc.TimeSeries);
-  const prices: ImbalancePricePoint[] = [];
-
-  for (const ts of timeSeries) {
-    const periods = ensureArray(ts.Period);
-    for (const period of periods) {
-      const points = ensureArray(period.Point);
-      for (const point of points) {
-        const position = Number(point.position);
-        const price = Number(
-          point["imbalance_Price.amount"] ?? point["price.amount"] ?? point.quantity ?? 0
-        );
-        prices.push({ period: position, price_eur_mwh: price });
-      }
-    }
-  }
+  // Price keys only - never Point.quantity (a volume, not a price).
+  const prices: ImbalancePricePoint[] = extractSeriesPoints(doc, [
+    "imbalance_Price.amount",
+    "price.amount",
+  ]).map((p) => ({ period: p.period, price_eur_mwh: p.value }));
 
   prices.sort((a, b) => a.period - b.period);
 

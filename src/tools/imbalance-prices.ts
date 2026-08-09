@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { queryEntsoe, dayRange } from "../lib/entsoe-client.js";
 import { resolveZone, AVAILABLE_ZONES } from "../lib/zone-codes.js";
-import { ensureArray } from "../lib/xml-parser.js";
+import { extractSeriesPoints } from "../lib/entsoe-timeseries.js";
 import { TTL } from "../lib/cache.js";
 
 export const imbalancePricesSchema = z.object({
@@ -33,10 +33,12 @@ export async function getImbalancePrices(
   const eic = resolveZone(params.zone);
   const { periodStart, periodEnd } = dayRange(params.date);
 
+  // A85 = imbalance prices; A86 is imbalance VOLUME (issue #21 - this tool
+  // previously queried A86 and read Point.quantity as if it were a price).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = await queryEntsoe(
     {
-      documentType: "A86",
+      documentType: "A85",
       processType: "A16",
       controlArea_Domain: eic,
       periodStart,
@@ -46,25 +48,17 @@ export async function getImbalancePrices(
   );
 
   const doc =
-    data.Imbalance_MarketDocument ?? data.GL_MarketDocument ?? data.Publication_MarketDocument;
+    data.Balancing_MarketDocument ??
+    data.Imbalance_MarketDocument ??
+    data.GL_MarketDocument ??
+    data.Publication_MarketDocument;
   if (!doc) throw new Error("No imbalance price data returned for this zone/date.");
 
-  const timeSeries = ensureArray(doc.TimeSeries);
-  const prices: ImbalancePricePoint[] = [];
-
-  for (const ts of timeSeries) {
-    const periods = ensureArray(ts.Period);
-    for (const period of periods) {
-      const points = ensureArray(period.Point);
-      for (const point of points) {
-        const position = Number(point.position);
-        const price = Number(
-          point["imbalance_Price.amount"] ?? point["price.amount"] ?? point.quantity ?? 0
-        );
-        prices.push({ period: position, price_eur_mwh: price });
-      }
-    }
-  }
+  // Price keys only - never Point.quantity (a volume, not a price).
+  const prices: ImbalancePricePoint[] = extractSeriesPoints(doc, [
+    "imbalance_Price.amount",
+    "price.amount",
+  ]).map((p) => ({ period: p.period, price_eur_mwh: p.value }));
 
   prices.sort((a, b) => a.period - b.period);
 

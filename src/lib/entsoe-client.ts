@@ -1,4 +1,5 @@
-import { parseXml } from "./xml-parser.js";
+import JSZip from "jszip";
+import { parseXml, ensureArray } from "./xml-parser.js";
 import { TtlCache, TTL } from "./cache.js";
 import { resolveApiKey } from "./auth.js";
 
@@ -92,9 +93,46 @@ export async function queryEntsoe(
     throw new Error(`ENTSO-E API returned ${response.status}: ${body.slice(0, 300)}`);
   }
 
-  const xml = await response.text();
-  const result = parseXml(xml);
+  // Some endpoints (imbalance prices/volumes, procured capacity) return a ZIP
+  // of one or more XML documents instead of plain XML. Detect by magic bytes,
+  // not content-type (ENTSO-E labels these inconsistently).
+  const buffer = await response.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const isZip = bytes.length > 3 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
+
+  const result = isZip
+    ? await parseZipResponse(buffer)
+    : parseXml(new TextDecoder().decode(buffer));
 
   cache.set(cacheKey, result, ttlMs);
   return result;
+}
+
+/**
+ * Unzip an ENTSO-E archive response and merge its XML documents.
+ * Multi-file archives share a root element; their TimeSeries are concatenated
+ * under the first document's root so callers see one document.
+ */
+async function parseZipResponse(buffer: ArrayBuffer): Promise<Record<string, unknown>> {
+  const zip = await JSZip.loadAsync(buffer);
+  const entries = Object.values(zip.files).filter((f) => !f.dir);
+  if (entries.length === 0) throw new Error("ENTSO-E returned an empty ZIP archive.");
+
+  const docs: Record<string, unknown>[] = [];
+  for (const entry of entries) {
+    docs.push(parseXml(await entry.async("text")));
+  }
+  if (docs.length === 1) return docs[0];
+
+  const rootKey = Object.keys(docs[0]).find((k) => k.includes("MarketDocument")) ?? Object.keys(docs[0])[0];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const merged: any = { ...(docs[0][rootKey] as Record<string, unknown>) };
+  const series = ensureArray<unknown>(merged.TimeSeries);
+  for (const doc of docs.slice(1)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const inner: any = doc[rootKey] ?? doc[Object.keys(doc)[0]];
+    if (inner?.TimeSeries) series.push(...ensureArray<unknown>(inner.TimeSeries));
+  }
+  merged.TimeSeries = series;
+  return { [rootKey]: merged };
 }
