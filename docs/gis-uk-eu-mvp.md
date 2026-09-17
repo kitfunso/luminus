@@ -151,7 +151,7 @@ These are explicitly out of scope for the MVP. Some are valuable features; none 
 
 9. **Offshore wind or floating solar.** Different constraint set entirely. Land-based PV and BESS only.
 
-10. **Interactive map frontend.** The deliverable is MCP tools, not a web map. A deck.gl frontend is mentioned in SCOPE.md Phase 2 but is not part of this GIS MVP.
+10. **Interactive map frontend.** The deliverable is MCP tools, not a web map.
 
 11. **Green Belt boundaries.** Critical constraint in England but no reliable single open dataset exists. Document the gap; do not ship bad data.
 

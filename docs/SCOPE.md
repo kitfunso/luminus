@@ -132,13 +132,11 @@ Registering the full data-tool surface at once consumes a large chunk of LLM con
 4. **Conditional registration**: tools with missing keys never register (reduced surface)
 5. **Constant-time comparison**: `timingSafeCompare` for token validation
 
-## Phase 2: deck.gl Frontend
-- Separate package or monorepo
-- Next.js + deck.gl
-- ScatterplotLayer for power plants
-- ArcLayer for cross-border flows
-- HeatmapLayer for prices
-- Real-time updates via polling (ENTSO-E doesn't have WebSocket)
+## Phase 2: Research foundation
+
+See [`rnd-roadmap.md`](rnd-roadmap.md). Interval-correct market data, a point-in-time
+historical store, and battery dispatch benchmarking. There is no web frontend in this
+repo and none is planned here.
 
 ## Competitive Landscape
 - electricitymaps.com - has the map but no MCP/API for agents

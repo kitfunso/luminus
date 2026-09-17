@@ -261,7 +261,7 @@ The handler branching is `if (country === "GB") { ... } else { ... }`, not a plu
 ### Boundary: what stays out of Luminus MCP
 - Large raster ingestion or tiling (belongs in a preprocessing pipeline, not a real-time MCP tool)
 - Hosted spatial databases (PostGIS, etc.)
-- Frontend map rendering (that's luminus-dashboard territory)
+- Frontend map rendering
 - Paid data sources (Ordnance Survey Premium, commercial DNO connection data)
 
 ---
