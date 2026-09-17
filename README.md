@@ -429,6 +429,10 @@ MIT. See [LICENSE](LICENSE).
 
 See [`docs/gis-roadmap.md`](docs/gis-roadmap.md) for the shipped sprint baseline, current tranche, next actions, and hard caveats.
 
+## Research and development roadmap
+
+See [`docs/rnd-roadmap.md`](docs/rnd-roadmap.md) for the proposed research direction: interval-correct market data, a point-in-time historical store, battery dispatch backtesting, and forecasting.
+
 ## UK/EU GIS data sources, API keys, and registration
 
 The current GIS tranche is built to favour keyless or low-friction public sources for a UK/EU MVP.
