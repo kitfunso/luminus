@@ -8,16 +8,35 @@ def test_to_pandas_flattens_single_list_field_with_metadata():
         raw={
             "zone": "DE",
             "prices": [
-                {"hour": 0, "price_eur_mwh": 42.0},
-                {"hour": 1, "price_eur_mwh": 43.5},
+                {"interval_start_utc": "2026-04-02T00:00:00.000Z", "price": 42.0},
+                {"interval_start_utc": "2026-04-02T01:00:00.000Z", "price": 43.5},
             ],
         },
     )
 
     df = result.to_pandas()
 
-    assert list(df.columns) == ["zone", "hour", "price_eur_mwh"]
+    assert list(df.columns) == ["zone", "interval_start_utc", "price"]
     assert df["zone"].tolist() == ["DE", "DE"]
+
+
+def test_to_pandas_ignores_scalar_side_lists_like_notes():
+    result = LuminusResult(
+        tool_name="get_day_ahead_prices",
+        raw={
+            "zone": "GB",
+            "prices": [
+                {"interval_start_utc": "2026-04-02T00:00:00.000Z", "price": 42.0},
+                {"interval_start_utc": "2026-04-02T00:15:00.000Z", "price": 43.5},
+            ],
+            "notes": ["Dropped 24 coarser-resolution point(s) overlapped by a finer series (finest 15min)."],
+        },
+    )
+
+    df = result.to_pandas()
+
+    assert len(df) == 2
+    assert df["price"].tolist() == [42.0, 43.5]
 
 
 def test_to_pandas_wraps_scalar_dicts_as_single_row_frame():

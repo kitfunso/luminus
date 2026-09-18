@@ -16,13 +16,35 @@ export const intradaySpreadSchema = z.object({
 });
 
 interface SpreadPoint {
-  hour: number;
+  interval_start_utc: string;
   day_ahead: number;
   intraday: number;
   spread: number;
 }
 
+interface JoinablePoint {
+  interval_start_utc: string;
+  price: number;
+}
+
 type SpreadSignal = "intraday_premium" | "intraday_discount" | "neutral";
+
+/** Average finer-grained points up to a coarser grid so DA/ID resolutions can be joined by start. */
+function averageToGrid(points: JoinablePoint[], targetMinutes: number): JoinablePoint[] {
+  const targetMs = targetMinutes * 60000;
+  const buckets = new Map<number, number[]>();
+  for (const p of points) {
+    const startMs = Date.parse(p.interval_start_utc);
+    const bucketStart = Math.floor(startMs / targetMs) * targetMs;
+    const list = buckets.get(bucketStart) ?? [];
+    list.push(p.price);
+    buckets.set(bucketStart, list);
+  }
+  return [...buckets.entries()].map(([startMs, values]) => ({
+    interval_start_utc: new Date(startMs).toISOString(),
+    price: Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 100) / 100,
+  }));
+}
 
 export async function getIntradayDaSpread(
   params: z.infer<typeof intradaySpreadSchema>
@@ -30,6 +52,7 @@ export async function getIntradayDaSpread(
   zone: string;
   date: string;
   spreads: SpreadPoint[];
+  unmatched_intervals: string[];
   stats: { mean_spread: number; max_spread: number; min_spread: number };
   signal: SpreadSignal;
 }> {
@@ -40,25 +63,41 @@ export async function getIntradayDaSpread(
     getIntradayPrices({ zone: params.zone, date }),
   ]);
 
-  // Build lookup maps keyed by hour
-  const daByHour = new Map(daResult.prices.map((p) => [p.hour, p.price_eur_mwh]));
-  const idByHour = new Map(idResult.prices.map((p) => [p.hour, p.price_eur_mwh]));
+  let daPoints: JoinablePoint[] = daResult.prices;
+  let idPoints: JoinablePoint[] = idResult.prices;
 
-  // Compute spreads for matching hours
+  // Different resolutions can't join by start directly; average the finer series up.
+  if (daResult.resolution_minutes && idResult.resolution_minutes && daResult.resolution_minutes !== idResult.resolution_minutes) {
+    if (daResult.resolution_minutes < idResult.resolution_minutes) {
+      daPoints = averageToGrid(daPoints, idResult.resolution_minutes);
+    } else {
+      idPoints = averageToGrid(idPoints, daResult.resolution_minutes);
+    }
+  }
+
+  const daByStart = new Map(daPoints.map((p) => [p.interval_start_utc, p.price]));
+  const idByStart = new Map(idPoints.map((p) => [p.interval_start_utc, p.price]));
+  const allStarts = new Set([...daByStart.keys(), ...idByStart.keys()]);
+
   const spreads: SpreadPoint[] = [];
-  for (const [hour, idPrice] of idByHour) {
-    const daPrice = daByHour.get(hour);
-    if (daPrice == null) continue;
-
+  const unmatchedIntervals: string[] = [];
+  for (const start of allStarts) {
+    const daPrice = daByStart.get(start);
+    const idPrice = idByStart.get(start);
+    if (daPrice == null || idPrice == null) {
+      unmatchedIntervals.push(start);
+      continue;
+    }
     spreads.push({
-      hour,
+      interval_start_utc: start,
       day_ahead: daPrice,
       intraday: idPrice,
       spread: Math.round((idPrice - daPrice) * 100) / 100,
     });
   }
 
-  spreads.sort((a, b) => a.hour - b.hour);
+  spreads.sort((a, b) => Date.parse(a.interval_start_utc) - Date.parse(b.interval_start_utc));
+  unmatchedIntervals.sort();
 
   const spreadValues = spreads.map((s) => s.spread);
   const meanSpread =
@@ -76,6 +115,7 @@ export async function getIntradayDaSpread(
     zone: params.zone.toUpperCase(),
     date,
     spreads,
+    unmatched_intervals: unmatchedIntervals,
     stats: { mean_spread: meanSpread, max_spread: maxSpread, min_spread: minSpread },
     signal,
   };

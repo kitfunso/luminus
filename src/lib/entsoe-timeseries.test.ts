@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractSeriesPoints, resolutionToMinutes } from "./entsoe-timeseries.js";
+import { extractSeriesIntervals, extractSeriesPoints, resolutionToMinutes } from "./entsoe-timeseries.js";
 
 describe("resolutionToMinutes", () => {
   it("parses common ENTSO-E resolutions", () => {
@@ -192,5 +192,176 @@ describe("extractSeriesPoints", () => {
     const points = extractSeriesPoints(doc, ["price.amount"]);
     expect(points).toHaveLength(4);
     expect(points[2]).toEqual({ period: 3, value: 5 });
+  });
+});
+
+describe("extractSeriesIntervals", () => {
+  it("produces 24 hourly ISO-anchored intervals for a normal day", () => {
+    const doc = {
+      TimeSeries: [
+        {
+          Period: [
+            {
+              timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+              resolution: "PT60M",
+              Point: Array.from({ length: 24 }, (_, i) => ({ position: String(i + 1), "price.amount": String(i) })),
+            },
+          ],
+        },
+      ],
+    };
+
+    const intervals = extractSeriesIntervals(doc, ["price.amount"]);
+    expect(intervals).toHaveLength(24);
+    expect(intervals[0]).toEqual({
+      start_ms: Date.parse("2026-08-01T00:00:00.000Z"),
+      end_ms: Date.parse("2026-08-01T01:00:00.000Z"),
+      value: 0,
+      series_idx: 0,
+    });
+    expect(intervals[23].start_ms).toBe(Date.parse("2026-08-01T23:00:00.000Z"));
+    expect(intervals[23].end_ms).toBe(Date.parse("2026-08-02T00:00:00.000Z"));
+  });
+
+  it("forward-fills a 15-minute A03 step curve to 96 timestamped quarter-hours", () => {
+    const doc = {
+      TimeSeries: [
+        {
+          Period: [
+            {
+              timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+              resolution: "PT15M",
+              curveType: "A03",
+              Point: [
+                { position: "1", "price.amount": "50" },
+                { position: "50", "price.amount": "75" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const intervals = extractSeriesIntervals(doc, ["price.amount"]);
+    expect(intervals).toHaveLength(96);
+    expect(intervals[48].start_ms).toBe(Date.parse("2026-08-01T12:00:00.000Z"));
+    expect(intervals[48].value).toBe(50); // position 49: still filled from position 1
+    expect(intervals[49].start_ms).toBe(Date.parse("2026-08-01T12:15:00.000Z"));
+    expect(intervals[49].value).toBe(75); // position 50: explicit
+    expect(intervals[95].end_ms).toBe(Date.parse("2026-08-02T00:00:00.000Z"));
+  });
+
+  it("gives a 23-hour spring-forward day (2026-03-29 CET) 23 hourly intervals", () => {
+    const doc = {
+      TimeSeries: [
+        {
+          Period: [
+            {
+              timeInterval: { start: "2026-03-28T23:00Z", end: "2026-03-29T22:00Z" },
+              resolution: "PT60M",
+              Point: [{ position: "1", "price.amount": "10" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const intervals = extractSeriesIntervals(doc, ["price.amount"]);
+    expect(intervals).toHaveLength(23);
+    expect(intervals[0].start_ms).toBe(Date.parse("2026-03-28T23:00:00.000Z"));
+    expect(intervals[22].end_ms).toBe(Date.parse("2026-03-29T22:00:00.000Z"));
+  });
+
+  it("gives a 25-hour fall-back day (2026-10-25 CET) 25 hourly intervals", () => {
+    const doc = {
+      TimeSeries: [
+        {
+          Period: [
+            {
+              timeInterval: { start: "2026-10-24T22:00Z", end: "2026-10-25T23:00Z" },
+              resolution: "PT60M",
+              Point: [{ position: "1", "price.amount": "10" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const intervals = extractSeriesIntervals(doc, ["price.amount"]);
+    expect(intervals).toHaveLength(25);
+    expect(intervals[0].start_ms).toBe(Date.parse("2026-10-24T22:00:00.000Z"));
+    expect(intervals[24].end_ms).toBe(Date.parse("2026-10-25T23:00:00.000Z"));
+  });
+
+  it("throws a clear error when a period has no parseable timeInterval or resolution", () => {
+    const doc = {
+      TimeSeries: [
+        {
+          Period: [{ Point: [{ position: "1", "price.amount": "10" }] }],
+        },
+      ],
+    };
+
+    expect(() => extractSeriesIntervals(doc, ["price.amount"])).toThrow(/parseable timeInterval/);
+  });
+
+  it("keeps a two-day request as 48 distinct, non-colliding starts", () => {
+    const doc = {
+      TimeSeries: [
+        {
+          Period: [
+            {
+              timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+              resolution: "PT60M",
+              Point: [{ position: "1", "price.amount": "1" }],
+            },
+            {
+              timeInterval: { start: "2026-08-02T00:00Z", end: "2026-08-03T00:00Z" },
+              resolution: "PT60M",
+              Point: [{ position: "1", "price.amount": "2" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const intervals = extractSeriesIntervals(doc, ["price.amount"]);
+    const starts = new Set(intervals.map((iv) => iv.start_ms));
+    expect(intervals).toHaveLength(48);
+    expect(starts.size).toBe(48);
+  });
+
+  it("returns both resolutions as-is when a doc mixes 60m and 15m series (policy lives in the caller)", () => {
+    const doc = {
+      TimeSeries: [
+        {
+          Period: [
+            {
+              timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+              resolution: "PT60M",
+              Point: [{ position: "1", "price.amount": "10" }],
+            },
+          ],
+        },
+        {
+          Period: [
+            {
+              timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+              resolution: "PT15M",
+              Point: [{ position: "1", "price.amount": "11" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const intervals = extractSeriesIntervals(doc, ["price.amount"]);
+    const byResolution = new Map<number, number>();
+    for (const iv of intervals) {
+      const minutes = (iv.end_ms - iv.start_ms) / 60000;
+      byResolution.set(minutes, (byResolution.get(minutes) ?? 0) + 1);
+    }
+    expect(byResolution.get(60)).toBe(24);
+    expect(byResolution.get(15)).toBe(96);
   });
 });

@@ -63,7 +63,7 @@ const COMMON_CAVEATS: readonly string[] = [
 ];
 
 const PV_CAVEATS: readonly string[] = [
-  "Capture price uses daylight hours (07:00-19:00) as a simple proxy",
+  "Capture price uses daylight hours (06:00-18:00 UTC) as a simple proxy",
 ];
 
 const BESS_CAVEATS: readonly string[] = [
@@ -138,11 +138,14 @@ async function estimatePvRevenue(p: RevenueParams): Promise<SiteRevenueResult> {
   // Capacity factor: actual generation / (capacity * 8760 hours)
   const capacity_factor = round2(annual_generation_mwh / (p.capacity_mw * 8760));
 
-  // Capture price: weighted average of daylight hours (7-19)
-  const daylightPrices = prices.prices.filter((pp) => pp.hour >= 7 && pp.hour <= 19);
+  // Capture price: weighted average of the UTC hour in [06:00, 18:00) (documented approximation, not local solar time).
+  const daylightPrices = prices.prices.filter((pp) => {
+    const h = new Date(pp.interval_start_utc).getUTCHours();
+    return h >= 6 && h < 18;
+  });
   const capture_price_eur_mwh =
     daylightPrices.length > 0
-      ? round2(daylightPrices.reduce((s, pp) => s + pp.price_eur_mwh, 0) / daylightPrices.length)
+      ? round2(daylightPrices.reduce((s, pp) => s + pp.price, 0) / daylightPrices.length)
       : prices.stats.mean;
 
   // Annual revenue in EUR. annual_generation_mwh is already in MWh.

@@ -42,18 +42,27 @@ function makeSolarResponse(annualYield = 1100) {
 }
 
 function makePriceResponse() {
-  // 24 hours, daylight hours (7-19) average ~60 EUR/MWh
-  const prices = Array.from({ length: 24 }, (_, hour) => ({
-    hour,
-    price_eur_mwh: hour >= 7 && hour <= 19 ? 60 : 30,
-  }));
+  // 24 hourly intervals; UTC daylight hours [06:00, 18:00) average 60 EUR/MWh.
+  const prices = Array.from({ length: 24 }, (_, hour) => {
+    const start = new Date(Date.UTC(2026, 2, 31, hour, 0, 0));
+    const end = new Date(start.getTime() + 60 * 60000);
+    return {
+      interval_start_utc: start.toISOString(),
+      interval_end_utc: end.toISOString(),
+      price: hour >= 6 && hour < 18 ? 60 : 30,
+    };
+  });
   return {
     zone: "GB",
     start_date: "2026-03-31",
     end_date: "2026-03-31",
     currency: "EUR",
+    unit: "EUR/MWh",
+    resolution_minutes: 60,
     prices,
-    stats: { min: 30, max: 60, mean: 47.5 },
+    stats: { min: 30, max: 60, mean: 45 },
+    coverage: { expected_intervals: 24, returned_intervals: 24, missing_interval_starts: [], duplicates_dropped: 0 },
+    conflicts: 0,
   } as Awaited<ReturnType<typeof getDayAheadPrices>>;
 }
 
@@ -261,7 +270,7 @@ describe("estimateSiteRevenue", () => {
     );
     expect(result.caveats).toContain("Grid connection costs are not included");
     expect(result.caveats).toContain(
-      "Capture price uses daylight hours (07:00-19:00) as a simple proxy",
+      "Capture price uses daylight hours (06:00-18:00 UTC) as a simple proxy",
     );
     expect(result.disclaimer).toBeTruthy();
   });

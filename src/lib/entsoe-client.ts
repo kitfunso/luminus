@@ -54,6 +54,43 @@ export function dayRange(dateStr?: string): {
   };
 }
 
+const MARKET_DAY_FMT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Europe/Brussels",
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function brusselsOffsetMs(utcMs: number): number {
+  const parts = MARKET_DAY_FMT.formatToParts(new Date(utcMs));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute")) - utcMs;
+}
+
+/** UTC instant of 00:00 Europe/Brussels on a YYYY-MM-DD date. */
+export function marketMidnightUtc(dateStr: string): Date {
+  const utcMidnight = Date.parse(dateStr + "T00:00:00Z");
+  // Clocks change at 01:00Z, so the previous day's noon carries the offset in force at local midnight.
+  return new Date(utcMidnight - brusselsOffsetMs(utcMidnight - 12 * 3600000));
+}
+
+// ponytail: every zone luminus serves (SDAC, GB, SEM) auctions a CET delivery day; a zone on another day needs a per-zone tz.
+/** ENTSO-E window for delivery days [startDate, endDate), endDate defaulting to the day after startDate. */
+export function marketDayRange(startDate?: string, endDate?: string): {
+  periodStart: string;
+  periodEnd: string;
+} {
+  const start = startDate ?? new Date().toISOString().slice(0, 10);
+  const end = endDate ?? new Date(Date.parse(start + "T00:00:00Z") + 86400000).toISOString().slice(0, 10);
+  return {
+    periodStart: formatEntsoeDate(marketMidnightUtc(start)),
+    periodEnd: formatEntsoeDate(marketMidnightUtc(end)),
+  };
+}
+
 /**
  * Query the ENTSO-E API.
  * Returns parsed XML as JS object.

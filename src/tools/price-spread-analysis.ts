@@ -23,7 +23,7 @@ export const priceSpreadAnalysisSchema = z.object({
 });
 
 interface ScheduleEntry {
-  hour: number;
+  interval_start_utc: string;
   price: number;
   action: "charge" | "discharge" | "hold";
 }
@@ -35,6 +35,7 @@ export async function getPriceSpreadAnalysis(
 ): Promise<{
   zone: string;
   date: string;
+  currency: string;
   efficiency: number;
   targetCycles: number;
   grossSpread: number;
@@ -59,6 +60,7 @@ export async function getPriceSpreadAnalysis(
     return {
       zone: params.zone.toUpperCase(),
       date,
+      currency: priceData.currency,
       efficiency,
       targetCycles: cycles,
       grossSpread: 0,
@@ -71,27 +73,26 @@ export async function getPriceSpreadAnalysis(
     };
   }
 
-  // Sort by price to find cheapest/most expensive hours
-  const sorted = [...prices].sort((a, b) => a.price_eur_mwh - b.price_eur_mwh);
-  const chargeCount = Math.min(cycles, sorted.length);
-  const dischargeCount = Math.min(cycles, sorted.length);
+  // One cycle = one hour of charge at 1C; at finer resolution that's several intervals.
+  const resolutionMinutes = priceData.resolution_minutes || 60;
+  const intervalsPerCycle = Math.max(1, Math.round((cycles * 60) / resolutionMinutes));
 
-  const chargeHours = new Set(
-    sorted.slice(0, chargeCount).map((p) => p.hour)
-  );
-  const dischargeHours = new Set(
-    sorted.slice(-dischargeCount).map((p) => p.hour)
-  );
+  const sorted = [...prices].sort((a, b) => a.price - b.price);
+  const chargeCount = Math.min(intervalsPerCycle, sorted.length);
+  const dischargeCount = Math.min(intervalsPerCycle, sorted.length);
 
-  // Resolve conflicts: if same hour appears in both, remove from charge
-  for (const h of chargeHours) {
-    if (dischargeHours.has(h)) {
-      chargeHours.delete(h);
+  const chargeStarts = new Set(sorted.slice(0, chargeCount).map((p) => p.interval_start_utc));
+  const dischargeStarts = new Set(sorted.slice(-dischargeCount).map((p) => p.interval_start_utc));
+
+  // Resolve conflicts: if the same interval appears in both, remove it from charge.
+  for (const start of chargeStarts) {
+    if (dischargeStarts.has(start)) {
+      chargeStarts.delete(start);
     }
   }
 
-  const chargeAvg = sorted.slice(0, chargeCount).reduce((s, p) => s + p.price_eur_mwh, 0) / chargeCount;
-  const dischargeAvg = sorted.slice(-dischargeCount).reduce((s, p) => s + p.price_eur_mwh, 0) / dischargeCount;
+  const chargeAvg = sorted.slice(0, chargeCount).reduce((s, p) => s + p.price, 0) / chargeCount;
+  const dischargeAvg = sorted.slice(-dischargeCount).reduce((s, p) => s + p.price, 0) / dischargeCount;
 
   const grossSpread = Math.round((dischargeAvg - chargeAvg) * 100) / 100;
   // Net spread: discharge_price * efficiency - charge_price (efficiency loss on discharge side)
@@ -105,23 +106,24 @@ export async function getPriceSpreadAnalysis(
   else signal = "no_arb";
 
   const schedule: ScheduleEntry[] = prices.map((p) => ({
-    hour: p.hour,
-    price: Math.round(p.price_eur_mwh * 100) / 100,
-    action: chargeHours.has(p.hour)
-      ? "charge" as const
-      : dischargeHours.has(p.hour)
-        ? "discharge" as const
-        : "hold" as const,
+    interval_start_utc: p.interval_start_utc,
+    price: Math.round(p.price * 100) / 100,
+    action: chargeStarts.has(p.interval_start_utc)
+      ? ("charge" as const)
+      : dischargeStarts.has(p.interval_start_utc)
+        ? ("discharge" as const)
+        : ("hold" as const),
   }));
 
-  schedule.sort((a, b) => a.hour - b.hour);
+  schedule.sort((a, b) => Date.parse(a.interval_start_utc) - Date.parse(b.interval_start_utc));
 
-  const peakPrice = Math.round(Math.max(...prices.map((p) => p.price_eur_mwh)) * 100) / 100;
-  const offPeakPrice = Math.round(Math.min(...prices.map((p) => p.price_eur_mwh)) * 100) / 100;
+  const peakPrice = Math.round(Math.max(...prices.map((p) => p.price)) * 100) / 100;
+  const offPeakPrice = Math.round(Math.min(...prices.map((p) => p.price)) * 100) / 100;
 
   return {
     zone: params.zone.toUpperCase(),
     date,
+    currency: priceData.currency,
     efficiency,
     targetCycles: cycles,
     grossSpread,

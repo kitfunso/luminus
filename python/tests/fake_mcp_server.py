@@ -92,11 +92,29 @@ for line in sys.stdin:
         if name == "get_day_ahead_prices":
             payload = {
                 "zone": args.get("zone", "DE"),
+                "currency": "EUR",
+                "unit": "EUR/MWh",
+                "resolution_minutes": 60,
                 "prices": [
-                    {"hour": 0, "price_eur_mwh": 45.1},
-                    {"hour": 1, "price_eur_mwh": 47.2},
+                    {
+                        "interval_start_utc": "2026-04-02T00:00:00.000Z",
+                        "interval_end_utc": "2026-04-02T01:00:00.000Z",
+                        "price": 45.1,
+                    },
+                    {
+                        "interval_start_utc": "2026-04-02T01:00:00.000Z",
+                        "interval_end_utc": "2026-04-02T02:00:00.000Z",
+                        "price": 47.2,
+                    },
                 ],
                 "stats": {"min": 45.1, "max": 47.2, "mean": 46.15},
+                "coverage": {
+                    "expected_intervals": 2,
+                    "returned_intervals": 2,
+                    "missing_interval_starts": [],
+                    "duplicates_dropped": 0,
+                },
+                "conflicts": 0,
             }
         elif name == "get_generation_mix":
             payload = {
@@ -643,10 +661,29 @@ for line in sys.stdin:
         elif name == "get_intraday_prices":
             payload = {
                 "zone": args.get("zone", "GB"),
+                "currency": "EUR",
+                "unit": "EUR/MWh",
+                "resolution_minutes": 60,
                 "prices": [
-                    {"hour": 0, "price_eur_mwh": 48.0},
-                    {"hour": 1, "price_eur_mwh": 51.0},
+                    {
+                        "interval_start_utc": "2026-04-02T00:00:00.000Z",
+                        "interval_end_utc": "2026-04-02T01:00:00.000Z",
+                        "price": 48.0,
+                    },
+                    {
+                        "interval_start_utc": "2026-04-02T01:00:00.000Z",
+                        "interval_end_utc": "2026-04-02T02:00:00.000Z",
+                        "price": 51.0,
+                    },
                 ],
+                "stats": {"min": 48.0, "max": 51.0, "mean": 49.5},
+                "coverage": {
+                    "expected_intervals": 2,
+                    "returned_intervals": 2,
+                    "missing_interval_starts": [],
+                    "duplicates_dropped": 0,
+                },
+                "conflicts": 0,
             }
         elif name == "get_imbalance_prices":
             payload = {

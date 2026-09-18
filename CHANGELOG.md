@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased - 0.8.0
+
+Interval-timestamped prices. `get_day_ahead_prices`, `get_intraday_prices` and their consumers move from an ambiguous `hour` index to explicit UTC interval boundaries, fixing silent misalignment on 15-minute, DST and mixed-resolution days. Breaking change, ships as 0.8.0 (major-in-0.x).
+
+### Changed
+- **`hour` / `price_eur_mwh` removed from `get_day_ahead_prices` and `get_intraday_prices`.** Each price point is now `{ interval_start_utc, interval_end_utc, price }` (ISO 8601, UTC `Z`). `hour` was a same-day-only relative index: it could not represent a 15-minute point, collided across DST transitions, and said nothing about which currency or resolution priced it.
+- **A date now means the market delivery day, 00:00 to 24:00 Europe/Brussels** (22:00Z or 23:00Z the day before, 23 or 25 hours on clock-change days), not the UTC calendar day. The ENTSO-E request window follows it and points outside the window are dropped, so a DE request for 2026-03-29 returns exactly its 23 hours. Other ENTSO-E tools still use the UTC-day `dayRange`; aligning them is a follow-up.
+- **New response fields on both tools:** `currency` (from the document, EUR if absent, throws if a document's series disagree), `unit` (e.g. `EUR/MWh`), `resolution_minutes` (of the returned points), and `coverage` (`expected_intervals`, `returned_intervals`, `missing_interval_starts`, `duplicates_dropped`) so a partial or gappy publication is visible instead of silently short.
+- **Mixed-resolution documents (DE/GB 60-minute + 15-minute series in one response) keep the finest resolution where series overlap**, with a `notes` entry counting the dropped coarse points; outside the overlap (a range crossing a 60m to 15m go-live) the coarse points are kept. `resolution_minutes` is the finest resolution present and `expected_intervals` counts that grid.
+- **Same-start duplicate points are deduplicated.** Equal values collapse to one point and count in `duplicates_dropped`; differing values keep the first series and count in `conflicts`, naming the dropped series in `notes`. A live DE/FR run after this ships should confirm `conflicts == 0` on ordinary days.
+- **`get_price_spread_analysis`** keys its schedule by `interval_start_utc` and selects `cycles * 60 / resolution_minutes` intervals per side, so an "N full cycles" request behaves the same at hourly or 15-minute resolution. `currency` now passes through to the response.
+- **`get_intraday_da_spread`** joins day-ahead and intraday on `interval_start_utc`, averaging the finer series up to the coarser grid first, and reports `unmatched_intervals` instead of assuming both sides share the same hours.
+- **`estimate_site_revenue`'s capture-price daylight filter** now reads the UTC hour of `interval_start_utc` (06:00-18:00 UTC), documented as an approximation rather than local solar time.
+
+### Verification
+- 455 JS tests passing (was 423 at 0.7.0; +32 covering interval extraction, DST spring-forward/fall-back days (end to end through coverage), mixed-resolution overlap handling (including a range crossing a 60m to 15m go-live), duplicate/conflict dedup, coverage gaps, empty documents, and the spread/site-revenue consumers)
+- Python test suite green against the updated fake server payloads
+- No captured live A44 fixture was available for this change (no ENTSO-E key on this box); the first live run after merge should check `conflicts == 0` for DE and FR and record the result here
+- TypeScript build clean
+
 ## 0.7.0 - 2026-08-09
 
 ENTSO-E imbalance-data correctness release. All seven findings from issue #21 (external report) addressed; four parser/query defects fixed and verified against the live ENTSO-E API, plus a new authoritative German data source.
