@@ -185,7 +185,7 @@ if (shouldRegister("get_day_ahead_prices")) {
   registeredToolNames.push("get_day_ahead_prices");
   server.tool(
     "get_day_ahead_prices",
-    "Day-ahead hourly prices (EUR/MWh) for a European zone. Includes min/max/mean stats.",
+    "Day-ahead electricity prices for a European zone, interval-timestamped in the source currency/resolution. Includes min/max/mean stats and interval coverage.",
     pricesSchema.shape,
     auditedToolHandler("get_day_ahead_prices", pricesSchema, getDayAheadPrices),
   );
@@ -403,7 +403,7 @@ if (shouldRegister("get_intraday_prices")) {
   registeredToolNames.push("get_intraday_prices");
   server.tool(
     "get_intraday_prices",
-    "Intraday continuous electricity prices (EUR/MWh) for a European zone. Hourly with stats.",
+    "Intraday continuous electricity prices for a European zone, interval-timestamped in the source currency/resolution. Includes min/max/mean stats and interval coverage.",
     intradayPricesSchema.shape,
     auditedToolHandler("get_intraday_prices", intradayPricesSchema, getIntradayPrices),
   );
@@ -433,7 +433,7 @@ if (shouldRegister("get_intraday_da_spread")) {
   registeredToolNames.push("get_intraday_da_spread");
   server.tool(
     "get_intraday_da_spread",
-    "Intraday vs day-ahead spread per hour. Directional signal: premium = post-auction change (outage, forecast miss, demand spike).",
+    "Intraday vs day-ahead spread per interval. Directional signal: premium = post-auction change (outage, forecast miss, demand spike).",
     intradaySpreadSchema.shape,
     auditedToolHandler("get_intraday_da_spread", intradaySpreadSchema, getIntradayDaSpread),
   );
@@ -485,7 +485,7 @@ if (shouldRegister("get_price_spread_analysis")) {
   registeredToolNames.push("get_price_spread_analysis");
   server.tool(
     "get_price_spread_analysis",
-    "BESS arbitrage analysis: optimal charge/discharge schedule, revenue per MW, signal strength.",
+    "BESS arbitrage analysis: optimal charge/discharge schedule keyed by interval, revenue per MW, signal strength.",
     priceSpreadAnalysisSchema.shape,
     auditedToolHandler("get_price_spread_analysis", priceSpreadAnalysisSchema, getPriceSpreadAnalysis),
   );

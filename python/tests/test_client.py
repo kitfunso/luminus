@@ -46,7 +46,16 @@ def test_convenience_methods_and_dataframe_helpers():
     try:
         prices = client.get_day_ahead_prices(zone="DE")
         df = prices.to_pandas()
-        assert list(df.columns) == ["zone", "hour", "price_eur_mwh"]
+        assert list(df.columns) == [
+            "zone",
+            "currency",
+            "unit",
+            "resolution_minutes",
+            "conflicts",
+            "interval_start_utc",
+            "interval_end_utc",
+            "price",
+        ]
         assert df["zone"].tolist() == ["DE", "DE"]
 
         generation = client.get_generation_mix(zone="DE")
@@ -340,7 +349,7 @@ def test_trading_price_helpers():
 
         intraday = client.get_intraday_prices_frame(zone="GB")
         assert len(intraday) == 2
-        assert intraday["price_eur_mwh"].tolist() == [48.0, 51.0]
+        assert intraday["price"].tolist() == [48.0, 51.0]
 
         imbalance = client.get_imbalance_prices_frame(zone="GB")
         assert len(imbalance) == 2

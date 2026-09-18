@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { queryEntsoe, dayRange } from "../lib/entsoe-client.js";
 import { resolvePriceZone, AVAILABLE_ZONES } from "../lib/zone-codes.js";
-import { ensureArray } from "../lib/xml-parser.js";
+import { buildIntervalPrices } from "./prices.js";
 import { TTL } from "../lib/cache.js";
 
 export const intradayPricesSchema = z.object({
@@ -17,8 +17,16 @@ export const intradayPricesSchema = z.object({
 });
 
 interface IntradayPricePoint {
-  hour: number;
-  price_eur_mwh: number;
+  interval_start_utc: string;
+  interval_end_utc: string;
+  price: number;
+}
+
+interface Coverage {
+  expected_intervals: number;
+  returned_intervals: number;
+  missing_interval_starts: string[];
+  duplicates_dropped: number;
 }
 
 export async function getIntradayPrices(
@@ -27,8 +35,13 @@ export async function getIntradayPrices(
   zone: string;
   date: string;
   currency: string;
+  unit: string;
+  resolution_minutes: number;
   prices: IntradayPricePoint[];
   stats: { min: number; max: number; mean: number };
+  coverage: Coverage;
+  conflicts: number;
+  notes?: string[];
 }> {
   const eic = resolvePriceZone(params.zone);
   const { periodStart, periodEnd } = dayRange(params.date);
@@ -49,25 +62,9 @@ export async function getIntradayPrices(
   const doc = data.Publication_MarketDocument;
   if (!doc) throw new Error("No intraday price data returned for this zone/date.");
 
-  const timeSeries = ensureArray(doc.TimeSeries);
-  const prices: IntradayPricePoint[] = [];
+  const built = buildIntervalPrices(doc, periodStart, periodEnd);
 
-  for (const ts of timeSeries) {
-    const periods = ensureArray(ts.Period);
-
-    for (const period of periods) {
-      const points = ensureArray(period.Point);
-      for (const point of points) {
-        const position = Number(point.position);
-        const price = Number(point["price.amount"]);
-        prices.push({ hour: position - 1, price_eur_mwh: price });
-      }
-    }
-  }
-
-  prices.sort((a, b) => a.hour - b.hour);
-
-  const values = prices.map((p) => p.price_eur_mwh);
+  const values = built.prices.map((p) => p.price);
   const min = values.length > 0 ? Math.min(...values) : 0;
   const max = values.length > 0 ? Math.max(...values) : 0;
   const mean =
@@ -78,8 +75,13 @@ export async function getIntradayPrices(
   return {
     zone: params.zone.toUpperCase(),
     date: params.date ?? new Date().toISOString().slice(0, 10),
-    currency: "EUR",
-    prices,
+    currency: built.currency,
+    unit: built.unit,
+    resolution_minutes: built.resolutionMinutes,
+    prices: built.prices,
     stats: { min, max, mean },
+    coverage: built.coverage,
+    conflicts: built.conflicts,
+    notes: built.notes.length > 0 ? built.notes : undefined,
   };
 }

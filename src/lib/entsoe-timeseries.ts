@@ -1,25 +1,17 @@
 import { ensureArray } from "./xml-parser.js";
 
-/**
- * Shared ENTSO-E TimeSeries/Period/Point extraction with curveType A03 support.
- *
- * ENTSO-E step curves (curveType A03) omit a Point when its value repeats the
- * previous position, so reading only explicit points under-reports a day
- * (e.g. 41 rows instead of 96 quarter-hours). Per the ENTSO-E curve-type spec
- * the omitted positions carry the last seen value forward until the period end.
- * This helper expands every period to its full slot count from timeInterval /
- * resolution and forward-fills the gaps.
- *
- * Period numbering is anchored to the period's timeInterval relative to the
- * earliest interval in the document: two TimeSeries covering the SAME interval
- * (e.g. A85 price categories) share period numbers, while sequential periods
- * (multi-period days, ZIP-merged pages) number continuously (1..96 for a PT15M
- * day). Documents without parseable intervals fall back to sequential offsets.
- */
+/** Shared ENTSO-E TimeSeries/Period/Point extraction, forward-filling A03 step curves. */
 
 interface SeriesPoint {
   period: number;
   value: number;
+}
+
+export interface SeriesInterval {
+  start_ms: number;
+  end_ms: number;
+  value: number;
+  series_idx: number;
 }
 
 /** Parse an ENTSO-E resolution (PT15M, PT30M, PT60M, P1D, P7D) to minutes. 0 = unknown. */
@@ -34,21 +26,22 @@ export function resolutionToMinutes(resolution: string | undefined): number {
   return 0;
 }
 
-/**
- * Extract points from every TimeSeries/Period of a parsed ENTSO-E document,
- * reading the value from the first key in `valueKeys` present on a Point.
- * Points without any of the keys are skipped (never coerced to 0).
- */
+// YYYYMMDDHHmm (UTC) -> epoch ms, the format entsoe-client's formatEntsoeDate produces.
+export function entsoeStampToMs(stamp: string): number {
+  const iso = `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T${stamp.slice(8, 10)}:${stamp.slice(10, 12)}:00Z`;
+  return Date.parse(iso);
+}
+
 interface ParsedPeriod {
   explicit: Map<number, number>;
   slots: number;
   startMs: number; // NaN when the interval is unparseable
   minutes: number;
-  seriesIdx: number; // forward-fill carries across periods of one series only
+  seriesIdx: number;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[] {
+function parsePeriods(doc: any, valueKeys: string[]): ParsedPeriod[] {
   const periods: ParsedPeriod[] = [];
   let seriesIdx = -1;
 
@@ -76,8 +69,6 @@ export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[
         if (position > maxPosition) maxPosition = position;
       }
 
-      // Full slot count for the period from its time interval and resolution;
-      // fall back to the highest explicit position when either is missing.
       const minutes = resolutionToMinutes(p.resolution);
       const start = p.timeInterval?.start ? Date.parse(p.timeInterval.start) : NaN;
       const end = p.timeInterval?.end ? Date.parse(p.timeInterval.end) : NaN;
@@ -89,6 +80,14 @@ export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[
       periods.push({ explicit, slots, startMs: start, minutes, seriesIdx });
     }
   }
+
+  return periods;
+}
+
+/** Extract points per TimeSeries/Period, skipping points missing all `valueKeys` (never coerced to 0). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[] {
+  const periods = parsePeriods(doc, valueKeys);
 
   // Anchor period numbering to timestamps so overlapping TimeSeries (same
   // interval, different category) share numbers instead of stacking offsets.
@@ -106,21 +105,49 @@ export function extractSeriesPoints(doc: any, valueKeys: string[]): SeriesPoint[
         ? Math.round((p.startMs - docStartMs) / 60000 / p.minutes)
         : sequentialOffset;
 
-    // Forward-fill A03 gaps: an omitted position repeats the last seen value.
-    // The fill carries across period boundaries WITHIN one TimeSeries (a step
-    // can span the boundary, per the reference client's multi-period handling)
-    // but never across series - a different series is a different curve.
+    // Forward-fill A03 gaps within one series only; a different series is a different curve.
     if (p.seriesIdx !== lastSeriesIdx) {
       last = undefined;
       lastSeriesIdx = p.seriesIdx;
     }
     for (let pos = 1; pos <= p.slots; pos++) {
       const value = p.explicit.get(pos) ?? last;
-      if (value == null) continue; // gap before the first explicit point
+      if (value == null) continue;
       out.push({ period: base + pos, value });
       last = value;
     }
     sequentialOffset = base + p.slots;
+  }
+
+  return out;
+}
+
+/** Timestamped sibling of extractSeriesPoints; throws on an unparseable timeInterval/resolution (no honest fallback for timestamps). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function extractSeriesIntervals(doc: any, valueKeys: string[]): SeriesInterval[] {
+  const periods = parsePeriods(doc, valueKeys);
+  const out: SeriesInterval[] = [];
+  let last: number | undefined;
+  let lastSeriesIdx = -1;
+
+  for (const p of periods) {
+    if (!Number.isFinite(p.startMs) || p.minutes <= 0) {
+      throw new Error(
+        `ENTSO-E period (series ${p.seriesIdx}) has no parseable timeInterval/resolution; cannot assign interval timestamps.`
+      );
+    }
+    if (p.seriesIdx !== lastSeriesIdx) {
+      last = undefined;
+      lastSeriesIdx = p.seriesIdx;
+    }
+    const stepMs = p.minutes * 60000;
+    for (let pos = 1; pos <= p.slots; pos++) {
+      const value = p.explicit.get(pos) ?? last;
+      if (value == null) continue;
+      const start_ms = p.startMs + (pos - 1) * stepMs;
+      out.push({ start_ms, end_ms: start_ms + stepMs, value, series_idx: p.seriesIdx });
+      last = value;
+    }
   }
 
   return out;

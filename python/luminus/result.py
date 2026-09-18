@@ -43,6 +43,9 @@ class LuminusResult:
 
         if isinstance(value, dict):
             list_keys = [key for key, item in value.items() if isinstance(item, list)]
+            if len(list_keys) > 1:
+                # Side lists such as `notes: [str]` must not hide the real list-of-dict rows.
+                list_keys = [key for key in list_keys if value[key] and all(isinstance(i, dict) for i in value[key])]
             if len(list_keys) == 1:
                 list_key = list_keys[0]
                 rows = value[list_key]
