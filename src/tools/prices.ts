@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { queryEntsoe, dayRange, formatEntsoeDate } from "../lib/entsoe-client.js";
+import { queryEntsoe, marketDayRange } from "../lib/entsoe-client.js";
 import { resolvePriceZone, AVAILABLE_ZONES } from "../lib/zone-codes.js";
 import { extractSeriesIntervals, entsoeStampToMs, type SeriesInterval } from "../lib/entsoe-timeseries.js";
 import { ensureArray } from "../lib/xml-parser.js";
@@ -51,26 +51,7 @@ export async function getDayAheadPrices(
 }> {
   const eic = resolvePriceZone(params.zone);
 
-  let periodStart: string;
-  let periodEnd: string;
-
-  if (params.start_date) {
-    const startDt = new Date(params.start_date + "T00:00:00Z");
-    periodStart = formatEntsoeDate(startDt);
-
-    if (params.end_date) {
-      const endDt = new Date(params.end_date + "T00:00:00Z");
-      periodEnd = formatEntsoeDate(endDt);
-    } else {
-      periodEnd = formatEntsoeDate(
-        new Date(startDt.getTime() + 24 * 60 * 60 * 1000)
-      );
-    }
-  } else {
-    const range = dayRange();
-    periodStart = range.periodStart;
-    periodEnd = range.periodEnd;
-  }
+  const { periodStart, periodEnd } = marketDayRange(params.start_date, params.end_date);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = await queryEntsoe(
@@ -155,9 +136,13 @@ export function buildIntervalPrices(
   const measureUnit = measureUnits.size > 0 ? ([...measureUnits][0] as string) : "MWh";
   const unit = `${currency}/${measureUnit}`;
 
-  const intervals = extractSeriesIntervals(doc, ["price.amount"]);
+  const rangeStartMs = entsoeStampToMs(periodStart);
+  const rangeEndMs = entsoeStampToMs(periodEnd);
+  const intervals = extractSeriesIntervals(doc, ["price.amount"]).filter(
+    (iv) => iv.start_ms >= rangeStartMs && iv.start_ms < rangeEndMs
+  );
   if (intervals.length === 0) {
-    notes.push("Document contained no price points; resolution unknown, so expected_intervals cannot be computed.");
+    notes.push("Document contained no price points in the requested delivery window; resolution unknown, so expected_intervals cannot be computed.");
     return {
       prices: [],
       currency,
@@ -235,8 +220,6 @@ export function buildIntervalPrices(
 
   prices.sort((a, b) => Date.parse(a.interval_start_utc) - Date.parse(b.interval_start_utc));
 
-  const rangeStartMs = entsoeStampToMs(periodStart);
-  const rangeEndMs = entsoeStampToMs(periodEnd);
   const expectedIntervals = Math.round((rangeEndMs - rangeStartMs) / stepMs);
   const missingIntervalStarts: string[] = [];
   for (let t = rangeStartMs; t < rangeEndMs; t += stepMs) {

@@ -37,7 +37,7 @@ describe("getDayAheadPrices", () => {
             "price_Measure_Unit.name": "MWh",
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, String(30 + i))),
               },
@@ -51,8 +51,8 @@ describe("getDayAheadPrices", () => {
 
     expect(result.prices).toHaveLength(24);
     expect(result.prices[0]).toEqual({
-      interval_start_utc: "2026-08-01T00:00:00.000Z",
-      interval_end_utc: "2026-08-01T01:00:00.000Z",
+      interval_start_utc: "2026-07-31T22:00:00.000Z",
+      interval_end_utc: "2026-07-31T23:00:00.000Z",
       price: 30,
     });
     expect(result.currency).toBe("EUR");
@@ -74,7 +74,7 @@ describe("getDayAheadPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT15M",
                 curveType: "A03",
                 Point: [hourlyPoint(1, "50"), hourlyPoint(50, "75")],
@@ -89,7 +89,7 @@ describe("getDayAheadPrices", () => {
 
     expect(result.prices).toHaveLength(96);
     expect(result.resolution_minutes).toBe(15);
-    expect(result.prices[95].interval_end_utc).toBe("2026-08-02T00:00:00.000Z");
+    expect(result.prices[95].interval_end_utc).toBe("2026-08-01T22:00:00.000Z");
   });
 
   it("throws a clear error when a period has no parseable timeInterval", async () => {
@@ -102,6 +102,61 @@ describe("getDayAheadPrices", () => {
     await expect(getDayAheadPrices({ zone: "DE", start_date: "2026-08-01" })).rejects.toThrow(
       /parseable timeInterval/
     );
+  });
+
+  it("spring-forward day: 23 intervals, full coverage, previous-day points clipped", async () => {
+    queryEntsoeMock.mockResolvedValue({
+      Publication_MarketDocument: {
+        TimeSeries: [
+          {
+            Period: [
+              {
+                timeInterval: { start: "2026-03-27T23:00Z", end: "2026-03-28T23:00Z" },
+                resolution: "PT60M",
+                Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, "1")),
+              },
+              {
+                timeInterval: { start: "2026-03-28T23:00Z", end: "2026-03-29T22:00Z" },
+                resolution: "PT60M",
+                Point: Array.from({ length: 23 }, (_, i) => hourlyPoint(i + 1, "2")),
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const result = await getDayAheadPrices({ zone: "DE", start_date: "2026-03-29" });
+
+    expect(result.prices).toHaveLength(23);
+    expect(result.prices[0].interval_start_utc).toBe("2026-03-28T23:00:00.000Z");
+    expect(result.prices.every((p) => p.price === 2)).toBe(true);
+    expect(result.coverage.expected_intervals).toBe(23);
+    expect(result.coverage.missing_interval_starts).toEqual([]);
+  });
+
+  it("fall-back day: 25 intervals, full coverage", async () => {
+    queryEntsoeMock.mockResolvedValue({
+      Publication_MarketDocument: {
+        TimeSeries: [
+          {
+            Period: [
+              {
+                timeInterval: { start: "2026-10-24T22:00Z", end: "2026-10-25T23:00Z" },
+                resolution: "PT60M",
+                Point: Array.from({ length: 25 }, (_, i) => hourlyPoint(i + 1, "3")),
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    const result = await getDayAheadPrices({ zone: "DE", start_date: "2026-10-25" });
+
+    expect(result.prices).toHaveLength(25);
+    expect(result.coverage.expected_intervals).toBe(25);
+    expect(result.coverage.missing_interval_starts).toEqual([]);
   });
 
   it("flags an empty document in notes instead of reporting nothing expected silently", async () => {
@@ -120,12 +175,12 @@ describe("getDayAheadPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, "10")),
               },
               {
-                timeInterval: { start: "2026-08-02T00:00Z", end: "2026-08-03T00:00Z" },
+                timeInterval: { start: "2026-08-01T22:00Z", end: "2026-08-02T22:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, "20")),
               },
@@ -152,7 +207,7 @@ describe("getDayAheadPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, "999")),
               },
@@ -161,7 +216,7 @@ describe("getDayAheadPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT15M",
                 Point: Array.from({ length: 96 }, (_, i) => hourlyPoint(i + 1, "50")),
               },
@@ -186,7 +241,7 @@ describe("getDayAheadPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2025-09-30T00:00Z", end: "2025-10-01T00:00Z" },
+                timeInterval: { start: "2025-09-29T22:00Z", end: "2025-09-30T22:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, "70")),
               },
@@ -195,7 +250,7 @@ describe("getDayAheadPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2025-10-01T00:00Z", end: "2025-10-02T00:00Z" },
+                timeInterval: { start: "2025-09-30T22:00Z", end: "2025-10-01T22:00Z" },
                 resolution: "PT15M",
                 Point: Array.from({ length: 96 }, (_, i) => hourlyPoint(i + 1, "50")),
               },
@@ -208,7 +263,7 @@ describe("getDayAheadPrices", () => {
     const result = await getDayAheadPrices({ zone: "DE", start_date: "2025-09-30", end_date: "2025-10-02" });
 
     expect(result.prices).toHaveLength(120);
-    expect(result.prices[0].interval_end_utc).toBe("2025-09-30T01:00:00.000Z");
+    expect(result.prices[0].interval_end_utc).toBe("2025-09-29T23:00:00.000Z");
     expect(result.coverage.missing_interval_starts).toEqual([]);
     expect(result.notes).toBeUndefined();
   });
@@ -222,7 +277,7 @@ describe("getDayAheadPrices", () => {
             "price_Measure_Unit.name": "MWh",
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, "80")),
               },
@@ -246,7 +301,7 @@ describe("getDayAheadPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T23:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T21:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 23 }, (_, i) => hourlyPoint(i + 1, "10")),
               },
@@ -260,15 +315,15 @@ describe("getDayAheadPrices", () => {
 
     expect(result.coverage.expected_intervals).toBe(24);
     expect(result.coverage.returned_intervals).toBe(23);
-    expect(result.coverage.missing_interval_starts).toEqual(["2026-08-01T23:00:00.000Z"]);
+    expect(result.coverage.missing_interval_starts).toEqual(["2026-08-01T21:00:00.000Z"]);
   });
 
   it("dedups equal-value same-start collisions without flagging a conflict", async () => {
     queryEntsoeMock.mockResolvedValue({
       Publication_MarketDocument: {
         TimeSeries: [
-          { Period: [{ timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" }, resolution: "PT60M", Point: [hourlyPoint(1, "40")] }] },
-          { Period: [{ timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" }, resolution: "PT60M", Point: [hourlyPoint(1, "40")] }] },
+          { Period: [{ timeInterval: { start: "2026-07-31T22:00Z", end: "2026-07-31T23:00Z" }, resolution: "PT60M", Point: [hourlyPoint(1, "40")] }] },
+          { Period: [{ timeInterval: { start: "2026-07-31T22:00Z", end: "2026-07-31T23:00Z" }, resolution: "PT60M", Point: [hourlyPoint(1, "40")] }] },
         ],
       },
     });
@@ -284,8 +339,8 @@ describe("getDayAheadPrices", () => {
     queryEntsoeMock.mockResolvedValue({
       Publication_MarketDocument: {
         TimeSeries: [
-          { businessType: "A62", Period: [{ timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" }, resolution: "PT60M", Point: [hourlyPoint(1, "40")] }] },
-          { businessType: "A63", Period: [{ timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" }, resolution: "PT60M", Point: [hourlyPoint(1, "99")] }] },
+          { businessType: "A62", Period: [{ timeInterval: { start: "2026-07-31T22:00Z", end: "2026-07-31T23:00Z" }, resolution: "PT60M", Point: [hourlyPoint(1, "40")] }] },
+          { businessType: "A63", Period: [{ timeInterval: { start: "2026-07-31T22:00Z", end: "2026-07-31T23:00Z" }, resolution: "PT60M", Point: [hourlyPoint(1, "99")] }] },
         ],
       },
     });

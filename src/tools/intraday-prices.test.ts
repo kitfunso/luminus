@@ -37,7 +37,7 @@ describe("getIntradayPrices", () => {
             "price_Measure_Unit.name": "MWh",
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, String(40 + i))),
               },
@@ -51,8 +51,8 @@ describe("getIntradayPrices", () => {
 
     expect(result.prices).toHaveLength(24);
     expect(result.prices[0]).toEqual({
-      interval_start_utc: "2026-08-01T00:00:00.000Z",
-      interval_end_utc: "2026-08-01T01:00:00.000Z",
+      interval_start_utc: "2026-07-31T22:00:00.000Z",
+      interval_end_utc: "2026-07-31T23:00:00.000Z",
       price: 40,
     });
     expect(result.currency).toBe("EUR");
@@ -67,7 +67,7 @@ describe("getIntradayPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT15M",
                 curveType: "A03",
                 Point: [hourlyPoint(1, "50"), hourlyPoint(50, "75")],
@@ -103,7 +103,7 @@ describe("getIntradayPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, "999")),
               },
@@ -112,7 +112,7 @@ describe("getIntradayPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT15M",
                 Point: Array.from({ length: 96 }, (_, i) => hourlyPoint(i + 1, "50")),
               },
@@ -137,7 +137,7 @@ describe("getIntradayPrices", () => {
             "price_Measure_Unit.name": "MWh",
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-02T00:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T22:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 24 }, (_, i) => hourlyPoint(i + 1, "80")),
               },
@@ -160,7 +160,7 @@ describe("getIntradayPrices", () => {
           {
             Period: [
               {
-                timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T23:00Z" },
+                timeInterval: { start: "2026-07-31T22:00Z", end: "2026-08-01T21:00Z" },
                 resolution: "PT60M",
                 Point: Array.from({ length: 23 }, (_, i) => hourlyPoint(i + 1, "10")),
               },
@@ -174,6 +174,6 @@ describe("getIntradayPrices", () => {
 
     expect(result.coverage.expected_intervals).toBe(24);
     expect(result.coverage.returned_intervals).toBe(23);
-    expect(result.coverage.missing_interval_starts).toEqual(["2026-08-01T23:00:00.000Z"]);
+    expect(result.coverage.missing_interval_starts).toEqual(["2026-08-01T21:00:00.000Z"]);
   });
 });

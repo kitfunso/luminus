@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { queryEntsoe, dayRange } from "../lib/entsoe-client.js";
+import { queryEntsoe, marketDayRange } from "../lib/entsoe-client.js";
 import { resolvePriceZone, AVAILABLE_ZONES } from "../lib/zone-codes.js";
 import { buildIntervalPrices } from "./prices.js";
 import { TTL } from "../lib/cache.js";
@@ -44,7 +44,7 @@ export async function getIntradayPrices(
   notes?: string[];
 }> {
   const eic = resolvePriceZone(params.zone);
-  const { periodStart, periodEnd } = dayRange(params.date);
+  const { periodStart, periodEnd } = marketDayRange(params.date);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data: any = await queryEntsoe(
