@@ -79,7 +79,7 @@ describe("extractSeriesPoints", () => {
               timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" },
               resolution: "PT15M",
               Point: [
-                { position: "1", quantity: "999" }, // a volume, not a price
+                { position: "1", quantity: "999" },
                 { position: "2", "imbalance_Price.amount": "42" },
               ],
             },

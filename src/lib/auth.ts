@@ -36,7 +36,6 @@ async function warnOpenPermissions(filePath: string): Promise<void> {
       );
     }
   } catch {
-    // stat failed — file may not exist, which is fine
   }
 }
 

@@ -104,7 +104,7 @@ export async function getAuctionResults(
     corridor,
     date: params.date,
     allocated_capacity_mw: count > 0 ? Math.round(totalRamMw / count) : null,
-    auction_price_eur_mw: null, // No longer in this endpoint
+    auction_price_eur_mw: null,
     offered_capacity_mw: count > 0 ? Math.round(totalRamMw / count) : null,
     requested_capacity_mw: null,
   };

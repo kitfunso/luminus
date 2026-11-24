@@ -516,7 +516,6 @@ describe("shortlistBessSites", () => {
       })
       .mockResolvedValueOnce(noMatchDno)
       .mockResolvedValueOnce(noMatchDno)
-      // Bravo: SSEN returns high headroom, NPG and UKPN return no match
       .mockResolvedValueOnce({
         lat: 51.52,
         lon: -0.12,

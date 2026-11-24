@@ -2,7 +2,7 @@
 export const ZONE_CODES: Record<string, string> = {
   GB: "10YGB----------A",
   DE: "10Y1001A1001A83F",
-  DE_LU: "10Y1001A1001A82H", // DE-LU combined bidding zone (used for prices)
+  DE_LU: "10Y1001A1001A82H",
   FR: "10YFR-RTE------C",
   NL: "10YNL----------L",
   BE: "10YBE----------2",
@@ -50,7 +50,7 @@ export function resolveZone(zone: string): string {
  * from control areas). E.g. DE uses the DE-LU combined bidding zone for prices.
  */
 const PRICE_ZONE_OVERRIDES: Record<string, string> = {
-  DE: "10Y1001A1001A82H", // DE-LU combined bidding zone
+  DE: "10Y1001A1001A82H",
 };
 
 /** Resolve zone for price queries (uses bidding zone overrides) */

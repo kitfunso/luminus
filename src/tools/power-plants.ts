@@ -169,7 +169,6 @@ async function fetchGbPlantsFromNeso(): Promise<PowerPlant[]> {
       }
     }
   } catch {
-    // TEC fetch failed, continue with embedded
   }
 
   try {
@@ -200,7 +199,6 @@ async function fetchGbPlantsFromNeso(): Promise<PowerPlant[]> {
       }
     }
   } catch {
-    // Embedded fetch failed
   }
 
   const deduped = dedupePlants(plants);

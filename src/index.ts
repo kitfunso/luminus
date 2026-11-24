@@ -877,7 +877,6 @@ try {
     );
   }
 } catch {
-  // luminus-prosumer not installed — skip silently
 }
 
 }

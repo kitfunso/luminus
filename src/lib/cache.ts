@@ -28,19 +28,19 @@ export class TtlCache {
 
 /** Cache TTL constants in milliseconds */
 export const TTL = {
-  REALTIME: 5 * 60 * 1000, // 5 min
-  PRICES: 60 * 60 * 1000, // 1 hour
-  CAPACITY: 24 * 60 * 60 * 1000, // 24 hours
-  FLOWS: 5 * 60 * 1000, // 5 min
-  STORAGE: 60 * 60 * 1000, // 1 hour
-  WEATHER: 30 * 60 * 1000, // 30 min
-  EIA: 60 * 60 * 1000, // 1 hour
-  FORECAST: 60 * 60 * 1000, // 1 hour
-  BALANCING: 5 * 60 * 1000, // 5 min
-  STATIC_DATA: 24 * 60 * 60 * 1000, // 24 hours
-  AUCTION: 60 * 60 * 1000, // 1 hour
-  ANCILLARY: 60 * 60 * 1000, // 1 hour
-  OUTAGES: 15 * 60 * 1000, // 15 min
-  FREQUENCY: 30 * 1000, // 30 sec
-  INTRADAY: 15 * 60 * 1000, // 15 min
+  REALTIME: 5 * 60 * 1000,
+  PRICES: 60 * 60 * 1000,
+  CAPACITY: 24 * 60 * 60 * 1000,
+  FLOWS: 5 * 60 * 1000,
+  STORAGE: 60 * 60 * 1000,
+  WEATHER: 30 * 60 * 1000,
+  EIA: 60 * 60 * 1000,
+  FORECAST: 60 * 60 * 1000,
+  BALANCING: 5 * 60 * 1000,
+  STATIC_DATA: 24 * 60 * 60 * 1000,
+  AUCTION: 60 * 60 * 1000,
+  ANCILLARY: 60 * 60 * 1000,
+  OUTAGES: 15 * 60 * 1000,
+  FREQUENCY: 30 * 1000,
+  INTRADAY: 15 * 60 * 1000,
 } as const;

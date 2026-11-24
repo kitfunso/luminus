@@ -152,7 +152,6 @@ async function fetchUmms(
       return result;
     }
   } catch {
-    // Fall through to fallback
   }
 
   return {
@@ -214,7 +213,6 @@ async function fetchOutageEvents(
       return result;
     }
   } catch {
-    // Fall through
   }
 
   return {

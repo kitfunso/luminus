@@ -123,7 +123,7 @@ export async function getTerrainAnalysis(
   const result: TerrainResult = {
     lat,
     lon,
-    elevation_m: elevations[4], // centre point
+    elevation_m: elevations[4],
     slope_deg,
     aspect_deg,
     aspect_cardinal,

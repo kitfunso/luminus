@@ -50,14 +50,14 @@ const TICKERS: Record<string, { ticker: string; name: string; currency: string; 
     name: "Dutch TTF Natural Gas Futures",
     currency: "EUR",
     unit: "EUR/MWh",
-    toEurMwh: 1, // TTF is already quoted in EUR/MWh
+    toEurMwh: 1,
   },
   nbp: {
     ticker: "NG%3DF",
     name: "UK NBP Natural Gas (Henry Hub proxy)",
     currency: "USD",
     unit: "USD/MMBtu",
-    toEurMwh: 3.41, // Approximate USD/MMBtu to EUR/MWh conversion
+    toEurMwh: 3.41,
   },
 };
 
