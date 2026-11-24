@@ -16,7 +16,7 @@ describe("parseNtpCsv", () => {
     "08.08.2026;00:00;00:15;CEST;42,50",
     "08.08.2026;00:15;00:30;CEST;-3,25",
     "08.08.2026;23:45;00:00;CEST;1.001,00",
-    "09.08.2026;00:00;00:15;CEST;99,99", // different day: dropped
+    "09.08.2026;00:00;00:15;CEST;99,99",
   ].join("\r\n");
 
   it("parses semicolon CSV with German decimals into quarter-hour periods", () => {
