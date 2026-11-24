@@ -93,7 +93,6 @@ export async function getDayAheadPrices(
   };
 }
 
-// Best-effort label for a conflict note; no live A44 fixture to verify field placement against.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function describeSeries(ts: any): string {
   const position = ts["classificationSequence_AttributeInstanceComponent.position"];
@@ -123,7 +122,6 @@ export function buildIntervalPrices(
   const timeSeriesList = ensureArray<Record<string, unknown>>(doc.TimeSeries);
   const notes: string[] = [];
 
-  // Currency: series must agree; there is no honest default when they disagree.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const currencies = new Set(timeSeriesList.map((ts: any) => ts["currency_Unit.name"]).filter((c) => c != null));
   if (currencies.size > 1) {
@@ -154,8 +152,6 @@ export function buildIntervalPrices(
     };
   }
 
-  // Overlap policy: a coarser point is dropped only where a finer series covers the same span;
-  // outside the overlap (e.g. a range crossing a 60m->15m go-live) it is the only data there.
   const minutesOf = (iv: { start_ms: number; end_ms: number }) => Math.round((iv.end_ms - iv.start_ms) / 60000);
   const distinctMinutes = [...new Set(intervals.map(minutesOf))].sort((a, b) => a - b);
   const resolutionMinutes = distinctMinutes[0];
@@ -183,8 +179,6 @@ export function buildIntervalPrices(
     );
   }
 
-  // Same-start collisions: equal values dedup silently; differing values keep
-  // the first series and are flagged so a distinct product is never silently lost.
   const byStart = new Map<number, typeof kept>();
   for (const iv of kept) {
     const list = byStart.get(iv.start_ms) ?? [];

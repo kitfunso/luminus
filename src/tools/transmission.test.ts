@@ -2,10 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateTiles, getTransmissionLines } from "./transmission.js";
 import { _resetOverpassState } from "../lib/overpass.js";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function mockFetch(data: unknown = { elements: [] }) {
   vi.stubGlobal(
     "fetch",
@@ -34,23 +30,15 @@ function makeElement(id: number, voltageV: number, operator?: string) {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Unit: generateTiles
-// ---------------------------------------------------------------------------
-
 describe("generateTiles", () => {
   it("returns a single tile when bbox fits within TILE_SIZE_DEG", () => {
     const tiles = generateTiles([50, 8, 54, 12]);
-    // 4x4 degrees => 1 lat step, 1 lon step => 1 tile
     expect(tiles).toHaveLength(1);
     expect(tiles[0]).toEqual([50, 8, 54, 12]);
   });
 
   it("splits a large bbox into multiple tiles", () => {
-    // NO: 57.96,4.64 -> 71.19,31.07 => ~13.2 lat x ~26.4 lon
     const tiles = generateTiles([57.96, 4.64, 71.19, 31.07]);
-    // latRange=13.23, lonRange=26.43
-    // latSteps=ceil(13.23/5)=3, lonSteps=ceil(26.43/5)=6 => 18 tiles
     expect(tiles).toHaveLength(18);
   });
 
@@ -58,7 +46,6 @@ describe("generateTiles", () => {
     const bbox: [number, number, number, number] = [36.0, -9.3, 43.79, 3.33];
     const tiles = generateTiles(bbox);
 
-    // Verify coverage: min of all tile lat_mins = bbox lat_min, etc.
     const latMins = tiles.map((t) => t[0]);
     const lonMins = tiles.map((t) => t[1]);
     const latMaxs = tiles.map((t) => t[2]);
@@ -81,10 +68,6 @@ describe("generateTiles", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Integration: getTransmissionLines
-// ---------------------------------------------------------------------------
-
 describe("getTransmissionLines", () => {
   beforeEach(() => {
     _resetOverpassState();
@@ -102,21 +85,17 @@ describe("getTransmissionLines", () => {
 
     const result = await getTransmissionLines({ country: "BE" });
 
-    // BE bbox area: ~2 * ~3.85 = ~7.7 sq deg => no tiling
     expect(result.line_count).toBe(2);
     expect(result.lines[0].voltage_kv).toBe(380);
     expect(result.lines[1].voltage_kv).toBe(220);
 
-    // Single fetch call (no tiling)
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   });
 
   it("tiles large country queries and deduplicates by ID", async () => {
-    // RO bbox area ~43.8 sq deg > 25, producing 2 tiles (fits within rate limit window)
     const sharedElement = makeElement(100, 400000, "Transelectrica");
     const uniqueElement = makeElement(200, 300000, "Transelectrica");
 
-    // First tile returns both elements; second returns only the shared one.
     const fn = vi.fn();
     fn.mockResolvedValueOnce({
       ok: true,
@@ -134,11 +113,9 @@ describe("getTransmissionLines", () => {
 
     const result = await getTransmissionLines({ country: "RO" });
 
-    // Should deduplicate: only 2 unique IDs (100 and 200)
     expect(result.lines.map((l) => l.id).sort()).toEqual([100, 200]);
     expect(result.line_count).toBe(2);
 
-    // RO produces 2 tiles => 2 fetch calls
     expect(fn.mock.calls.length).toBe(2);
   });
 

@@ -129,7 +129,6 @@ export const PROFILES: Readonly<Record<string, readonly string[]>> = {
   ],
 } as const;
 
-/** Short descriptions for each profile, used by the discovery tool. */
 const PROFILE_DESCRIPTIONS: Readonly<Record<string, string>> = {
   trader: 'Day-ahead, intraday, balancing, and commodity prices for energy trading',
   grid: 'Cross-border flows, outages, transmission, auctions, transmission/DNO connection signals, grid infrastructure, UKPN grid overview, SPEN grid intelligence, embedded capacity, and constraint history',

@@ -4,7 +4,6 @@ import { resolveZone, AVAILABLE_ZONES } from "../lib/zone-codes.js";
 import { ensureArray } from "../lib/xml-parser.js";
 import { TTL } from "../lib/cache.js";
 
-/** PSR type codes to human-readable fuel names */
 const PSR_TYPES: Record<string, string> = {
   B01: "Biomass",
   B02: "Lignite",

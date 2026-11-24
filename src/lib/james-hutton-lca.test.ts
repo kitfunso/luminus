@@ -20,10 +20,6 @@ function makeFeature(lccode: number | string, areaM2: number) {
   };
 }
 
-/**
- * Route the mocked fetch by URL host-path so 50k and 250k can return
- * independent responses within one test.
- */
 function routeFetch(
   fiftyK: () => Promise<unknown>,
   twoFiftyK: () => Promise<unknown>,
@@ -96,7 +92,7 @@ describe("queryLcaAtPoint", () => {
     expect(result.effective_source).toBe("50k");
     expect(result.effective_class).toBe("3.1");
     expect(result.classification_basis).toBe("detailed");
-    expect(result.bmv_status).toBe("yes"); // 3.1 is BMV
+    expect(result.bmv_status).toBe("yes");
   });
 
   it("falls back to broad (250k) when 50k has no features", async () => {
@@ -116,8 +112,6 @@ describe("queryLcaAtPoint", () => {
   });
 
   it("returns bmv_status 'yes' when both services return LCCODE 1", async () => {
-    // Use distinct coordinates to avoid the module-level TtlCache hitting
-    // a result from a prior test.
     routeFetch(
       async () => makeArcGisResponse([makeFeature(1, 100)]),
       async () => makeArcGisResponse([makeFeature(1, 200)]),

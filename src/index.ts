@@ -87,10 +87,6 @@ import { constraintBreachesSchema, getConstraintBreaches } from "./tools/constra
 import { spenGridIntelligenceSchema, getSpenGridIntelligence } from "./tools/spen-grid-intelligence.js";
 import { ukpnGridOverviewSchema, getUkpnGridOverview } from "./tools/ukpn-grid-overview.js";
 
-// ---------------------------------------------------------------------------
-// Startup configuration
-// ---------------------------------------------------------------------------
-
 dotenv.config();
 
 let profile = "full";
@@ -112,7 +108,7 @@ if (!isValidProfile(profile)) {
   process.exit(1);
 }
 
-const allowedTools = resolveProfile(profile) ?? null; // null = all tools
+const allowedTools = resolveProfile(profile) ?? null;
 
 const skippedByProfile: string[] = [];
 const skippedByKeys: string[] = [];
@@ -129,7 +125,6 @@ function shouldRegister(toolName: string): boolean {
   return true;
 }
 
-/** Track registered data tool names for discovery/status meta-tools. */
 const registeredToolNames: string[] = [];
 
 const server = new McpServer({
@@ -137,20 +132,12 @@ const server = new McpServer({
   version: "0.7.0",
 });
 
-// ---------------------------------------------------------------------------
-// Audited tool handler wrapper
-// ---------------------------------------------------------------------------
-
 interface ToolResult {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
   [key: string]: unknown;
 }
 
-/**
- * Wrap toolHandler with audit logging. Logs tool name and params
- * before delegating to the actual handler.
- */
 function auditedToolHandler<T extends z.ZodType>(
   toolName: string,
   schema: T,
@@ -163,13 +150,7 @@ function auditedToolHandler<T extends z.ZodType>(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Conditional tool registration
-// ---------------------------------------------------------------------------
-
 function registerDataTools(): void {
-
-// --- Generation & Prices ---
 
 if (shouldRegister("get_generation_mix")) {
   registeredToolNames.push("get_generation_mix");
@@ -241,8 +222,6 @@ if (shouldRegister("get_us_gas_data")) {
   );
 }
 
-// --- GB Specific ---
-
 if (shouldRegister("get_gb_carbon_intensity")) {
   registeredToolNames.push("get_gb_carbon_intensity");
   server.tool(
@@ -262,8 +241,6 @@ if (shouldRegister("get_gb_grid_demand")) {
     auditedToolHandler("get_gb_grid_demand", gbGridSchema, getGbGridDemand),
   );
 }
-
-// --- Balancing & Forecasts ---
 
 if (shouldRegister("get_balancing_prices")) {
   registeredToolNames.push("get_balancing_prices");
@@ -294,8 +271,6 @@ if (shouldRegister("get_demand_forecast")) {
     auditedToolHandler("get_demand_forecast", demandForecastSchema, getDemandForecast),
   );
 }
-
-// --- Grid Infrastructure ---
 
 if (shouldRegister("get_power_plants")) {
   registeredToolNames.push("get_power_plants");
@@ -397,8 +372,6 @@ if (shouldRegister("get_transmission_lines")) {
   );
 }
 
-// --- Intraday & Balancing ---
-
 if (shouldRegister("get_intraday_prices")) {
   registeredToolNames.push("get_intraday_prices");
   server.tool(
@@ -459,8 +432,6 @@ if (shouldRegister("get_balancing_actions")) {
   );
 }
 
-// --- BESS & Ancillary ---
-
 if (shouldRegister("get_ancillary_prices")) {
   registeredToolNames.push("get_ancillary_prices");
   server.tool(
@@ -491,8 +462,6 @@ if (shouldRegister("get_price_spread_analysis")) {
   );
 }
 
-// --- Gas & LNG ---
-
 if (shouldRegister("get_eu_gas_price")) {
   registeredToolNames.push("get_eu_gas_price");
   server.tool(
@@ -502,8 +471,6 @@ if (shouldRegister("get_eu_gas_price")) {
     auditedToolHandler("get_eu_gas_price", euGasPriceSchema, getEuGasPrice),
   );
 }
-
-// --- Regional Specialists ---
 
 if (shouldRegister("get_energy_charts")) {
   registeredToolNames.push("get_energy_charts");
@@ -615,8 +582,6 @@ if (shouldRegister("get_fingrid_data")) {
   );
 }
 
-// --- Hydropower ---
-
 if (shouldRegister("get_hydro_inflows")) {
   registeredToolNames.push("get_hydro_inflows");
   server.tool(
@@ -657,8 +622,6 @@ if (shouldRegister("get_ree_esios")) {
   );
 }
 
-// --- Weather ---
-
 if (shouldRegister("get_stormglass")) {
   registeredToolNames.push("get_stormglass");
   server.tool(
@@ -668,8 +631,6 @@ if (shouldRegister("get_stormglass")) {
     auditedToolHandler("get_stormglass", stormglassSchema, getStormglass),
   );
 }
-
-// --- GIS Site Prospecting ---
 
 if (shouldRegister("get_terrain_analysis")) {
   registeredToolNames.push("get_terrain_analysis");
@@ -891,10 +852,6 @@ if (shouldRegister("get_ukpn_grid_overview")) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Prosumer plugin: dynamically load private tools if luminus-prosumer installed
-// ---------------------------------------------------------------------------
-
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
   const prosumer = require("luminus-prosumer");
@@ -923,11 +880,7 @@ try {
   // luminus-prosumer not installed — skip silently
 }
 
-} // end registerDataTools
-
-// ---------------------------------------------------------------------------
-// Discovery meta-tools (always registered regardless of profile)
-// ---------------------------------------------------------------------------
+}
 
 function registerMetaTools(): void {
 
@@ -973,7 +926,6 @@ server.tool(
       };
     }
 
-    // List all profiles with summary info
     const profiles = ["full", ...getProfileNames()].map((name) => {
       const tools = name === "full" ? null : PROFILES[name];
       return {
@@ -1036,20 +988,13 @@ server.tool(
   },
 );
 
-} // end registerMetaTools
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
+}
 
 async function main(): Promise<void> {
-  // Pre-load key file BEFORE registration so hasRequiredKeys sees file-based keys
   await preloadKeyFile();
 
-  // Register data tools (after key file is loaded)
   registerDataTools();
 
-  // Register discovery meta-tools (always, regardless of profile)
   registerMetaTools();
 
   process.stderr.write(

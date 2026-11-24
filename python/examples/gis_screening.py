@@ -1,7 +1,6 @@
 # %%
 from luminus import Luminus
 
-# GIS profile keeps the server focused on siting tools.
 lum = Luminus(profile="gis")
 
 # %%

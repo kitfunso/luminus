@@ -186,7 +186,6 @@ describe("getFlexibilityMarket", () => {
     expect(first.dispatch_type).toBe("demand_turn_up");
     expect(first.hours).toBe(2);
 
-    // Avg utilisation price: (872 + 450 + 600) / 3 = 640.67
     expect(result.avg_utilisation_price).toBeCloseTo(640.67, 1);
   });
 
@@ -213,9 +212,7 @@ describe("getFlexibilityMarket", () => {
     expect(first.dispatch_type).toBe("demand_turn_up");
     expect(first.utilisation_price).toBeNull();
 
-    // SPEN provides mwh directly: 3.0 + 4.0 = 7.0
     expect(result.total_mwh).toBe(7);
-    // No utilisation prices in SPEN data
     expect(result.avg_utilisation_price).toBeNull();
   });
 
@@ -229,8 +226,6 @@ describe("getFlexibilityMarket", () => {
     });
 
     expect(result.total_dispatches).toBe(3);
-    // The API-level filter is passed as a where clause; all mock data has the zone
-    // so we verify the zone appears in the query params
     const fetchMock = vi.mocked(fetch);
     const calledUrl = String(fetchMock.mock.calls[0][0]);
     expect(calledUrl).toContain("Burnham+Thorpe");
@@ -260,13 +255,11 @@ describe("getFlexibilityMarket", () => {
     expect(result.total_dispatches).toBe(5);
     expect(result.dispatches).toHaveLength(5);
 
-    // Dispatches are sorted by start_time descending
     const startTimes = result.dispatches.map((d) => d.start_time);
     for (let i = 1; i < startTimes.length; i++) {
       expect(startTimes[i - 1] >= startTimes[i]).toBe(true);
     }
 
-    // Both operators present
     const operators = new Set(result.dispatches.map((d) => d.operator));
     expect(operators.has("UKPN")).toBe(true);
     expect(operators.has("SPEN")).toBe(true);
@@ -293,7 +286,6 @@ describe("getFlexibilityMarket", () => {
       days: 500,
     });
 
-    // Clamped to MAX_DAYS (365)
     expect(result.period_days).toBe(365);
   });
 
@@ -343,7 +335,6 @@ describe("getFlexibilityMarket", () => {
     await getFlexibilityMarket({ operator: "UKPN", days: 30 });
     await getFlexibilityMarket({ operator: "UKPN", days: 30 });
 
-    // Second call uses cache, so fetch is only called once
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   });
 
@@ -367,8 +358,6 @@ describe("getFlexibilityMarket", () => {
       days: 30,
     });
 
-    // UKPN: energy_mwh is null, so fallback to capacity_mw * hours
-    // 0.386*2 + 0.8*2 + 0.25*2 = 0.772 + 1.6 + 0.5 = 2.872
     expect(result.total_mwh).toBeCloseTo(2.872, 2);
   });
 

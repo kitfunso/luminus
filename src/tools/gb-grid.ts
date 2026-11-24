@@ -66,7 +66,6 @@ async function getDemand(): Promise<DemandResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rows: any[] = data?.data ?? [];
 
-  // Take last 24 periods (12 hours) for a useful window
   const recent = rows.slice(-24);
 
   const records: DemandRecord[] = recent.map((r) => ({

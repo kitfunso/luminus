@@ -113,7 +113,6 @@ function buildConfidenceNotes(gspResult: GspLookupResult | null): string[] {
 }
 
 function deriveSearchTerm(regionName: string): string {
-  // Region names are already human-readable (e.g. "Berkswell", "Bramley")
   return regionName.trim();
 }
 
@@ -131,10 +130,8 @@ export async function getGridConnectionIntelligence(
   if (lon < -180 || lon > 180) throw new Error("Longitude must be between -180 and 180.");
   if (radiusKm <= 0 || radiusKm > 50) throw new Error("radius_km must be between 0 and 50.");
 
-  // Step 1: Find nearest GSP
   const gspResult = await lookupGspRegion(lat, lon, radiusKm);
 
-  // Step 2: In parallel, query TEC register (if GSP found) and nearby substations
   // Use region_name (e.g. "Berkswell") not gsp_name (e.g. "BESW_1") — TEC register
   // Connection Site values are human-readable names like "Berkswell GSP"
   const tecPromise = gspResult
@@ -204,7 +201,6 @@ async function queryTecRegister(
       search_term: searchTerm,
     };
   } catch {
-    // TEC register failure should not block the overall result
     return null;
   }
 }
@@ -215,7 +211,6 @@ async function queryGridProximity(
   radiusKm: number,
 ): Promise<NearbySubstation[]> {
   try {
-    // grid-proximity has a max radius of 25km
     const clampedRadius = Math.min(radiusKm, 25);
     const result = await getGridProximity({
       lat,
@@ -229,7 +224,6 @@ async function queryGridProximity(
       distance_km: sub.distance_km,
     }));
   } catch {
-    // Proximity failure should not block the overall result
     return [];
   }
 }
@@ -239,7 +233,6 @@ async function queryDistributionHeadroom(
   lon: number,
   radiusKm: number,
 ): Promise<DistributionHeadroomSummary | null> {
-  // Query all spatial operators in parallel and return the closest match.
   // SPEN is excluded because it has no coordinates.
   const operators = ["SSEN", "NPG", "UKPN", "ENWL"] as const;
 
@@ -259,7 +252,6 @@ async function queryDistributionHeadroom(
     }),
   );
 
-  // Pick the closest match across all operators
   let best: { operator: string; site: NonNullable<typeof results[number]>["site"] } | null = null;
   for (const result of results) {
     if (!result) continue;

@@ -314,7 +314,6 @@ describe("getDistributionHeadroom", () => {
     expect(result.nearest_site!.substation_type).toBe("Primary");
     expect(result.nearest_site!.voltage_kv).toBe("6.6kV/11kV");
     expect(result.nearest_site!.estimated_demand_headroom_mva).toBe(8.5);
-    // gen headroom = min(inverter=5.2, min(lv_sync=6.1, hv_sync=4.8)) = min(5.2, 4.8) = 4.8
     expect(result.nearest_site!.estimated_generation_headroom_mw).toBe(4.8);
     expect(result.nearest_site!.demand_rag_status).toBeNull();
     expect(result.matches).toHaveLength(2);
@@ -421,7 +420,6 @@ describe("getDistributionHeadroom", () => {
 
     expect(result.operator).toBe("SPEN");
     expect(result.source_metadata.id).toBe("spen-nshr-headroom");
-    // SPEN has no coordinates — returns records alphabetically, not by proximity
     expect(result.matches).toHaveLength(1);
     expect(result.matches[0].substation).toBe("Chapelcross");
     expect(result.matches[0].estimated_demand_headroom_mva).toBe(18.5);

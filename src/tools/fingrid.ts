@@ -7,7 +7,6 @@ const cache = new TtlCache();
 const DEFAULT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const PAGE_SIZE = 200;
 
-/** Fingrid dataset IDs */
 const DATASET_IDS: Record<string, number> = {
   consumption: 124,
   production: 74,

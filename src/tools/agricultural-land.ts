@@ -308,8 +308,6 @@ export async function getAgriculturalLand(
     effectiveGrade = provisional.grade;
     bmvStatus = provisionalBmvStatus(provisional.grade);
   } else if (lcaHasData && lca !== null) {
-    // English ALC missed (expected for Scottish sites); use Scotland LCA.
-    // Surface the LCA origin honestly rather than reusing ALC basis labels.
     classificationBasis =
       lca.classification_basis === "detailed" ? "lca_detailed" : "lca_broad";
     effectiveGrade = lca.effective_class;

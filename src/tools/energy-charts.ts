@@ -32,10 +32,6 @@ export const energyChartsSchema = z.object({
     .describe("End date YYYY-MM-DD. Defaults to start + 1 day."),
 });
 
-// ---------------------------------------------------------------------------
-// Shared fetch with caching
-// ---------------------------------------------------------------------------
-
 async function fetchEnergyCharts<T>(url: string): Promise<T> {
   const cached = cache.get<T>(url);
   if (cached) return cached;
@@ -56,10 +52,6 @@ async function fetchEnergyCharts<T>(url: string): Promise<T> {
   return json;
 }
 
-// ---------------------------------------------------------------------------
-// Date helpers
-// ---------------------------------------------------------------------------
-
 function resolveDates(startDate?: string, endDate?: string): { start: string; end: string } {
   const today = new Date().toISOString().slice(0, 10);
   const start = startDate ?? today;
@@ -72,10 +64,6 @@ function resolveDates(startDate?: string, endDate?: string): { start: string; en
   const endDt = new Date(startDt.getTime() + 24 * 60 * 60 * 1000);
   return { start, end: endDt.toISOString().slice(0, 10) };
 }
-
-// ---------------------------------------------------------------------------
-// Prices
-// ---------------------------------------------------------------------------
 
 interface PricesApiResponse {
   unix_seconds: number[];
@@ -118,7 +106,6 @@ async function fetchPrices(
     throw new Error(`No price data returned for zone "${zone}" (${start} to ${end}).`);
   }
 
-  // Build 15-min price points, capped at first 96
   const maxPoints = Math.min(data.unix_seconds.length, 96);
   const prices15min: PricePoint15min[] = [];
   for (let i = 0; i < maxPoints; i++) {
@@ -131,7 +118,6 @@ async function fetchPrices(
     });
   }
 
-  // Convert 15-min to hourly by averaging each 4 consecutive values
   const pricesHourly: PricePointHourly[] = [];
   for (let h = 0; h < Math.floor(prices15min.length / 4); h++) {
     const chunk = prices15min.slice(h * 4, h * 4 + 4);
@@ -162,10 +148,6 @@ async function fetchPrices(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Generation
-// ---------------------------------------------------------------------------
-
 interface ProductionType {
   name: string;
   data: (number | null)[];
@@ -190,7 +172,6 @@ interface GenerationResult {
   renewable_pct: number;
 }
 
-/** Fuel category mapping: source name -> aggregated category */
 const FUEL_CATEGORIES: Record<string, string> = {
   "Wind onshore": "Wind",
   "Wind offshore": "Wind",
@@ -206,7 +187,6 @@ const FUEL_CATEGORIES: Record<string, string> = {
   Biomass: "Biomass",
 };
 
-/** Production types to exclude from aggregation (consumption, load, cross-border) */
 const EXCLUDED_TYPES = new Set([
   "Load",
   "Residual load",
@@ -242,7 +222,6 @@ async function fetchGeneration(
     throw new Error(`No generation data returned for zone "${zone}" (${start} to ${end}).`);
   }
 
-  // Aggregate by fuel category
   const categoryMw = new Map<string, number>();
 
   for (const pt of data.production_types) {
@@ -268,7 +247,6 @@ async function fetchGeneration(
   const renewablePct =
     totalMw > 0 ? Math.round((renewableMw / totalMw) * 1000) / 10 : 0;
 
-  // Determine timestamp from the latest non-null entry
   let timestamp = new Date().toISOString();
   if (data.unix_seconds && data.unix_seconds.length > 0) {
     const lastTs = data.unix_seconds[data.unix_seconds.length - 1];
@@ -286,10 +264,6 @@ async function fetchGeneration(
     renewable_pct: renewablePct,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Cross-border flows
-// ---------------------------------------------------------------------------
 
 interface FlowCountry {
   name: string;
@@ -344,10 +318,6 @@ async function fetchFlows(zone: string): Promise<FlowsResult> {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Demand
-// ---------------------------------------------------------------------------
-
 interface DemandHourly {
   hour: number;
   demand_mw: number;
@@ -378,7 +348,6 @@ async function fetchDemand(
     throw new Error(`No demand data returned for zone "${zone}" (${start} to ${end}).`);
   }
 
-  // Extract key metrics from production types
   let demandMw = 0;
   let residualLoadMw = 0;
   let renewableShareLoadPct = 0;
@@ -402,7 +371,6 @@ async function fetchDemand(
     }
   }
 
-  // Build hourly demand profile from load data
   const hourlyDemand: DemandHourly[] = [];
   if (data.unix_seconds && loadData.length > 0) {
     const hourBuckets = new Map<number, number[]>();
@@ -429,7 +397,6 @@ async function fetchDemand(
     hourlyDemand.sort((a, b) => a.hour - b.hour);
   }
 
-  // Determine timestamp
   let timestamp = new Date().toISOString();
   if (data.unix_seconds && data.unix_seconds.length > 0) {
     const lastTs = data.unix_seconds[data.unix_seconds.length - 1];
@@ -449,10 +416,6 @@ async function fetchDemand(
     hourly_demand: hourlyDemand,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Signal
-// ---------------------------------------------------------------------------
 
 interface SignalApiResponse {
   unix_seconds: number[];
@@ -503,7 +466,6 @@ async function fetchSignal(zone: string): Promise<SignalResult> {
     throw new Error(`No signal data returned for zone "${zone}".`);
   }
 
-  // Find latest non-null values
   let latestShare = 0;
   let latestSignal: SignalColor = "red";
   let latestTimestamp = new Date().toISOString();
@@ -521,7 +483,6 @@ async function fetchSignal(zone: string): Promise<SignalResult> {
     break;
   }
 
-  // Build recent history (last 12 non-null entries)
   const recentHistory: SignalHistoryEntry[] = [];
   for (let i = data.unix_seconds.length - 1; i >= 0 && recentHistory.length < 12; i--) {
     const ts = data.unix_seconds[i];
@@ -548,10 +509,6 @@ async function fetchSignal(zone: string): Promise<SignalResult> {
     recent_history: recentHistory,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Installed capacity
-// ---------------------------------------------------------------------------
 
 interface InstalledPowerApiResponse {
   time: string[];
@@ -582,11 +539,9 @@ async function fetchInstalledCapacity(zone: string): Promise<InstalledCapacityRe
     throw new Error(`No installed capacity data returned for zone "${zone}".`);
   }
 
-  // Use the latest year's data
   const latestIndex = data.time && data.time.length > 0 ? data.time.length - 1 : 0;
   const year = data.time && data.time.length > 0 ? data.time[latestIndex] : "unknown";
 
-  // Aggregate by fuel category (reuse FUEL_CATEGORIES mapping)
   const categoryMw = new Map<string, number>();
 
   for (const pt of data.production_types) {
@@ -622,10 +577,6 @@ async function fetchInstalledCapacity(zone: string): Promise<InstalledCapacityRe
     renewable_pct: renewablePct,
   };
 }
-
-// ---------------------------------------------------------------------------
-// Main handler
-// ---------------------------------------------------------------------------
 
 type EnergyChartsResult =
   | PricesResult

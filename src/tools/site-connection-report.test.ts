@@ -414,7 +414,6 @@ describe("getSiteConnectionReport", () => {
   it("rejects coordinates outside Great Britain with a pointer to screen_site", async () => {
     await expect(
       getSiteConnectionReport({
-        // Paris — valid lat/lon, outside GB bounding box.
         lat: 48.85,
         lon: 2.35,
         capacity_kind: "generation",

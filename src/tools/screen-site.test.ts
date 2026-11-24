@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock the underlying tool modules before importing screen-site
 vi.mock("./terrain-analysis.js", () => ({
   getTerrainAnalysis: vi.fn(),
   terrainAnalysisSchema: {} as any,
@@ -46,8 +45,6 @@ const constraintsMock = vi.mocked(getLandConstraints);
 const agriculturalLandMock = vi.mocked(getAgriculturalLand);
 const floodRiskMock = vi.mocked(getFloodRisk);
 const landCoverMock = vi.mocked(getLandCover);
-
-// --- Fixtures ---
 
 const FLAT_TERRAIN = {
   lat: 52.0,
@@ -283,8 +280,6 @@ describe("screenSite", () => {
     vi.restoreAllMocks();
   });
 
-  // --- Validation ---
-
   it("rejects invalid latitude", async () => {
     await expect(
       screenSite({ lat: 95, lon: 0, country: "GB" }),
@@ -308,8 +303,6 @@ describe("screenSite", () => {
       screenSite({ lat: 51, lon: -1, radius_km: 15, country: "GB" }),
     ).rejects.toThrow("radius_km must be between 0 and 10");
   });
-
-  // --- Happy path ---
 
   it("returns structured summary for a good UK site", async () => {
     setupMocks();
@@ -358,8 +351,6 @@ describe("screenSite", () => {
       expect.objectContaining({ radius_km: 5 }),
     );
   });
-
-  // --- Verdict logic ---
 
   it("returns pass verdict for a clear flat site with good solar and grid", async () => {
     setupMocks();
@@ -449,8 +440,6 @@ describe("screenSite", () => {
     expect(result.verdict.flags.length).toBeGreaterThanOrEqual(2);
   });
 
-  // --- Partial failures ---
-
   it("still returns result when one sub-tool fails, with warning", async () => {
     setupMocks();
     solarMock.mockRejectedValue(new Error("PVGIS timeout"));
@@ -477,8 +466,6 @@ describe("screenSite", () => {
     ).rejects.toThrow("All sub-queries failed");
   });
 
-  // --- Defaults ---
-
   it("uses default radius_km of 2", async () => {
     setupMocks();
     const result = await screenSite({ lat: 52.0, lon: 0.5, country: "GB" });
@@ -492,8 +479,6 @@ describe("screenSite", () => {
 
     expect(result.country).toBe("GB");
   });
-
-  // --- Source metadata ---
 
   it("includes source_metadata for all six providers", async () => {
     setupMocks();
@@ -517,8 +502,6 @@ describe("screenSite", () => {
     }
   });
 
-  // --- Disclaimer ---
-
   it("includes a screening disclaimer", async () => {
     setupMocks();
     const result = await screenSite({ lat: 52.0, lon: 0.5, country: "GB" });
@@ -526,8 +509,6 @@ describe("screenSite", () => {
     expect(result.disclaimer).toBeDefined();
     expect(result.disclaimer.length).toBeGreaterThan(0);
   });
-
-  // --- EU screening ---
 
   describe("EU screening", () => {
     it("accepts an EU country code (DE)", async () => {

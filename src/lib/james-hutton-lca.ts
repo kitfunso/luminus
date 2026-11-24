@@ -83,7 +83,6 @@ const BMV_YES_LABELS = new Set(["1", "2", "3.1"]);
 export function lccodeToLabel(
   lccode: string | number,
 ): { class_label: string; is_agricultural: boolean } {
-  // If already a decimal label like "3.1", pass through unchanged.
   if (typeof lccode === "string" && /^[1-7](\.[1-3])?$/.test(lccode.trim())) {
     return { class_label: lccode.trim(), is_agricultural: true };
   }
@@ -110,8 +109,6 @@ export function lccodeToLabel(
     return { class_label: String(numeric), is_agricultural: true };
   }
 
-  // Unknown code: preserve raw value but flag as non-agricultural so callers
-  // treat BMV as unknown rather than asserting a class.
   return { class_label: String(lccode), is_agricultural: false };
 }
 

@@ -4,8 +4,6 @@ import { timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
-// ConfigurationError
-
 export class ConfigurationError extends Error {
   constructor(keyName: string) {
     super(
@@ -18,8 +16,6 @@ export class ConfigurationError extends Error {
     this.name = "ConfigurationError";
   }
 }
-
-// Key file schema + cache
 
 const KeyFileSchema = z.record(z.string(), z.string());
 
@@ -55,7 +51,6 @@ async function loadKeyFile(): Promise<Record<string, string>> {
     cachedKeyFile = parsed;
     return parsed;
   } catch (err: unknown) {
-    // Distinguish "file not found" (normal) from "file exists but is broken" (warn)
     const isNotFound =
       err instanceof Error && "code" in err && (err as NodeJS.ErrnoException).code === "ENOENT";
     if (!isNotFound) {
@@ -68,8 +63,6 @@ async function loadKeyFile(): Promise<Record<string, string>> {
   }
 }
 
-// Resolved key cache (in-memory, per-process)
-
 const resolvedKeys = new Map<string, string>();
 
 /**
@@ -81,14 +74,12 @@ export async function resolveApiKey(name: string): Promise<string> {
   const cached = resolvedKeys.get(name);
   if (cached !== undefined) return cached;
 
-  // Layer 1: environment variable
   const envValue = process.env[name];
   if (envValue) {
     resolvedKeys.set(name, envValue);
     return envValue;
   }
 
-  // Layer 2: key file
   const fileKeys = await loadKeyFile();
   const fileValue = fileKeys[name];
   if (fileValue) {
@@ -96,7 +87,6 @@ export async function resolveApiKey(name: string): Promise<string> {
     return fileValue;
   }
 
-  // Not found
   throw new ConfigurationError(name);
 }
 
@@ -113,7 +103,6 @@ export function timingSafeCompare(a: string, b: string): boolean {
  * Empty array = public API, no key needed.
  */
 export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> = {
-  // ENTSO-E tools
   get_generation_mix: ["ENTSOE_API_KEY"],
   get_day_ahead_prices: ["ENTSOE_API_KEY"],
   get_cross_border_flows: ["ENTSOE_API_KEY"],
@@ -127,7 +116,6 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   get_hydro_reservoir: ["ENTSOE_API_KEY"],
   get_intraday_prices: ["ENTSOE_API_KEY"],
   get_imbalance_prices: ["ENTSOE_API_KEY"],
-  // Netztransparenz tools (free registration at netztransparenz.de/en/Web-API)
   get_german_system_imbalance: ["NETZTRANSPARENZ_CLIENT_ID", "NETZTRANSPARENZ_CLIENT_SECRET"],
   get_intraday_da_spread: ["ENTSOE_API_KEY"],
   get_realtime_generation: ["ENTSOE_API_KEY"],
@@ -136,23 +124,17 @@ export const TOOL_KEY_REQUIREMENTS: Readonly<Record<string, readonly string[]>> 
   get_remit_messages: ["ENTSOE_API_KEY"],
   get_price_spread_analysis: ["ENTSOE_API_KEY"],
 
-  // GIE (Gas Infrastructure Europe) tools
   get_gas_storage: ["GIE_API_KEY"],
   get_lng_terminals: ["GIE_API_KEY"],
 
-  // EIA (US Energy Information Administration)
   get_us_gas_data: ["EIA_API_KEY"],
 
-  // Fingrid (Finnish grid)
   get_fingrid_data: ["FINGRID_API_KEY"],
 
-  // REE ESIOS (Spanish grid)
   get_ree_esios: ["ESIOS_API_TOKEN"],
 
-  // Storm Glass (marine weather)
   get_stormglass: ["STORMGLASS_API_KEY"],
 
-  // Public APIs — no key required
   get_weather_forecast: [],
   get_gb_carbon_intensity: [],
   get_gb_grid_demand: [],
@@ -206,11 +188,8 @@ export function hasRequiredKeys(toolName: string): boolean {
   if (!requirements || requirements.length === 0) return true;
 
   return requirements.every((keyName) => {
-    // Check in-memory cache first
     if (resolvedKeys.has(keyName)) return true;
-    // Check env
     if (process.env[keyName]) return true;
-    // Check file cache (loaded asynchronously, may not be ready yet)
     if (cachedKeyFile?.[keyName]) return true;
     return false;
   });

@@ -294,7 +294,6 @@ describe("getDayAheadPrices", () => {
   });
 
   it("reports a missing interval in coverage when the published period ends short of the request", async () => {
-    // ENTSO-E published only 23 of the requested 24 hours (e.g. a partial-day outage).
     queryEntsoeMock.mockResolvedValue({
       Publication_MarketDocument: {
         TimeSeries: [

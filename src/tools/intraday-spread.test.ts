@@ -93,7 +93,6 @@ describe("getIntradayDaSpread", () => {
   });
 
   it("averages the finer series up to the coarser grid before joining", async () => {
-    // DA hourly at 100; ID at 15-min resolution averaging to 90 for that hour.
     mockDa.mockResolvedValue(daResponse([hourly(0, 100)], 60));
     mockId.mockResolvedValue(
       idResponse([quarterHour(0, 80), quarterHour(1, 90), quarterHour(2, 90), quarterHour(3, 100)], 15)

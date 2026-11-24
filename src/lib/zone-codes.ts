@@ -39,7 +39,6 @@ export const ZONE_CODES: Record<string, string> = {
 export function resolveZone(zone: string): string {
   const upper = zone.toUpperCase();
   if (ZONE_CODES[upper]) return ZONE_CODES[upper];
-  // If it already looks like an EIC code, pass through
   if (upper.startsWith("10Y")) return zone;
   throw new Error(
     `Unknown zone "${zone}". Use ISO country code (DE, FR, GB...) or raw EIC code.`

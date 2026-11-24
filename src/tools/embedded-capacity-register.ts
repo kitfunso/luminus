@@ -657,7 +657,6 @@ export async function getEmbeddedCapacityRegister(
   if (radiusKm <= 0) throw new Error("radius_km must be greater than 0.");
   if (limit <= 0) throw new Error("limit must be greater than 0.");
 
-  // Fetch records based on operator
   let allRecords: EcrRecord[] = [];
 
   if (operator === "UKPN" || operator === "all") {
@@ -675,7 +674,6 @@ export async function getEmbeddedCapacityRegister(
     allRecords = allRecords.concat(enwlRecords);
   }
 
-  // Apply energy_source and connection_status filters
   const filtered = applyFilters(allRecords, params.energy_source, params.connection_status);
 
   // Spatial matching for UKPN and ENWL records (have coordinates), alphabetical for SPEN (no coordinates)
@@ -696,13 +694,11 @@ export async function getEmbeddedCapacityRegister(
     .sort((a, b) => a.customer_name.localeCompare(b.customer_name))
     .map((record) => toEcrEntry(record, 0));
 
-  // Combine: spatial matches first (by distance), then SPEN (alphabetical)
   const allMatched = [...spatialMatched, ...spenMatched].slice(0, limit);
 
   const { energy_source_breakdown, status_breakdown } = buildBreakdowns(allMatched);
   const { total_export_mw, total_import_mw, total_storage_mwh } = computeTotals(allMatched);
 
-  // Use the primary operator's metadata, or UKPN for "all"
   const metadataOperator: SupportedOperator = operator === "all" ? "UKPN" : operator;
 
   return {

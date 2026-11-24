@@ -56,16 +56,12 @@ const FAULT_SELECT_FIELDS = [
   "operatingzone",
 ].join(",");
 
-// ---------- Schema ----------
-
 export const ukpnGridOverviewSchema = z.object({
   lat: z.number().optional().describe("Latitude for proximity search. If omitted, returns all GSPs."),
   lon: z.number().optional().describe("Longitude for proximity search."),
   radius_km: z.number().optional().describe("Search radius (default 50, max 100). Only applies when lat/lon provided."),
   include_faults: z.boolean().optional().describe("Include live fault data (default true)."),
 });
-
-// ---------- Raw record interfaces ----------
 
 interface GspRawRecord {
   dno?: string | null;
@@ -101,8 +97,6 @@ interface FaultRawRecord {
   estimatedrestorationdate?: string | null;
   operatingzone?: string | null;
 }
-
-// ---------- Result interfaces ----------
 
 interface GspOverviewEntry {
   gsp: string;
@@ -160,8 +154,6 @@ interface UkpnGridOverviewResult {
   disclaimer: string;
 }
 
-// ---------- Helpers ----------
-
 export function resetUkpnGridOverviewCacheForTests(): void {
   cache.clear();
 }
@@ -195,8 +187,6 @@ async function resolveOdsApiKey(): Promise<string> {
     throw err;
   }
 }
-
-// ---------- Fetch GSP Overview ----------
 
 async function fetchGspOverview(apiKey: string): Promise<GspRawRecord[]> {
   const cached = cache.get<GspRawRecord[]>(GSP_CACHE_KEY);
@@ -234,8 +224,6 @@ async function fetchGspOverview(apiKey: string): Promise<GspRawRecord[]> {
   return allRows;
 }
 
-// ---------- Fetch HV Flex Zones ----------
-
 async function fetchFlexZones(apiKey: string): Promise<FlexRawRecord[]> {
   const cached = cache.get<FlexRawRecord[]>(FLEX_CACHE_KEY);
   if (cached) return cached;
@@ -272,8 +260,6 @@ async function fetchFlexZones(apiKey: string): Promise<FlexRawRecord[]> {
   return allRows;
 }
 
-// ---------- Fetch Live Faults ----------
-
 async function fetchLiveFaults(apiKey: string): Promise<FaultRawRecord[]> {
   const cached = cache.get<FaultRawRecord[]>(FAULTS_CACHE_KEY);
   if (cached) return cached;
@@ -306,12 +292,9 @@ async function fetchLiveFaults(apiKey: string): Promise<FaultRawRecord[]> {
     if (page.length < ODS_PAGE_LIMIT) break;
   }
 
-  // Live faults: very short TTL (5 minutes)
   cache.set(FAULTS_CACHE_KEY, allRows, TTL.REALTIME);
   return allRows;
 }
-
-// ---------- Transform ----------
 
 function toGspEntry(
   row: GspRawRecord,
@@ -393,8 +376,6 @@ function toFaultEntry(
   };
 }
 
-// ---------- Main ----------
-
 export async function getUkpnGridOverview(
   input: z.infer<typeof ukpnGridOverviewSchema>,
 ): Promise<UkpnGridOverviewResult> {
@@ -408,19 +389,16 @@ export async function getUkpnGridOverview(
 
   const apiKey = await resolveOdsApiKey();
 
-  // Fetch all three datasets in parallel
   const [gspRaw, flexRaw, faultRaw] = await Promise.all([
     fetchGspOverview(apiKey),
     fetchFlexZones(apiKey),
     includeFaults ? fetchLiveFaults(apiKey) : Promise.resolve([]),
   ]);
 
-  // Transform
   let gsps = gspRaw.map((row) => toGspEntry(row, searchLat, searchLon));
   let flexZones = flexRaw.map((row) => toFlexEntry(row, searchLat, searchLon));
   let faults = faultRaw.map((row) => toFaultEntry(row, searchLat, searchLon));
 
-  // Filter by radius and sort by distance when spatial search is active
   if (hasSpatial && radiusKm !== null) {
     gsps = gsps
       .filter((entry) => entry.distance_km !== null && entry.distance_km <= radiusKm)

@@ -501,10 +501,7 @@ def test_site_connection_report_snapshot_handles_missing_nested_fields():
             lon=-1.08,
             capacity_kind="generation",
         )
-        # Ensure that when canonical/nearest_gsp are present we parse them,
-        # and that from_dict works end-to-end from a realistic payload.
         assert snapshot.structured.tec_queue.top_entries[0].lifecycle_stage == "queued"
-        # Frozen dataclass should reject attribute mutation.
         with pytest.raises((AttributeError, TypeError)):
             snapshot.lat = 0.0  # type: ignore[misc]
     finally:

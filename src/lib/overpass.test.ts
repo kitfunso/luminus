@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fetchOverpassJson, _getOverpassState, _resetOverpassState } from "./overpass.js";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function mockFetchOk(data: unknown = { elements: [] }): void {
   vi.stubGlobal(
     "fetch",
@@ -43,10 +39,6 @@ function mockFetchSequence(responses: Array<{ ok: boolean; status: number; body?
   vi.stubGlobal("fetch", fn);
 }
 
-// ---------------------------------------------------------------------------
-// Setup / teardown
-// ---------------------------------------------------------------------------
-
 beforeEach(() => {
   _resetOverpassState();
   vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -56,10 +48,6 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
-
-// ---------------------------------------------------------------------------
-// Basic functionality
-// ---------------------------------------------------------------------------
 
 describe("fetchOverpassJson", () => {
   it("returns parsed JSON on success", async () => {
@@ -81,10 +69,6 @@ describe("fetchOverpassJson", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Non-retryable errors (400, etc.) throw immediately
-// ---------------------------------------------------------------------------
-
 describe("non-retryable errors", () => {
   it("throws immediately on 400 without trying fallback endpoints", async () => {
     mockFetchStatus(400, "Bad request");
@@ -93,7 +77,6 @@ describe("non-retryable errors", () => {
       /Overpass API returned 400/,
     );
 
-    // Only 1 fetch call, no fallback
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -114,10 +97,6 @@ describe("non-retryable errors", () => {
     );
   });
 });
-
-// ---------------------------------------------------------------------------
-// Retryable errors fall through to next endpoint
-// ---------------------------------------------------------------------------
 
 describe("retryable errors and fallback", () => {
   it("falls back to second endpoint on 429", async () => {
@@ -156,10 +135,6 @@ describe("retryable errors and fallback", () => {
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 });
-
-// ---------------------------------------------------------------------------
-// AbortController timeout
-// ---------------------------------------------------------------------------
 
 describe("request timeout", () => {
   it("aborts fetch after timeout and tries next endpoint", async () => {
@@ -201,10 +176,6 @@ describe("request timeout", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Network errors are treated as retryable
-// ---------------------------------------------------------------------------
-
 describe("network errors", () => {
   it("retries on network error and succeeds on next endpoint", async () => {
     const fn = vi.fn()
@@ -223,10 +194,6 @@ describe("network errors", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Rate limiter: concurrency
-// ---------------------------------------------------------------------------
-
 describe("rate limiter concurrency", () => {
   it("starts with clean state", () => {
     const s = _getOverpassState();
@@ -236,7 +203,6 @@ describe("rate limiter concurrency", () => {
   });
 
   it("limits concurrent requests to maxConcurrent", async () => {
-    // Track concurrent fetch calls
     let peakConcurrent = 0;
     let currentConcurrent = 0;
 
@@ -259,7 +225,6 @@ describe("rate limiter concurrency", () => {
 
     vi.stubGlobal("fetch", fn);
 
-    // Fire 4 requests simultaneously
     const promises = [
       fetchOverpassJson("q1"),
       fetchOverpassJson("q2"),
@@ -269,7 +234,6 @@ describe("rate limiter concurrency", () => {
 
     await Promise.all(promises);
 
-    // Peak concurrent fetches should not exceed MAX_CONCURRENT (2)
     expect(peakConcurrent).toBeLessThanOrEqual(2);
   });
 
@@ -304,10 +268,6 @@ describe("rate limiter concurrency", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Rate limiter: sliding window
-// ---------------------------------------------------------------------------
-
 describe("rate limiter sliding window", () => {
   it("tracks request timestamps", async () => {
     mockFetchOk();
@@ -340,10 +300,6 @@ describe("rate limiter sliding window", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Backoff delays between fallback attempts
-// ---------------------------------------------------------------------------
-
 describe("backoff and delays", () => {
   it("delays between fallback endpoint attempts", async () => {
     const callTimes: number[] = [];
@@ -362,23 +318,14 @@ describe("backoff and delays", () => {
 
     await expect(fetchOverpassJson("query")).rejects.toThrow();
 
-    // 3 endpoints called
     expect(callTimes).toHaveLength(3);
 
-    // There should be a delay between the first and second call
-    // (FALLBACK_DELAY_MS + backoffMs(0) = 200 + 500 = 700ms)
     const gap1 = callTimes[1] - callTimes[0];
-    expect(gap1).toBeGreaterThanOrEqual(600); // allow some timer slack
-
-    // Gap between second and third: 200 + 1000 = 1200ms
+    expect(gap1).toBeGreaterThanOrEqual(600);
     const gap2 = callTimes[2] - callTimes[1];
     expect(gap2).toBeGreaterThanOrEqual(1100);
   });
 });
-
-// ---------------------------------------------------------------------------
-// _resetOverpassState
-// ---------------------------------------------------------------------------
 
 describe("_resetOverpassState", () => {
   it("clears all internal state", async () => {

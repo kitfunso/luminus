@@ -297,9 +297,6 @@ describe("verifyGisSources", () => {
 
     const result = await verifyGisSources({});
 
-    // ok: open-meteo, neso-gsp-lookup, neso-gsp-boundaries, neso-tec, ssen-headroom, npg-heatmap, ukpn-dfes, spen-nshr, enwl-pry, enwl-ecr, ukpn-flex, spen-flex, eea-natura2000, corine, pvgis, sepa-flood-map = 16
-    // degraded: overpass (429), ea-flood-map (500), plus the two NGED source checks = 4
-    // unreachable: natural-england, natural-england-alc, nature-scot, james-hutton-lca (arcgis.com + druid.hutton.ac.uk network failures) = 4
     expect(result.summary.ok).toBe(16);
     expect(result.summary.degraded).toBe(4);
     expect(result.summary.unreachable).toBe(4);

@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getTerrainAnalysis } from "./terrain-analysis.js";
 
-// Mock global fetch
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
@@ -22,7 +21,6 @@ describe("getTerrainAnalysis", () => {
   });
 
   it("returns elevation, slope, aspect, and flatness for a flat area", async () => {
-    // 3x3 grid all at 10m = perfectly flat
     fetchMock.mockResolvedValueOnce(
       makeElevationResponse([10, 10, 10, 10, 10, 10, 10, 10, 10]),
     );
@@ -38,8 +36,6 @@ describe("getTerrainAnalysis", () => {
   });
 
   it("computes non-zero slope for sloped terrain", async () => {
-    // Elevation increases to the east: west column=10, centre=20, east=30
-    // Row order: NW, N, NE, W, C, E, SW, S, SE
     fetchMock.mockResolvedValueOnce(
       makeElevationResponse([10, 20, 30, 10, 20, 30, 10, 20, 30]),
     );
@@ -47,7 +43,7 @@ describe("getTerrainAnalysis", () => {
     const result = await getTerrainAnalysis({ lat: 41.0, lon: 11.0 });
 
     expect(result.slope_deg).toBeGreaterThan(0);
-    expect(result.elevation_m).toBe(20); // centre point
+    expect(result.elevation_m).toBe(20);
   });
 
   it("adjusts east-west slope for longitude spacing by latitude", async () => {
@@ -63,7 +59,6 @@ describe("getTerrainAnalysis", () => {
   });
 
   it("computes south-facing aspect for north-to-south slope", async () => {
-    // Elevation decreases north to south: top row=30, middle=20, bottom=10
     fetchMock.mockResolvedValueOnce(
       makeElevationResponse([30, 30, 30, 20, 20, 20, 10, 10, 10]),
     );

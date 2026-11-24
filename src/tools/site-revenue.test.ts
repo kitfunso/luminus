@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock all upstream tools before importing the module under test.
 vi.mock("./solar.js", () => ({
   getSolarIrradiance: vi.fn(),
 }));
@@ -25,10 +24,6 @@ const mockPrices = vi.mocked(getDayAheadPrices);
 const mockSpread = vi.mocked(getPriceSpreadAnalysis);
 const mockTerrain = vi.mocked(getTerrainAnalysis);
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
 function makeSolarResponse(annualYield = 1100) {
   return {
     lat: 51.5,
@@ -42,7 +37,6 @@ function makeSolarResponse(annualYield = 1100) {
 }
 
 function makePriceResponse() {
-  // 24 hourly intervals; UTC daylight hours [06:00, 18:00) average 60 EUR/MWh.
   const prices = Array.from({ length: 24 }, (_, hour) => {
     const start = new Date(Date.UTC(2026, 2, 31, hour, 0, 0));
     const end = new Date(start.getTime() + 60 * 60000);
@@ -96,17 +90,11 @@ function makeTerrainResponse() {
   } as Awaited<ReturnType<typeof getTerrainAnalysis>>;
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("estimateSiteRevenue", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     mockTerrain.mockResolvedValue(makeTerrainResponse());
   });
-
-  // ---- PV mode ----
 
   describe("PV mode", () => {
     beforeEach(() => {
@@ -137,8 +125,6 @@ describe("estimateSiteRevenue", () => {
     });
 
     it("computes annual_generation_mwh = capacity_mw * annual_yield_kwh", async () => {
-      // capacity_mw=10, annual_yield=1100 kWh/kWp
-      // annual_generation_mwh = 10 * 1000 * (1100/1000) = 11000
       const result = await estimateSiteRevenue({
         lat: 51.5,
         lon: -0.1,
@@ -161,7 +147,6 @@ describe("estimateSiteRevenue", () => {
         date: "2026-03-31",
       });
 
-      // 11000 MWh * 60 EUR/MWh = 660000 EUR
       expect(result.revenue.estimated_annual_revenue_eur).toBe(660000);
     });
 
@@ -178,8 +163,6 @@ describe("estimateSiteRevenue", () => {
       expect(result.revenue.arb_signal).toBeUndefined();
     });
   });
-
-  // ---- BESS mode ----
 
   describe("BESS mode", () => {
     beforeEach(() => {
@@ -213,7 +196,7 @@ describe("estimateSiteRevenue", () => {
         date: "2026-03-31",
       });
 
-      const expectedDaily = 50.4 * 10; // revenuePerMwDay * capacity_mw
+      const expectedDaily = 50.4 * 10;
       expect(result.revenue.estimated_annual_revenue_eur).toBe(
         Math.round(expectedDaily * 365 * 100) / 100,
       );
@@ -233,8 +216,6 @@ describe("estimateSiteRevenue", () => {
     });
   });
 
-  // ---- Defaults ----
-
   it("uses default capacity_mw of 10", async () => {
     mockSolar.mockResolvedValue(makeSolarResponse());
     mockPrices.mockResolvedValue(makePriceResponse());
@@ -248,8 +229,6 @@ describe("estimateSiteRevenue", () => {
 
     expect(result.capacity_mw).toBe(10);
   });
-
-  // ---- Caveats ----
 
   it("always includes common caveats for PV", async () => {
     mockSolar.mockResolvedValue(makeSolarResponse());
@@ -294,8 +273,6 @@ describe("estimateSiteRevenue", () => {
     expect(result.disclaimer).toBeTruthy();
   });
 
-  // ---- Terrain failure is non-blocking ----
-
   it("terrain failure does not block PV revenue calculation", async () => {
     mockSolar.mockResolvedValue(makeSolarResponse());
     mockPrices.mockResolvedValue(makePriceResponse());
@@ -327,8 +304,6 @@ describe("estimateSiteRevenue", () => {
     expect(result.revenue.estimated_annual_revenue_eur).toBeGreaterThan(0);
   });
 
-  // ---- Price/solar failure throws ----
-
   it("throws clearly when solar data fails (PV)", async () => {
     mockSolar.mockRejectedValue(new Error("PVGIS returned 500"));
     mockPrices.mockResolvedValue(makePriceResponse());
@@ -354,8 +329,6 @@ describe("estimateSiteRevenue", () => {
       estimateSiteRevenue({ lat: 51.5, lon: -0.1, zone: "GB", technology: "bess" }),
     ).rejects.toThrow("Price spread analysis failed");
   });
-
-  // ---- Price snapshot ----
 
   it("includes price_snapshot for PV", async () => {
     mockSolar.mockResolvedValue(makeSolarResponse());
@@ -388,8 +361,6 @@ describe("estimateSiteRevenue", () => {
     expect(result.price_snapshot!.peak_eur_mwh).toBe(80);
     expect(result.price_snapshot!.off_peak_eur_mwh).toBe(30);
   });
-
-  // ---- Terrain present ----
 
   it("includes terrain data when available", async () => {
     mockSolar.mockResolvedValue(makeSolarResponse());

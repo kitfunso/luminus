@@ -81,7 +81,6 @@ export async function getNetPositions(
   const zoneEic = resolveZone(zoneUpper);
   const { periodStart, periodEnd } = dayRange(params.date);
 
-  // Query import and export flows for each neighbour in parallel
   const borderPromises = neighbours.map(async (neighbour): Promise<BorderFlow> => {
     const neighbourEic = resolveZone(neighbour);
 

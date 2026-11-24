@@ -27,15 +27,9 @@ export const screenSiteSchema = z.object({
     .describe('ISO 3166-1 alpha-2 country code. "GB" and EU member states are supported.'),
 });
 
-// --- Heuristic thresholds ---
-
-/** Slope above this is flagged as a terrain warning (degrees). */
 const SLOPE_WARN_DEG = 10;
 
-/** Annual irradiance below this is flagged as a solar warning (kWh/m2). */
 const IRRADIANCE_WARN_KWH = 900;
-
-// --- Types ---
 
 type Verdict = "pass" | "warn" | "fail";
 
@@ -85,8 +79,6 @@ const DISCLAIMER =
   "It is not investment advice, planning consent, or a final site feasibility assessment. " +
   "Professional due diligence is required before any development decision.";
 
-// --- Heuristic evaluation ---
-
 function evaluateVerdict(
   terrain: any | null,
   grid: any | null,
@@ -98,7 +90,6 @@ function evaluateVerdict(
 ): { flags: VerdictFlag[]; overall: Verdict } {
   const flags: VerdictFlag[] = [];
 
-  // Constraints: hard constraint = fail
   if (constraints?.summary?.has_hard_constraint) {
     flags.push({
       category: "constraints",
@@ -107,7 +98,6 @@ function evaluateVerdict(
     });
   }
 
-  // Terrain: steep slope = warn
   if (terrain && terrain.slope_deg > SLOPE_WARN_DEG) {
     flags.push({
       category: "terrain",
@@ -116,7 +106,6 @@ function evaluateVerdict(
     });
   }
 
-  // Grid: no substations and no lines = warn
   if (grid && grid.summary.nearest_substation_km === null && grid.summary.nearest_line_km === null) {
     flags.push({
       category: "grid",
@@ -125,7 +114,6 @@ function evaluateVerdict(
     });
   }
 
-  // Solar: low irradiance = warn
   if (solar && solar.annual_irradiance_kwh_m2 < IRRADIANCE_WARN_KWH) {
     flags.push({
       category: "solar",
@@ -134,7 +122,6 @@ function evaluateVerdict(
     });
   }
 
-  // Agricultural land: BMV is a planning-risk warning, not a hard exclusion.
   if (agriculturalLand?.bmv_status === "yes") {
     flags.push({
       category: "agricultural_land",
@@ -149,8 +136,6 @@ function evaluateVerdict(
     });
   }
 
-  // Flood risk: Flood Zone 3 and flood storage areas are treated as fail,
-  // Flood Zone 2 as warn. This is a screening heuristic, not a legal rule.
   if (floodRisk?.flood_storage_area) {
     flags.push({
       category: "flood_risk",
@@ -171,7 +156,6 @@ function evaluateVerdict(
     });
   }
 
-  // Land cover: CORINE planning exclusion = warn (EU only)
   if (landCover?.land_cover?.is_planning_exclusion) {
     flags.push({
       category: "land_cover",
@@ -180,15 +164,12 @@ function evaluateVerdict(
     });
   }
 
-  // Overall: fail > warn > pass
   let overall: Verdict = "pass";
   if (flags.some((f) => f.level === "warn")) overall = "warn";
   if (flags.some((f) => f.level === "fail")) overall = "fail";
 
   return { flags, overall };
 }
-
-// --- Main tool function ---
 
 export async function screenSite(
   params: z.infer<typeof screenSiteSchema>,
@@ -197,7 +178,6 @@ export async function screenSite(
   const country = params.country.toUpperCase();
   const radiusKm = params.radius_km ?? 2;
 
-  // Validation
   const isEu = EU_COUNTRY_CODES.has(country);
   if (country !== "GB" && !isEu) {
     throw new Error(
@@ -221,14 +201,11 @@ export async function screenSite(
   return screenSiteGb(lat, lon, radiusKm);
 }
 
-// --- GB flow (unchanged logic) ---
-
 async function screenSiteGb(
   lat: number,
   lon: number,
   radiusKm: number,
 ): Promise<ScreenSiteResult> {
-  // Run all sub-tools in parallel with allSettled for resilience
   const [terrainResult, gridResult, solarResult, constraintsResult, agriculturalLandResult, floodRiskResult] =
     await Promise.allSettled([
       getTerrainAnalysis({ lat, lon }),
@@ -277,7 +254,6 @@ async function screenSiteGb(
     warnings.push(`flood_risk: ${floodRiskResult.reason instanceof Error ? floodRiskResult.reason.message : String(floodRiskResult.reason)}`);
   }
 
-  // If all sub-queries failed, throw
   if (terrain === null && grid === null && solar === null && constraints === null && agriculturalLand === null && floodRisk === null) {
     throw new Error(`All sub-queries failed for screen_site: ${warnings.join("; ")}`);
   }
@@ -320,8 +296,6 @@ async function screenSiteGb(
 
   return result;
 }
-
-// --- EU flow (reduced layer set) ---
 
 async function screenSiteEu(
   lat: number,
@@ -370,7 +344,6 @@ async function screenSiteEu(
     warnings.push(`land_cover: ${landCoverResult.reason instanceof Error ? landCoverResult.reason.message : String(landCoverResult.reason)}`);
   }
 
-  // If all sub-queries failed, throw
   if (terrain === null && grid === null && solar === null && constraints === null && landCover === null) {
     throw new Error(`All sub-queries failed for screen_site: ${warnings.join("; ")}`);
   }

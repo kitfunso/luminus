@@ -209,7 +209,6 @@ interface FranceOutagesResult {
 }
 
 async function fetchOutages(date: string): Promise<FranceOutagesResult> {
-  // Use REMIT-style outage data from ODRE if available
   const records = await fetchOdre(
     "registre-national-installation-production-stockage-electricite-agrege",
     `commune IS NOT NULL`,

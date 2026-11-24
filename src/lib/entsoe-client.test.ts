@@ -47,7 +47,6 @@ describe("queryEntsoe ZIP handling", () => {
 
   it("parses a plain XML response as before", async () => {
     stubFetch(XML_A);
-    // Unique params per test: queryEntsoe caches by URL.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result: any = await queryEntsoe(
       { documentType: "A85", periodStart: "202608010000", periodEnd: "202608020000", test: "plain" },

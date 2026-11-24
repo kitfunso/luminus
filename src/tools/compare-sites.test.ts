@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock screen-site before importing compare-sites
 vi.mock("./screen-site.js", () => ({
   screenSite: vi.fn(),
   screenSiteSchema: {} as any,
@@ -15,8 +14,6 @@ import { compareSites } from "./compare-sites.js";
 import { screenSite } from "./screen-site.js";
 
 const screenSiteMock = vi.mocked(screenSite);
-
-// --- Fixtures ---
 
 function makeScreenResult(overrides: {
   lat?: number;
@@ -151,8 +148,6 @@ describe("compareSites", () => {
     vi.restoreAllMocks();
   });
 
-  // --- Validation ---
-
   it("rejects fewer than 2 sites", async () => {
     await expect(
       compareSites({ sites: [{ lat: 52, lon: 0.5 }], country: "GB" }),
@@ -174,8 +169,6 @@ describe("compareSites", () => {
       }),
     ).rejects.toThrow('not supported');
   });
-
-  // --- Happy path ---
 
   it("returns ranked results for 2 sites", async () => {
     screenSiteMock
@@ -222,8 +215,6 @@ describe("compareSites", () => {
     );
   });
 
-  // --- Ranking logic ---
-
   it("ranks pass above warn", async () => {
     screenSiteMock
       .mockResolvedValueOnce(WARNED_SITE)
@@ -254,15 +245,14 @@ describe("compareSites", () => {
 
   it("ranks higher irradiance above lower when both pass", async () => {
     screenSiteMock
-      .mockResolvedValueOnce(GOOD_SITE_B)  // 1100 kWh/m2
-      .mockResolvedValueOnce(GOOD_SITE_A); // 1200 kWh/m2
+      .mockResolvedValueOnce(GOOD_SITE_B)
+      .mockResolvedValueOnce(GOOD_SITE_A);
 
     const result = await compareSites({
       sites: [{ lat: 52.1, lon: 0.6 }, { lat: 52.0, lon: 0.5 }],
       country: "GB",
     });
 
-    // Site A (1200) should rank above Site B (1100)
     expect(result.rankings[0].solar_kwh_m2).toBe(1200);
     expect(result.rankings[1].solar_kwh_m2).toBe(1100);
   });
@@ -282,8 +272,6 @@ describe("compareSites", () => {
 
     expect(result.rankings[0].nearest_grid_km).toBeLessThan(result.rankings[1].nearest_grid_km!);
   });
-
-  // --- Determinism ---
 
   it("produces deterministic rankings for identical inputs", async () => {
     screenSiteMock
@@ -309,14 +297,11 @@ describe("compareSites", () => {
     );
   });
 
-  // --- Partial failures ---
-
   it("includes sites that partially failed screening with warnings", async () => {
     const partialSite = makeScreenResult({
       lat: 52.4, lon: 0.9,
       warnings: ["solar: PVGIS timeout"],
     });
-    // null out solar to simulate partial failure
     (partialSite as any).solar = null;
 
     screenSiteMock
@@ -329,7 +314,6 @@ describe("compareSites", () => {
     });
 
     expect(result.rankings).toHaveLength(2);
-    // The partial site should have a note about missing data
     const partialRank = result.rankings.find((r: any) => r.lat === 52.4);
     expect(partialRank).toBeDefined();
     expect(partialRank!.data_gaps).toBeDefined();
@@ -363,8 +347,6 @@ describe("compareSites", () => {
       }),
     ).rejects.toThrow("All sites failed");
   });
-
-  // --- Output structure ---
 
   it("includes reasoning for each ranked site", async () => {
     screenSiteMock
@@ -410,8 +392,6 @@ describe("compareSites", () => {
     expect(result.disclaimer.length).toBeGreaterThan(0);
   });
 
-  // --- Labels ---
-
   it("uses site labels if provided", async () => {
     screenSiteMock
       .mockResolvedValueOnce(GOOD_SITE_A)
@@ -442,8 +422,6 @@ describe("compareSites", () => {
     expect(result.rankings[0].label).toMatch(/Site/);
     expect(result.rankings[1].label).toMatch(/Site/);
   });
-
-  // --- Technology-aware weights ---
 
   it("defaults to solar technology and includes it in the result", async () => {
     screenSiteMock
@@ -479,13 +457,11 @@ describe("compareSites", () => {
     });
 
     expect(result.technology).toBe("bess");
-    // Grid weight 45%, solar weight 5% -- close grid should win even with lower irradiance
     expect(result.rankings[0].nearest_grid_km).toBeLessThan(result.rankings[1].nearest_grid_km!);
-    // Heuristics should reflect BESS weights
-    expect(result.heuristics_used[0]).toContain("weight 25%"); // verdict
-    expect(result.heuristics_used[1]).toContain("weight 5%");  // solar
-    expect(result.heuristics_used[2]).toContain("weight 45%"); // grid
-    expect(result.heuristics_used[3]).toContain("weight 25%"); // terrain
+    expect(result.heuristics_used[0]).toContain("weight 25%");
+    expect(result.heuristics_used[1]).toContain("weight 5%");
+    expect(result.heuristics_used[2]).toContain("weight 45%");
+    expect(result.heuristics_used[3]).toContain("weight 25%");
   });
 
   it("uses hybrid weights", async () => {
@@ -500,7 +476,7 @@ describe("compareSites", () => {
     });
 
     expect(result.technology).toBe("hybrid");
-    expect(result.heuristics_used[0]).toContain("weight 30%"); // verdict
-    expect(result.heuristics_used[2]).toContain("weight 35%"); // grid
+    expect(result.heuristics_used[0]).toContain("weight 30%");
+    expect(result.heuristics_used[2]).toContain("weight 35%");
   });
 });

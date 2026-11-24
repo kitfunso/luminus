@@ -97,7 +97,6 @@ export async function getEra5Weather(
   const hourlyData = json.hourly ?? {};
   const times: string[] = hourlyData.time ?? [];
 
-  // Build hourly entries (cap at 168 = 7 days of hourly)
   const maxEntries = Math.min(times.length, 168);
   const hourly: HourlyEntry[] = [];
 
@@ -111,7 +110,6 @@ export async function getEra5Weather(
     hourly.push(entry);
   }
 
-  // Build daily summaries
   const dailyMap = new Map<
     string,
     { temps: number[]; wind10: number[]; wind100: number[]; ghi: number[] }

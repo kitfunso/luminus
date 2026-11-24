@@ -149,7 +149,6 @@ async function fetchGbPlantsFromNeso(): Promise<PowerPlant[]> {
 
   const plants: PowerPlant[] = [];
 
-  // Fetch TEC register (transmission-connected)
   try {
     const tecResponse = await fetch(NESO_TEC_URL);
     if (tecResponse.ok) {
@@ -173,7 +172,6 @@ async function fetchGbPlantsFromNeso(): Promise<PowerPlant[]> {
     // TEC fetch failed, continue with embedded
   }
 
-  // Fetch Embedded register (distribution-connected)
   try {
     const pkgResponse = await fetch(NESO_EMBEDDED_URL);
     if (pkgResponse.ok) {
@@ -221,7 +219,6 @@ export async function getPowerPlants(
 }> {
   const minCap = params.min_capacity_mw ?? 0;
 
-  // Fetch both datasets concurrently
   const [conventional, renewable] = await Promise.all([
     fetchAndParsePlants(CONVENTIONAL_URL, "conventional").catch(() => [] as PowerPlant[]),
     fetchAndParsePlants(RENEWABLE_URL, "renewable").catch(() => [] as PowerPlant[]),
@@ -235,7 +232,6 @@ export async function getPowerPlants(
     plants = dedupePlants([...plants, ...gbPlants]);
   }
 
-  // Apply filters
   if (params.country) {
     const countryUpper = params.country.toUpperCase();
     plants = plants.filter((p) => p.country === countryUpper);
@@ -248,10 +244,8 @@ export async function getPowerPlants(
 
   plants = plants.filter((p) => p.capacity_mw >= minCap);
 
-  // Sort by capacity descending
   plants.sort((a, b) => b.capacity_mw - a.capacity_mw);
 
-  // Limit to top 200 to avoid huge responses
   const limited = plants.slice(0, 200);
   const total_capacity_mw =
     Math.round(plants.reduce((s, p) => s + p.capacity_mw, 0) * 10) / 10;

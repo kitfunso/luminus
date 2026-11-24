@@ -229,7 +229,6 @@ export async function shortlistBessSites(
         dataGaps.push("grid_connection_intelligence");
       }
 
-      // Pick the closest DNO headroom match across all operators
       let bestDno: { operator: string; site: NonNullable<Awaited<ReturnType<typeof getDistributionHeadroom>>["nearest_site"]> } | null = null;
       for (const dnoResult of dnoResults) {
         if (dnoResult.status !== "fulfilled") continue;

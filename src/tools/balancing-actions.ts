@@ -64,7 +64,6 @@ async function getGbBalancingActions(date: string): Promise<BalancingActionsResu
     throw new Error("No GB balancing action data available from Elexon BMRS.");
   }
 
-  // Aggregate volumes per settlement period and direction
   const periodMap = new Map<number, { up: number; down: number }>();
 
   for (const row of rows) {

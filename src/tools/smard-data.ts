@@ -12,7 +12,6 @@ export const smardSchema = z.object({
     ),
 });
 
-// SMARD filter IDs
 const FILTER_IDS: Record<string, number> = {
   total_generation: 410,
   total_consumption: 4169,
@@ -146,7 +145,6 @@ function latestValue(series: [number, number | null][]): number {
 }
 
 async function fetchGeneration(): Promise<SmardGenerationResult> {
-  // Fetch all generation sources in parallel
   const entries = Object.entries(GENERATION_SOURCES);
   const results = await Promise.all(
     entries.map(async ([fuel, filterId]) => {

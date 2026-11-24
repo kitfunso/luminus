@@ -5,7 +5,6 @@ import { GIS_SOURCES, type GisSourceMetadata } from "../lib/gis-sources.js";
 const ELEVATION_URL = "https://api.open-meteo.com/v1/elevation";
 const cache = new TtlCache();
 
-/** Spacing between grid points in degrees (~30m at mid-latitudes). */
 const GRID_STEP_DEG = 0.0003;
 
 export const terrainAnalysisSchema = z.object({
@@ -29,26 +28,12 @@ interface TerrainResult {
   source_metadata: GisSourceMetadata;
 }
 
-/**
- * Convert aspect angle (radians, math convention) to cardinal direction.
- * 0° = North, 90° = East, 180° = South, 270° = West.
- */
 function toCardinal(deg: number): string {
   const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
   const index = Math.round(deg / 45) % 8;
   return directions[index];
 }
 
-/**
- * Compute slope and aspect from a 3x3 elevation grid using Horn's method.
- *
- * Grid layout (row-major):
- *   NW  N  NE     [0] [1] [2]
- *    W  C   E     [3] [4] [5]
- *   SW  S  SE     [6] [7] [8]
- *
- * cellSizeX/cellSizeY are the distances between adjacent cells in metres.
- */
 function computeSlopeAspect(
   grid: number[],
   cellSizeXM: number,
@@ -56,7 +41,6 @@ function computeSlopeAspect(
 ): { slope_deg: number; aspect_deg: number; aspect_cardinal: string; flatness_score: number } {
   const [nw, n, ne, w, , e, sw, s, se] = grid;
 
-  // Horn's method partial derivatives
   const dzdx = ((ne + 2 * e + se) - (nw + 2 * w + sw)) / (8 * cellSizeXM);
   const dzdy = ((nw + 2 * n + ne) - (sw + 2 * s + se)) / (8 * cellSizeYM);
 
@@ -65,16 +49,13 @@ function computeSlopeAspect(
 
   let aspectDeg: number;
   if (dzdx === 0 && dzdy === 0) {
-    aspectDeg = 0; // flat — aspect undefined, default to north
+    aspectDeg = 0;
   } else {
-    // atan2(-dzdy, -dzdx) gives angle from east; convert to compass bearing
     let aspectRad = Math.atan2(-dzdy, -dzdx);
     aspectDeg = aspectRad * (180 / Math.PI);
-    // Convert from math angle (E=0, CCW) to compass (N=0, CW)
     aspectDeg = (90 - aspectDeg + 360) % 360;
   }
 
-  // Flatness: 1.0 = perfectly flat, 0.0 = vertical (90° slope)
   const flatness = 1 - slopeDeg / 90;
 
   return {
@@ -85,9 +66,6 @@ function computeSlopeAspect(
   };
 }
 
-/**
- * Approximate metres per degree of longitude at a given latitude.
- */
 function metresPerDegreeLon(lat: number): number {
   return 111_320 * Math.cos(lat * (Math.PI / 180));
 }
@@ -106,9 +84,6 @@ export async function getTerrainAnalysis(
   const cached = cache.get<TerrainResult>(cacheKey);
   if (cached) return cached;
 
-  // Build 3x3 grid coordinates around the target point.
-  // Row order: north to south (dy: +1, 0, -1) so indices match
-  // the NW/N/NE, W/C/E, SW/S/SE layout expected by computeSlopeAspect.
   const lats: number[] = [];
   const lons: number[] = [];
   for (let dy = 1; dy >= -1; dy--) {

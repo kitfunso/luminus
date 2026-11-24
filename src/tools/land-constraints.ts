@@ -44,7 +44,6 @@ interface LandConstraintsResult {
   warnings?: string[];
 }
 
-/** Designation types that represent hard planning exclusions for PV/BESS siting. */
 const HARD_CONSTRAINT_TYPES = new Set([
   "sssi",
   "sac",
@@ -133,9 +132,6 @@ export async function getLandConstraints(
   if (country === "GB") {
     const queryScotland = isScottishCoord(lat, lon);
 
-    // Always query Natural England (England-wide). If coord is in the Scottish
-    // bbox, query NatureScot in parallel. Border-region coords get both; each
-    // upstream returns empty for points outside its coverage.
     const englandPromises = GB_PROTECTED_AREA_LAYERS.map((layer) =>
       queryLayer(layer, lat, lon, radiusKm),
     );

@@ -15,7 +15,6 @@ describe("resolutionToMinutes", () => {
 
 describe("extractSeriesPoints", () => {
   it("forward-fills omitted A03 step-curve positions to the full period", () => {
-    // 24h at PT15M = 96 slots; only 3 explicit points (step curve).
     const doc = {
       TimeSeries: [
         {
@@ -38,11 +37,11 @@ describe("extractSeriesPoints", () => {
     const points = extractSeriesPoints(doc, ["imbalance_Price.amount"]);
     expect(points).toHaveLength(96);
     expect(points[0]).toEqual({ period: 1, value: 50.0 });
-    expect(points[8]).toEqual({ period: 9, value: 50.0 }); // filled from position 1
+    expect(points[8]).toEqual({ period: 9, value: 50.0 });
     expect(points[9]).toEqual({ period: 10, value: 75.5 });
-    expect(points[88]).toEqual({ period: 89, value: 75.5 }); // filled from position 10
+    expect(points[88]).toEqual({ period: 89, value: 75.5 });
     expect(points[89]).toEqual({ period: 90, value: -12.25 });
-    expect(points[95]).toEqual({ period: 96, value: -12.25 }); // filled to period end
+    expect(points[95]).toEqual({ period: 96, value: -12.25 });
   });
 
   it("numbers positions continuously across multiple periods", () => {
@@ -90,8 +89,6 @@ describe("extractSeriesPoints", () => {
     };
 
     const points = extractSeriesPoints(doc, ["imbalance_Price.amount", "price.amount"]);
-    // Position 1 has no price key: skipped, not read as 999 or 0.
-    // Fill starts from the first explicit price at position 2.
     expect(points).toHaveLength(3);
     expect(points[0]).toEqual({ period: 2, value: 42 });
     expect(points[2]).toEqual({ period: 4, value: 42 });
@@ -108,7 +105,6 @@ describe("extractSeriesPoints", () => {
               Point: [{ position: "1", "price.amount": "10" }],
             },
             {
-              // Same series: first two positions omitted (step continues at 10).
               timeInterval: { start: "2026-08-01T01:00Z", end: "2026-08-01T02:00Z" },
               resolution: "PT15M",
               Point: [{ position: "3", "price.amount": "30" }],
@@ -116,7 +112,6 @@ describe("extractSeriesPoints", () => {
           ],
         },
         {
-          // Different series over the same day: fill must NOT leak 30 into it.
           Period: [
             {
               timeInterval: { start: "2026-08-01T00:00Z", end: "2026-08-01T01:00Z" },
@@ -130,12 +125,10 @@ describe("extractSeriesPoints", () => {
 
     const points = extractSeriesPoints(doc, ["price.amount"]);
     const s1 = points.slice(0, 8);
-    // Periods 5-6 (positions 1-2 of the second period) fill from the first period's 10.
     expect(s1.map((p) => [p.period, p.value])).toEqual([
       [1, 10], [2, 10], [3, 10], [4, 10],
       [5, 10], [6, 10], [7, 30], [8, 30],
     ]);
-    // Second series starts fresh: nothing before its first explicit point.
     const s2 = points.slice(8);
     expect(s2.map((p) => [p.period, p.value])).toEqual([
       [2, 99], [3, 99], [4, 99],
@@ -168,7 +161,6 @@ describe("extractSeriesPoints", () => {
     };
 
     const points = extractSeriesPoints(doc, ["imbalance_Price.amount"]);
-    // Both series cover periods 1-4; the second must NOT be numbered 5-8.
     expect(points.map((p) => p.period)).toEqual([1, 2, 3, 4, 1, 2, 3, 4]);
     expect(Math.max(...points.map((p) => p.period))).toBe(4);
   });
@@ -245,9 +237,9 @@ describe("extractSeriesIntervals", () => {
     const intervals = extractSeriesIntervals(doc, ["price.amount"]);
     expect(intervals).toHaveLength(96);
     expect(intervals[48].start_ms).toBe(Date.parse("2026-08-01T12:00:00.000Z"));
-    expect(intervals[48].value).toBe(50); // position 49: still filled from position 1
+    expect(intervals[48].value).toBe(50);
     expect(intervals[49].start_ms).toBe(Date.parse("2026-08-01T12:15:00.000Z"));
-    expect(intervals[49].value).toBe(75); // position 50: explicit
+    expect(intervals[49].value).toBe(75);
     expect(intervals[95].end_ms).toBe(Date.parse("2026-08-02T00:00:00.000Z"));
   });
 

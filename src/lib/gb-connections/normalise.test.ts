@@ -9,9 +9,6 @@ import {
 } from "./normalise.js";
 import type { CanonicalConnectionEntry } from "./schema.js";
 
-// Fixtures copied from the existing tool tests so the shapes stay honest.
-// Changes upstream should break these in lock-step.
-
 const TEC_FIXTURE: TecRowInput = {
   project_name: "Solar Farm Alpha",
   customer_name: "Alpha Ltd",

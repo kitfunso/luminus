@@ -29,7 +29,6 @@ interface JoinablePoint {
 
 type SpreadSignal = "intraday_premium" | "intraday_discount" | "neutral";
 
-/** Average finer-grained points up to a coarser grid so DA/ID resolutions can be joined by start. */
 function averageToGrid(points: JoinablePoint[], targetMinutes: number): JoinablePoint[] {
   const targetMs = targetMinutes * 60000;
   const buckets = new Map<number, number[]>();
@@ -66,7 +65,6 @@ export async function getIntradayDaSpread(
   let daPoints: JoinablePoint[] = daResult.prices;
   let idPoints: JoinablePoint[] = idResult.prices;
 
-  // Different resolutions can't join by start directly; average the finer series up.
   if (daResult.resolution_minutes && idResult.resolution_minutes && daResult.resolution_minutes !== idResult.resolution_minutes) {
     if (daResult.resolution_minutes < idResult.resolution_minutes) {
       daPoints = averageToGrid(daPoints, idResult.resolution_minutes);

@@ -1,7 +1,6 @@
 import { ensureArray } from "./xml-parser.js";
 
 /** Shared ENTSO-E TimeSeries/Period/Point extraction, forward-filling A03 step curves. */
-
 interface SeriesPoint {
   period: number;
   value: number;
@@ -35,7 +34,7 @@ export function entsoeStampToMs(stamp: string): number {
 interface ParsedPeriod {
   explicit: Map<number, number>;
   slots: number;
-  startMs: number; // NaN when the interval is unparseable
+  startMs: number;
   minutes: number;
   seriesIdx: number;
 }

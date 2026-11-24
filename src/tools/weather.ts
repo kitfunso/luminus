@@ -4,7 +4,6 @@ import { TtlCache, TTL } from "../lib/cache.js";
 const BASE_URL = "https://api.open-meteo.com/v1/forecast";
 const cache = new TtlCache();
 
-/** Capital city coordinates for default weather lookups */
 const CAPITAL_COORDS: Record<string, { lat: number; lon: number; city: string }> = {
   AT: { lat: 48.21, lon: 16.37, city: "Vienna" },
   BE: { lat: 50.85, lon: 4.35, city: "Brussels" },

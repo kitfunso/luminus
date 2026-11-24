@@ -170,12 +170,10 @@ describe("getEmbeddedCapacityRegister", () => {
 
     expect(result.operator).toBe("UKPN");
     expect(result.entries.length).toBeGreaterThanOrEqual(1);
-    // Only nearby entries should match (Wind Farm Gamma is far away)
     const names = result.entries.map((e) => e.customer_name);
     expect(names).toContain("Solar Farm Alpha");
     expect(names).toContain("Battery Storage Beta");
     expect(names).not.toContain("Wind Farm Gamma");
-    // Check distance_km is populated
     expect(result.entries[0].distance_km).toBeGreaterThanOrEqual(0);
     expect(result.total_matched).toBe(2);
     expect(result.total_export_mw).toBeCloseTo(30.5, 1);
@@ -193,13 +191,10 @@ describe("getEmbeddedCapacityRegister", () => {
 
     expect(result.operator).toBe("SPEN");
     expect(result.entries).toHaveLength(2);
-    // SPEN entries should be sorted alphabetically
     expect(result.entries[0].customer_name).toBe("Ayr Battery");
     expect(result.entries[1].customer_name).toBe("Chapelcross Solar");
-    // SPEN has no coordinates — distance should be 0
     expect(result.entries[0].distance_km).toBe(0);
     expect(result.entries[1].distance_km).toBe(0);
-    // SPEN fields are TEXT; verify number parsing
     expect(result.entries[0].export_capacity_mw).toBe(15.0);
     expect(result.entries[1].export_capacity_mw).toBe(8.5);
     expect(result.total_storage_mwh).toBeCloseTo(30.0, 1);
@@ -305,7 +300,6 @@ describe("getEmbeddedCapacityRegister", () => {
     expect(result.entries.length).toBeGreaterThanOrEqual(1);
     const names = result.entries.map((e) => e.customer_name);
     expect(names).toContain("Manchester Solar Farm");
-    // Liverpool is far away, should not match within 5km
     expect(names).not.toContain("Liverpool Battery");
     expect(result.entries[0].distance_km).toBeGreaterThanOrEqual(0);
     expect(result.entries[0].operator).toBe("ENWL");
@@ -344,7 +338,6 @@ describe("getEmbeddedCapacityRegister", () => {
     });
 
     expect(result.operator).toBe("all");
-    // Should include nearby UKPN entries + all SPEN entries (ENWL is far away)
     const operators = new Set(result.entries.map((e) => e.operator));
     expect(operators.has("UKPN")).toBe(true);
     expect(operators.has("SPEN")).toBe(true);
@@ -364,7 +357,6 @@ describe("getEmbeddedCapacityRegister", () => {
       operator: "UKPN",
     });
 
-    // Only one set of paginated fetches should occur
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   });
 

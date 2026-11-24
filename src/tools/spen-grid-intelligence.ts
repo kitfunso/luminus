@@ -60,8 +60,6 @@ export const spenGridIntelligenceSchema = z.object({
     ),
 });
 
-// ── Raw record shapes ──
-
 interface QueueRawRecord {
   unique_id?: string | null;
   generator_type?: string | null;
@@ -87,8 +85,6 @@ interface CurtailmentRawRecord {
   generation_lost?: number | string | null;
   network_management_scheme?: string | null;
 }
-
-// ── Result shapes ──
 
 interface SpenGspQueueEntry {
   gsp_name: string;
@@ -140,8 +136,6 @@ interface SpenGridIntelligenceResult {
   };
   disclaimer: string;
 }
-
-// ── Source metadata ──
 
 const QUEUE_SOURCE: GisSourceMetadata = {
   id: "spen-gsp-queue",
@@ -195,8 +189,6 @@ const CURTAILMENT_SOURCE: GisSourceMetadata = {
   attribution: "Contains data from SP Energy Networks.",
 };
 
-// ── Helpers ──
-
 function escapeOdsString(value: string): string {
   return value.replace(/'/g, "''");
 }
@@ -232,8 +224,6 @@ async function resolveOdsApiKey(): Promise<string> {
 function formatIsoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
-
-// ── Paginated ODS fetch ──
 
 async function fetchOdsPages<T>(
   baseUrl: string,
@@ -277,8 +267,6 @@ async function fetchOdsPages<T>(
 
   return all;
 }
-
-// ── Section fetchers ──
 
 async function fetchQueueEntries(
   apiKey: string,
@@ -412,8 +400,6 @@ async function fetchCurtailmentEvents(
   return entries;
 }
 
-// ── Main function ──
-
 export async function getSpenGridIntelligence(
   input: z.infer<typeof spenGridIntelligenceSchema>,
 ): Promise<SpenGridIntelligenceResult> {
@@ -422,7 +408,6 @@ export async function getSpenGridIntelligence(
 
   const apiKey = await resolveOdsApiKey();
 
-  // Fetch all three sections in parallel; each handles failure independently
   const [queueResult, dgResult, curtailmentResult] = await Promise.all([
     fetchQueueEntries(apiKey, gspFilter).catch((): SpenGspQueueEntry[] => []),
     fetchDgCapacity(apiKey, gspFilter).catch((): SpenDgCapacity[] => []),
@@ -431,7 +416,6 @@ export async function getSpenGridIntelligence(
     ),
   ]);
 
-  // Build queue type breakdown
   const typeBreakdown: Record<string, { count: number; mw: number }> = {};
   let totalExportMw = 0;
   for (const entry of queueResult) {
@@ -446,7 +430,6 @@ export async function getSpenGridIntelligence(
     totalExportMw += entry.export_capacity_mw;
   }
 
-  // Round MW totals
   totalExportMw = Math.round(totalExportMw * 100) / 100;
   for (const entry of Object.values(typeBreakdown)) {
     entry.mw = Math.round(entry.mw * 100) / 100;
@@ -457,7 +440,6 @@ export async function getSpenGridIntelligence(
     0,
   );
 
-  // Unique GSPs covered by DG capacity data
   const uniqueGsps = new Set(dgResult.map((e) => e.gsp));
 
   return {

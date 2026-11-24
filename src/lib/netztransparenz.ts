@@ -17,7 +17,6 @@ import { TtlCache, TTL } from "./cache.js";
  * Responses are German-format CSV: ";" separator, "," decimal,
  * "Datum" (DD.MM.YYYY) + "von" (HH:MM) time columns.
  */
-
 const TOKEN_URL = "https://identity.netztransparenz.de/users/connect/token";
 const API_BASE = "https://ds.netztransparenz.de/api/v1";
 

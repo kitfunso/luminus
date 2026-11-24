@@ -5,11 +5,6 @@ const API_BASE = "https://api.open-meteo.com/v1/forecast";
 const HYDRO_API = "https://archive-api.open-meteo.com/v1/archive";
 const cache = new TtlCache();
 
-/**
- * Key hydropower basins in Europe with representative coordinates.
- * River discharge data from Open-Meteo (backed by ERA5-Land) serves as
- * a proxy for hydropower inflow conditions.
- */
 const HYDRO_BASINS: Record<string, { lat: number; lon: number; description: string }> = {
   NO: { lat: 60.5, lon: 7.5, description: "Norway (major hydro reservoirs)" },
   SE: { lat: 63.0, lon: 15.0, description: "Sweden (northern hydro)" },
@@ -121,7 +116,6 @@ export async function getHydroInflows(
     const tempMax = Number(dailyData.temperature_2m_max?.[i] ?? 0);
     const rain = Number(dailyData.rain_sum?.[i] ?? 0);
 
-    // Inflow proxy: rain + snowmelt contribution (positive temps melt accumulated snow)
     const snowmeltContrib = tempMax > 2 && snow > 0 ? Math.min(snow * 5, tempMax * 2) : 0;
     const inflowProxy = Math.round((rain + snowmeltContrib) * 10) / 10;
 
@@ -143,7 +137,6 @@ export async function getHydroInflows(
   const n = daily.length || 1;
   const avgProxy = Math.round((proxySum / n) * 10) / 10;
 
-  // Determine trend from first half vs second half
   const mid = Math.floor(n / 2);
   const firstHalf = daily.slice(0, mid).reduce((s, d) => s + d.inflow_proxy_index, 0) / (mid || 1);
   const secondHalf = daily.slice(mid).reduce((s, d) => s + d.inflow_proxy_index, 0) / ((n - mid) || 1);

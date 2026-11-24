@@ -1,11 +1,3 @@
-/**
- * Upstream row normalisers for the canonical GB connections schema.
- *
- * These map raw rows emitted by the existing Luminus tools (NESO TEC,
- * NGED per-GSP queue, SSEN/NPG/UKPN/SPEN/ENWL headroom feeds) onto
- * `CanonicalConnectionEntry`. We never default missing fields to zero.
- */
-
 import type {
   CanonicalConnectionEntry,
   CapacityKind,
@@ -188,7 +180,6 @@ export function normaliseTecRow(row: TecRowInput): CanonicalConnectionEntry {
   const gspName = nonEmpty(row.connection_site);
   if (gspName) entry.gsp_name_raw = gspName;
 
-  // Prefer the net change as the "capacity in play"; fall back to connected MW.
   const mwCapacity = mwIncrease !== 0 ? mwIncrease : mwConnected !== 0 ? mwConnected : undefined;
   if (mwCapacity !== undefined) entry.mw_capacity = mwCapacity;
 

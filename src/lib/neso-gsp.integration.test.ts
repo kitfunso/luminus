@@ -1,12 +1,3 @@
-/**
- * Live integration tests for lookupGspRegion against the real NESO endpoints.
- *
- * These tests make actual network calls and are intentionally excluded from
- * normal CI runs. To run them locally:
- *
- *   LUMINUS_RUN_INTEGRATION=1 npx vitest run src/lib/neso-gsp.integration.test.ts
- */
-
 import { describe, it, expect, beforeEach } from "vitest";
 import { lookupGspRegion, resetGspCacheForTests } from "./neso-gsp.js";
 
@@ -35,7 +26,6 @@ describe.skipIf(!RUN)("lookupGspRegion -- live NESO integration", () => {
       const result = await lookupGspRegion(51.505, -0.019);
 
       expect(result).not.toBeNull();
-      // Must not return Walpole (Norfolk) -- the pre-fix wrong answer for every coordinate
       expect(result!.gsp_name).not.toBe("WALP_1");
       expect(result!.distance_km).toBeLessThan(5);
     },

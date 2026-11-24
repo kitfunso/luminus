@@ -4,7 +4,6 @@ import { resolveZone, AVAILABLE_ZONES } from "../lib/zone-codes.js";
 import { ensureArray } from "../lib/xml-parser.js";
 import { TTL } from "../lib/cache.js";
 
-/** PSR type codes for renewable sources */
 const RENEWABLE_PSR: Record<string, string> = {
   B16: "Solar",
   B18: "Wind Offshore",

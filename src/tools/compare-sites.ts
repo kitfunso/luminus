@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { screenSite, EU_COUNTRY_CODES } from "./screen-site.js";
 
-// --- Schema ---
-
 const siteInputSchema = z.object({
   lat: z.number().describe("Latitude (-90 to 90). WGS84."),
   lon: z.number().describe("Longitude (-180 to 180). WGS84."),
@@ -25,8 +23,6 @@ export const compareSitesSchema = z.object({
     .optional()
     .describe('Site technology. Adjusts scoring weights. Default "solar".'),
 });
-
-// --- Types ---
 
 type Verdict = "pass" | "warn" | "fail";
 
@@ -61,19 +57,6 @@ interface CompareSitesResult {
   heuristics_used: string[];
   disclaimer: string;
 }
-
-// --- Scoring heuristics ---
-
-/**
- * Explicit, conservative ranking heuristics.
- *
- * 1. Verdict tier: pass (3) > warn (2) > fail (1). Hard constraints disqualify.
- * 2. Solar resource: higher annual irradiance is better (normalised 0-1 within the set).
- * 3. Grid proximity: closer to nearest substation or HV line is better (normalised 0-1, inverted).
- * 4. Terrain flatness: lower slope is better (normalised 0-1, inverted).
- *
- * Weights are explicit constants. The composite score is a weighted sum.
- */
 
 const VERDICT_SCORES: Record<Verdict, number> = { pass: 3, warn: 2, fail: 1 };
 
@@ -115,16 +98,12 @@ const DISCLAIMER =
   "treat the ranking as a first-pass sort, not an investment recommendation. " +
   "Professional due diligence is required before any development decision.";
 
-// --- Helpers ---
-
-/** Normalise a value into 0-1 given min/max of the set. Higher raw = higher normalised. */
 function normaliseHigherBetter(value: number | null, min: number, max: number): number {
   if (value === null) return 0;
   if (max === min) return 1;
   return (value - min) / (max - min);
 }
 
-/** Normalise a value into 0-1 given min/max of the set. Lower raw = higher normalised. */
 function normaliseLowerBetter(value: number | null, min: number, max: number): number {
   if (value === null) return 0;
   if (max === min) return 1;
@@ -193,8 +172,6 @@ function buildReasoning(
   return parts.join(" ");
 }
 
-// --- Main tool function ---
-
 export async function compareSites(
   params: z.infer<typeof compareSitesSchema>,
 ): Promise<CompareSitesResult> {
@@ -215,7 +192,6 @@ export async function compareSites(
     throw new Error("Compare at most 10 sites per call.");
   }
 
-  // Screen all sites in parallel
   const screenResults = await Promise.allSettled(
     params.sites.map((site) =>
       screenSite({
@@ -227,7 +203,6 @@ export async function compareSites(
     ),
   );
 
-  // Separate successes from failures
   const screened: { index: number; label: string; result: any }[] = [];
   const failedSites: FailedSite[] = [];
 
@@ -252,7 +227,6 @@ export async function compareSites(
     throw new Error("All sites failed screening. Cannot produce a comparison.");
   }
 
-  // Extract raw values for normalisation
   const solarValues = screened.map((s) => extractSolar(s.result));
   const gridValues = screened.map((s) => extractNearestGrid(s.result));
   const slopeValues = screened.map((s) => extractSlope(s.result));
@@ -268,7 +242,6 @@ export async function compareSites(
   const slopeMin = validSlopes.length > 0 ? Math.min(...validSlopes) : 0;
   const slopeMax = validSlopes.length > 0 ? Math.max(...validSlopes) : 0;
 
-  // Score each site
   const scored = screened.map((s, idx) => {
     const verdict: Verdict = s.result.verdict.overall;
     const solar = solarValues[idx];
@@ -277,7 +250,7 @@ export async function compareSites(
     const constraintCount = s.result.constraints?.summary?.constraint_count ?? 0;
     const dataGaps = extractDataGaps(s.result);
 
-    const verdictNorm = VERDICT_SCORES[verdict] / 3; // 0.33 - 1.0
+    const verdictNorm = VERDICT_SCORES[verdict] / 3;
     const solarNorm = normaliseHigherBetter(solar, solarMin, solarMax);
     const gridNorm = normaliseLowerBetter(grid, gridMin, gridMax);
     const slopeNorm = normaliseLowerBetter(slope, slopeMin, slopeMax);
@@ -305,10 +278,8 @@ export async function compareSites(
     };
   });
 
-  // Sort descending by score, stable (input order breaks ties)
   scored.sort((a, b) => b.score - a.score);
 
-  // Build ranked output with reasoning
   const rankings: RankedSite[] = scored.map((s, idx) => ({
     rank: idx + 1,
     label: s.label,

@@ -125,7 +125,6 @@ export async function getTernaData(
   const zone = params.zone?.toUpperCase() ?? "ITALY";
 
   try {
-    // Try Terna developer API first
     const url = `${API_BASE}/${params.dataset}?date=${date}&zone=${zone}`;
     const data = await fetchTerna(url);
 
@@ -225,7 +224,6 @@ export async function getTernaData(
       }
     }
   } catch {
-    // Fallback with reference info
     const description =
       `Italian ${params.dataset} data for ${date}. ` +
       `Terna publishes real-time data at ${TERNA_PUBLIC}. ` +

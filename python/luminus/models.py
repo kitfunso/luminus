@@ -635,11 +635,6 @@ class SiteRevenueEstimate:
         )
 
 
-# ---------------------------------------------------------------------------
-# ECR (Embedded Capacity Register)
-# ---------------------------------------------------------------------------
-
-
 @dataclass(slots=True)
 class EcrSnapshot:
     total_matched: int
@@ -669,11 +664,6 @@ class EcrSnapshot:
         )
 
 
-# ---------------------------------------------------------------------------
-# Flexibility Market
-# ---------------------------------------------------------------------------
-
-
 @dataclass(slots=True)
 class FlexMarketSnapshot:
     total_dispatches: int
@@ -696,11 +686,6 @@ class FlexMarketSnapshot:
         )
 
 
-# ---------------------------------------------------------------------------
-# Constraint Breaches
-# ---------------------------------------------------------------------------
-
-
 @dataclass(slots=True)
 class ConstraintBreachesSnapshot:
     total_breaches: int
@@ -721,11 +706,6 @@ class ConstraintBreachesSnapshot:
             },
             breaches=[dict(item) for item in payload.get("breaches", [])],
         )
-
-
-# ---------------------------------------------------------------------------
-# SPEN Grid Intelligence
-# ---------------------------------------------------------------------------
 
 
 @dataclass(slots=True)
@@ -786,11 +766,6 @@ class SpenGridSnapshot:
         )
 
 
-# ---------------------------------------------------------------------------
-# UKPN Grid Overview
-# ---------------------------------------------------------------------------
-
-
 @dataclass(slots=True)
 class UkpnGridSnapshot:
     gsps: list[dict[str, Any]]
@@ -806,11 +781,6 @@ class UkpnGridSnapshot:
         )
 
 
-# ---------------------------------------------------------------------------
-# NGED Connection Signal
-# ---------------------------------------------------------------------------
-
-
 @dataclass(slots=True)
 class NgedConnectionSignalSnapshot:
     resource_name: str
@@ -824,11 +794,6 @@ class NgedConnectionSignalSnapshot:
             summary=dict(payload.get("summary", {})),
             queue=[dict(item) for item in payload.get("queue", [])],
         )
-
-
-# ---------------------------------------------------------------------------
-# Terrain Analysis
-# ---------------------------------------------------------------------------
 
 
 @dataclass(slots=True)
@@ -854,11 +819,6 @@ class TerrainSnapshot:
         )
 
 
-# ---------------------------------------------------------------------------
-# BESS Site Shortlist
-# ---------------------------------------------------------------------------
-
-
 @dataclass(slots=True)
 class BessSiteShortlistSnapshot:
     total_candidates: int
@@ -872,11 +832,6 @@ class BessSiteShortlistSnapshot:
             total_shortlisted=int(payload.get("total_shortlisted", 0)),
             shortlist=[dict(item) for item in payload.get("shortlist", [])],
         )
-
-
-# ---------------------------------------------------------------------------
-# Site Connection Report
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -1116,11 +1071,6 @@ class SiteConnectionReportSnapshot:
             confidence_notes=tuple(str(item) for item in payload.get("confidence_notes", [])),
             disclaimer=str(payload.get("disclaimer", "")),
         )
-
-
-# ---------------------------------------------------------------------------
-# Gate 2 Readiness Check
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)

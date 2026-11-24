@@ -86,7 +86,6 @@ export async function getAcerRemit(
   const country = params.country?.toUpperCase();
   const fuelType = params.fuel_type;
 
-  // Build query params
   const queryParams = new URLSearchParams({
     limit: String(limit),
     ...(country ? { country } : {}),
@@ -156,7 +155,6 @@ async function fetchUmms(
     // Fall through to fallback
   }
 
-  // Fallback: provide guidance on accessing REMIT data
   return {
     message_type: "urgent_market_messages",
     source: "ACER REMIT (reference)",

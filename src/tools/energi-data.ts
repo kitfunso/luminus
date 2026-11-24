@@ -51,7 +51,6 @@ async function fetchEnergiData(datasetName: string, filter: string, limit: numbe
   });
 
   if (!response.ok) {
-    // Try alternative sort column
     const altUrl =
       `${API_BASE}/${datasetName}?limit=${limit}&offset=0&sort=HourUTC%20DESC` +
       `&filter=${encodeURIComponent(filter)}`;

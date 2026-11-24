@@ -4,7 +4,6 @@ import { resolveZone, AVAILABLE_ZONES } from "../lib/zone-codes.js";
 import { ensureArray } from "../lib/xml-parser.js";
 import { TTL } from "../lib/cache.js";
 
-/** PSR type codes to human-readable fuel names */
 const PSR_TYPES: Record<string, string> = {
   B01: "Biomass",
   B02: "Lignite",
@@ -74,7 +73,6 @@ export async function getRemitMessages(
       TTL.OUTAGES
     );
   } catch {
-    // API error or no data = empty result, not a thrown error
     return { zone: params.zone.toUpperCase(), date, messageCount: 0, messages: [] };
   }
 
@@ -134,10 +132,8 @@ export async function getRemitMessages(
     });
   }
 
-  // Sort by unavailableMW descending, nulls last
   messages.sort((a, b) => (b.unavailableMW ?? 0) - (a.unavailableMW ?? 0));
 
-  // Limit to first 20
   const limited = messages.slice(0, 20);
 
   return {

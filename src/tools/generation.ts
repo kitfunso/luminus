@@ -16,7 +16,6 @@ export const generationSchema = z.object({
     .describe("Date in YYYY-MM-DD format. Defaults to today."),
 });
 
-/** ENTSO-E PSR type codes to human-readable fuel names */
 const PSR_TYPES: Record<string, string> = {
   B01: "Biomass",
   B02: "Fossil Brown coal/Lignite",
@@ -75,14 +74,12 @@ export async function getGenerationMix(
     const fuelType = PSR_TYPES[psrCode] ?? psrCode;
 
     const periods = ensureArray(ts.Period);
-    // Take the latest period's points and average them
     const lastPeriod = periods[periods.length - 1];
     if (!lastPeriod) continue;
 
     const points = ensureArray(lastPeriod.Point);
     if (points.length === 0) continue;
 
-    // Use the most recent point's quantity
     const latestPoint = points[points.length - 1];
     const mw = Number(latestPoint["quantity"] ?? 0);
 

@@ -29,9 +29,6 @@ export interface Gate2Rule {
   reference_url: string;
 }
 
-// Reference URLs verified live against the public NESO and gov.uk pages
-// at the time of shipping. If any become a 404, remove the rule that
-// cites it — we do not keep uncitable rules.
 const REF_NESO_CONNECTIONS = "https://www.neso.energy/industry-information/connections";
 const REF_NESO_CONNECTIONS_REFORM = "https://www.neso.energy/industry-information/connections-reform";
 const REF_NESO_QUEUE_MANAGEMENT = "https://www.neso.energy/industry-information/connections/queue-management";

@@ -170,15 +170,11 @@ describe("getAgriculturalLand", () => {
   });
 
   it("uses 'lca_detailed' basis when Scotland LCA returns data and English ALC has no match", async () => {
-    // Regression for 0.6.0: Scottish LCA results were labelled 'post_1988',
-    // which misleadingly implied an English survey. Expected: 'lca_detailed'.
     fetchMock.mockImplementation(async (input: unknown) => {
       const url = String(input);
-      // English ALC (both services) return empty
       if (url.includes("Agricultural_Land_Classification_Post_1988") || url.includes("Provisional")) {
         return { ok: true, json: async () => ({ features: [] }) };
       }
-      // LCA 50k returns a Grade 3.1 feature
       if (url.includes("Hutton_LCA_50K_OSGB")) {
         return {
           ok: true,
@@ -196,14 +192,12 @@ describe("getAgriculturalLand", () => {
           }),
         };
       }
-      // LCA 250k also returns something (which should be ignored because 50k wins)
       if (url.includes("Hutton_LCA250K_UKSO")) {
         return { ok: true, json: async () => ({ features: [] }) };
       }
       return { ok: true, json: async () => ({ features: [] }) };
     });
 
-    // Carse of Gowrie — Scottish agricultural area.
     const result = await getAgriculturalLand({ lat: 56.42, lon: -3.15, country: "GB" });
 
     expect(result.classification_basis).toBe("lca_detailed");

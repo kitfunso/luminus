@@ -146,7 +146,6 @@ describe("getConstraintBreaches", () => {
       "fetch",
       vi.fn(async (input) => {
         const url = String(input);
-        // Verify the where clause includes a date filter
         // URLSearchParams encodes spaces as +, not %20
         const decodedUrl = decodeURIComponent(url).replace(/\+/g, " ");
         expect(decodedUrl).toContain("start_time_utc >= date'");
@@ -174,7 +173,6 @@ describe("getConstraintBreaches", () => {
     expect(result.breaches).toHaveLength(1);
     expect(result.breaches[0].event_id).toBe("EVT-002");
     expect(result.breaches[0].duration_hours).toBe(2.0);
-    // Aggregation should only include filtered breaches
     expect(result.total_curtailment_kwh).toBe(5400.0);
     expect(result.scheme_breakdown).not.toHaveProperty("CANTERBURY");
   });
@@ -184,7 +182,6 @@ describe("getConstraintBreaches", () => {
 
     const result = await getConstraintBreaches({ limit: 2 });
 
-    // total_breaches reflects all matching, breaches array is capped
     expect(result.total_breaches).toBe(3);
     expect(result.breaches).toHaveLength(2);
   });
@@ -202,7 +199,6 @@ describe("getConstraintBreaches", () => {
 
     const result = await getConstraintBreaches({ limit: 500 });
 
-    // No records to return, but the clamping is verified via period_days pattern
     expect(result.total_breaches).toBe(0);
   });
 
@@ -212,7 +208,6 @@ describe("getConstraintBreaches", () => {
     await getConstraintBreaches({});
     await getConstraintBreaches({});
 
-    // Only one fetch call (results served from cache on second call)
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   });
 
@@ -257,7 +252,6 @@ describe("getConstraintBreaches", () => {
 
     const result = await getConstraintBreaches({});
 
-    // Only the valid RAYLEIGH record should survive
     expect(result.total_breaches).toBe(1);
     expect(result.breaches[0].scheme).toBe("RAYLEIGH");
   });

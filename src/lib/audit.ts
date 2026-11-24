@@ -54,7 +54,6 @@ export function logToolCall(
   };
   const line = JSON.stringify(entry) + "\n";
 
-  // Fire-and-forget: never throw, never reject to caller
   void (async () => {
     try {
       await ensureDir();

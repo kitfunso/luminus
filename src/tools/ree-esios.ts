@@ -6,7 +6,6 @@ const API_BASE = "https://api.esios.ree.es";
 const REE_PUBLIC = "https://www.ree.es/en/datos/apidatos";
 const cache = new TtlCache();
 
-/** ESIOS indicator IDs for key datasets */
 const INDICATORS: Record<string, number> = {
   day_ahead_price: 600,
   intraday_price: 612,
@@ -227,7 +226,6 @@ async function fetchWindSolar(date: string): Promise<SpainWindSolarResult> {
     fetchEsios(INDICATORS.solar_actual, date, date),
   ]);
 
-  // Build a time-aligned merge
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const toMap = (arr: any[]) => {
     const m = new Map<string, number>();

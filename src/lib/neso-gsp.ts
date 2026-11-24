@@ -47,7 +47,6 @@ interface GeoJsonFeature {
   } | null;
 }
 
-/** Haversine distance in km between two WGS84 points. */
 function haversineKm(
   lat1: number,
   lon1: number,
@@ -308,8 +307,6 @@ async function fetchGspBoundaries(): Promise<BoundaryFetchOutcome> {
     return { boundaries, warning: null };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    // The fallback to nearest-point CSV is intentional, but surface the reason
-    // so callers can include it in their confidence_notes.
     return {
       boundaries: [],
       warning: `NESO GSP polygon fetch failed: ${message}. Falling back to nearest-point CSV lookup.`,
@@ -358,9 +355,6 @@ function findContainedRecord(
     .filter((record): record is GspRecord => record !== undefined);
 
   if (candidates.length === 0) {
-    // Polygon containment matched but the boundary's GSP codes do not map to
-    // any CSV record. Surface as a warning so the caller can see that the
-    // polygon path degraded and nearest-point fallback is about to run.
     return {
       match: null,
       warning: `NESO GSP boundary contains point but its codes [${boundary.gsp_codes.join(", ")}] do not match any CSV record. Falling back to nearest-point.`,
@@ -431,9 +425,6 @@ export async function lookupGspRegion(
 
   const nearest = findNearestRecord(records, lat, lon);
   if (!nearest || nearest.distanceKm > radiusKm) {
-    // Log to stderr for operator visibility when the lookup returns null after
-    // a degraded polygon path. Downstream tools get a null result plus an
-    // existing "No GSP found" confidence note either way.
     if (warnings.length > 0) {
       console.error("[luminus] lookupGspRegion returned null after polygon-path warnings:", warnings.join(" | "));
     }

@@ -21,7 +21,6 @@ export const CORINE_COVERED_COUNTRIES = new Set([
   "AT", "BE", "BG", "CY", "CZ", "DE", "DK", "EE", "ES", "FI",
   "FR", "GR", "HR", "HU", "IE", "IT", "LT", "LU", "LV", "MT",
   "NL", "PL", "PT", "RO", "SE", "SI", "SK",
-  // EEA/EFTA (also in CORINE)
   "IS", "LI", "NO", "TR", "AL", "BA", "ME", "MK", "RS", "XK",
 ]);
 
@@ -42,21 +41,13 @@ export interface CorineResult {
   source: "corine-land-cover-2018";
 }
 
-// ---------------------------------------------------------------------------
-// CLC nomenclature lookup
-// ---------------------------------------------------------------------------
-
 interface ClcEntry {
   label: string;
   group: string;
   exclusion: boolean;
 }
 
-/** Subset of the 44-class CLC 2018 nomenclature.
- *  Codes not in this map fall back to group-level labelling.
- */
 const CLC_CODES: Readonly<Record<string, ClcEntry>> = {
-  // 1xx — Artificial surfaces
   "111": { label: "Continuous urban fabric", group: "Artificial surfaces", exclusion: false },
   "112": { label: "Discontinuous urban fabric", group: "Artificial surfaces", exclusion: false },
   "121": { label: "Industrial or commercial units", group: "Artificial surfaces", exclusion: false },
@@ -68,7 +59,6 @@ const CLC_CODES: Readonly<Record<string, ClcEntry>> = {
   "133": { label: "Construction sites", group: "Artificial surfaces", exclusion: false },
   "141": { label: "Green urban areas", group: "Artificial surfaces", exclusion: false },
   "142": { label: "Sport and leisure facilities", group: "Artificial surfaces", exclusion: false },
-  // 2xx — Agricultural areas
   "211": { label: "Non-irrigated arable land", group: "Agricultural areas", exclusion: false },
   "212": { label: "Permanently irrigated land", group: "Agricultural areas", exclusion: false },
   "213": { label: "Rice fields", group: "Agricultural areas", exclusion: false },
@@ -80,7 +70,6 @@ const CLC_CODES: Readonly<Record<string, ClcEntry>> = {
   "242": { label: "Complex cultivation patterns", group: "Agricultural areas", exclusion: false },
   "243": { label: "Land principally occupied by agriculture with significant areas of natural vegetation", group: "Agricultural areas", exclusion: false },
   "244": { label: "Agro-forestry areas", group: "Agricultural areas", exclusion: false },
-  // 3xx — Forest and semi-natural areas
   "311": { label: "Broad-leaved forest", group: "Forest and semi-natural areas", exclusion: true },
   "312": { label: "Coniferous forest", group: "Forest and semi-natural areas", exclusion: true },
   "313": { label: "Mixed forest", group: "Forest and semi-natural areas", exclusion: true },
@@ -93,13 +82,11 @@ const CLC_CODES: Readonly<Record<string, ClcEntry>> = {
   "333": { label: "Sparsely vegetated areas", group: "Forest and semi-natural areas", exclusion: false },
   "334": { label: "Burnt areas", group: "Forest and semi-natural areas", exclusion: false },
   "335": { label: "Glaciers and perpetual snow", group: "Forest and semi-natural areas", exclusion: false },
-  // 4xx — Wetlands
   "411": { label: "Inland marshes", group: "Wetlands", exclusion: true },
   "412": { label: "Peat bogs", group: "Wetlands", exclusion: true },
   "421": { label: "Salt marshes", group: "Wetlands", exclusion: true },
   "422": { label: "Salines", group: "Wetlands", exclusion: true },
   "423": { label: "Intertidal flats", group: "Wetlands", exclusion: true },
-  // 5xx — Water bodies
   "511": { label: "Water courses", group: "Water bodies", exclusion: true },
   "512": { label: "Water bodies", group: "Water bodies", exclusion: true },
   "521": { label: "Coastal lagoons", group: "Water bodies", exclusion: true },
@@ -125,10 +112,6 @@ function mapClcCode(code: string): { label: string; group: string; exclusion: bo
   const group = getGroupFromCode(code);
   return { label: `CLC code ${code}`, group, exclusion: false };
 }
-
-// ---------------------------------------------------------------------------
-// API client
-// ---------------------------------------------------------------------------
 
 export async function queryCorineAtPoint(
   lat: number,
@@ -165,7 +148,6 @@ export async function queryCorineAtPoint(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const features: any[] = json.features ?? [];
   if (features.length === 0) {
-    // No polygon hit — typically offshore, or at the very edge of coverage.
     return null;
   }
 

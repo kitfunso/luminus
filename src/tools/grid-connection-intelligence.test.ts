@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock the dependencies before importing the module under test
 vi.mock("../lib/neso-gsp.js", () => ({
   lookupGspRegion: vi.fn(),
 }));
@@ -341,7 +340,6 @@ describe("getGridConnectionIntelligence", () => {
     expect(result.distribution_headroom).toBeNull();
     expect(result.nged_connection_signal).toBeNull();
 
-    // Should NOT have called TEC register
     expect(mockGetGridConnectionQueue).not.toHaveBeenCalled();
     expect(mockGetNgedConnectionSignal).not.toHaveBeenCalled();
   });

@@ -236,7 +236,6 @@ export async function getConstraintBreaches(
     breaches = breaches.filter((b) => b.duration_hours >= minDurationHours);
   }
 
-  // Build scheme breakdown from all matching breaches (before limit)
   const schemeBreakdown: Record<string, SchemeBreakdown> = {};
   let totalCurtailmentKwh = 0;
   let totalCurtailmentHours = 0;
@@ -259,7 +258,6 @@ export async function getConstraintBreaches(
     }
   }
 
-  // Round aggregated values
   totalCurtailmentKwh = Math.round(totalCurtailmentKwh * 100) / 100;
   totalCurtailmentHours = Math.round(totalCurtailmentHours * 1000) / 1000;
 

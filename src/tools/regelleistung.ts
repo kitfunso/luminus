@@ -55,7 +55,6 @@ export async function getRegelleistung(
   });
 
   if (!response.ok) {
-    // Regelleistung may not have a clean JSON API; fall back to description
     const descriptions: Record<string, string> = {
       FCR:
         "FCR (Frequency Containment Reserve): ±200mHz deadband, symmetric product, " +

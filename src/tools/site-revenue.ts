@@ -70,7 +70,6 @@ const BESS_CAVEATS: readonly string[] = [
   "Arbitrage assumes optimal dispatch with perfect foresight",
 ];
 
-/** Round to 2 decimal places. */
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
@@ -93,10 +92,6 @@ export async function estimateSiteRevenue(
   return estimateBessRevenue({ lat, lon, zone, capacity_mw, date });
 }
 
-// ---------------------------------------------------------------------------
-// PV revenue
-// ---------------------------------------------------------------------------
-
 interface RevenueParams {
   lat: number;
   lon: number;
@@ -106,21 +101,18 @@ interface RevenueParams {
 }
 
 async function estimatePvRevenue(p: RevenueParams): Promise<SiteRevenueResult> {
-  // Fire all three requests in parallel; terrain is non-critical.
   const [solarResult, pricesResult, terrainResult] = await Promise.allSettled([
     getSolarIrradiance({ lat: p.lat, lon: p.lon }),
     getDayAheadPrices({ zone: p.zone, start_date: p.date }),
     getTerrainAnalysis({ lat: p.lat, lon: p.lon }),
   ]);
 
-  // Solar is required.
   if (solarResult.status === "rejected") {
     throw new Error(
       `Solar irradiance lookup failed: ${solarResult.reason instanceof Error ? solarResult.reason.message : String(solarResult.reason)}`,
     );
   }
 
-  // Price data is required.
   if (pricesResult.status === "rejected") {
     throw new Error(
       `Day-ahead price lookup failed: ${pricesResult.reason instanceof Error ? pricesResult.reason.message : String(pricesResult.reason)}`,
@@ -131,14 +123,10 @@ async function estimatePvRevenue(p: RevenueParams): Promise<SiteRevenueResult> {
   const prices = pricesResult.value;
   const terrain = terrainResult.status === "fulfilled" ? terrainResult.value : null;
 
-  // annual_generation_mwh = capacity_mw * 1000 * (annual_yield_kwh / 1000)
-  // annual_yield_kwh is per 1 kWp, so for capacity_mw MW:
   const annual_generation_mwh = round2(p.capacity_mw * 1000 * (solar.annual_yield_kwh / 1000));
 
-  // Capacity factor: actual generation / (capacity * 8760 hours)
   const capacity_factor = round2(annual_generation_mwh / (p.capacity_mw * 8760));
 
-  // Capture price: weighted average of the UTC hour in [06:00, 18:00) (documented approximation, not local solar time).
   const daylightPrices = prices.prices.filter((pp) => {
     const h = new Date(pp.interval_start_utc).getUTCHours();
     return h >= 6 && h < 18;
@@ -148,7 +136,6 @@ async function estimatePvRevenue(p: RevenueParams): Promise<SiteRevenueResult> {
       ? round2(daylightPrices.reduce((s, pp) => s + pp.price, 0) / daylightPrices.length)
       : prices.stats.mean;
 
-  // Annual revenue in EUR. annual_generation_mwh is already in MWh.
   const estimated_annual_revenue_eur = round2(annual_generation_mwh * capture_price_eur_mwh);
 
   const price_snapshot: PriceSnapshot = {
@@ -179,17 +166,12 @@ async function estimatePvRevenue(p: RevenueParams): Promise<SiteRevenueResult> {
   };
 }
 
-// ---------------------------------------------------------------------------
-// BESS revenue
-// ---------------------------------------------------------------------------
-
 async function estimateBessRevenue(p: RevenueParams): Promise<SiteRevenueResult> {
   const [spreadResult, terrainResult] = await Promise.allSettled([
     getPriceSpreadAnalysis({ zone: p.zone, date: p.date, efficiency: 0.88, cycles: 2 }),
     getTerrainAnalysis({ lat: p.lat, lon: p.lon }),
   ]);
 
-  // Spread is required.
   if (spreadResult.status === "rejected") {
     throw new Error(
       `Price spread analysis failed: ${spreadResult.reason instanceof Error ? spreadResult.reason.message : String(spreadResult.reason)}`,

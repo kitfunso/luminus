@@ -84,7 +84,6 @@ export async function getAuctionResults(
     throw new Error(`No auction data for corridor ${corridor} on ${params.date}.`);
   }
 
-  // Filter entries relevant to this corridor direction
   const [hubFrom, hubTo] = corridor.split("-");
   const relevant = entries.filter(
     (e: any) => e.hubFrom === hubFrom && e.hubTo === hubTo,

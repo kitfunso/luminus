@@ -345,10 +345,8 @@ export async function getFlexibilityMarket(
     dispatches.push(...spen);
   }
 
-  // Sort combined results by start_time descending
   dispatches.sort((a, b) => (b.start_time > a.start_time ? 1 : b.start_time < a.start_time ? -1 : 0));
 
-  // Apply final limit for "all" queries
   if (operator === "all" && dispatches.length > limit) {
     dispatches = dispatches.slice(0, limit);
   }

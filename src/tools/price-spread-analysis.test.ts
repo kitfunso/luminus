@@ -52,7 +52,6 @@ describe("getPriceSpreadAnalysis", () => {
   });
 
   it("scales the intervals-per-cycle count for 15-minute resolution", async () => {
-    // 96 quarter-hours; cycles=1 -> intervalsPerCycle = 60/15 = 4.
     const prices = Array.from({ length: 96 }, (_, i) => quarterHourPoint(i, i < 4 ? 5 : i >= 92 ? 90 : 30));
     mockPrices.mockResolvedValue({
       zone: "DE",

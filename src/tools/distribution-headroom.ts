@@ -634,8 +634,6 @@ async function fetchUkpnHeadroomRecords(): Promise<DistributionHeadroomRecord[]>
     if (page.length < ODS_PAGE_LIMIT) break;
   }
 
-  // Aggregate by substation: take the nearest year's Baseline row per category,
-  // fold demand and generation headroom into one record per substation.
   const substationMap = new Map<string, {
     substation: string;
     licence_area: string;
@@ -681,7 +679,6 @@ async function fetchUkpnHeadroomRecords(): Promise<DistributionHeadroomRecord[]>
         existing.demand_headroom_mw = headroom;
       }
       if (isGeneration) {
-        // Take min of inverter and synchronous headroom (binding constraint)
         existing.generation_headroom_mw = pickMinHeadroom(existing.generation_headroom_mw, headroom);
       }
     }
@@ -758,12 +755,10 @@ async function fetchSpenHeadroomRecords(): Promise<DistributionHeadroomRecord[]>
       try {
         response = await fetch(`${dataset.url}?${params.toString()}`);
       } catch {
-        // Dataset might not be reachable; skip gracefully
         break;
       }
 
       if (!response.ok) {
-        // Dataset may not be published or the year value doesn't match; skip
         if (response.status === 404 || response.status === 400) break;
         throw new Error(`SPEN NSHR dataset fetch failed: HTTP ${response.status}`);
       }
@@ -778,7 +773,6 @@ async function fetchSpenHeadroomRecords(): Promise<DistributionHeadroomRecord[]>
         "SPEN NSHR Data Workbook",
       );
 
-      // Normalize SPD's different field names to match our internal shape
       for (const raw of page) {
         allRows.push({
           substation_group: raw.substation_group as string | null,
@@ -795,9 +789,7 @@ async function fetchSpenHeadroomRecords(): Promise<DistributionHeadroomRecord[]>
     }
   }
 
-  // Aggregate by substation_group: fold demand/generation headroom types into one record.
   // SPEN does not publish lat/lon in the NSHR dataset, so we cannot do spatial matching.
-  // Year filtering is already done at the API level per dataset.
   const substationMap = new Map<string, {
     substation: string;
     gsp_group: string | null;
@@ -843,7 +835,6 @@ async function fetchSpenHeadroomRecords(): Promise<DistributionHeadroomRecord[]>
   // will be excluded from distance filtering.
   const records: DistributionHeadroomRecord[] = [];
   for (const [, entry] of substationMap) {
-    // Use the lower (more constrained) of sync and inverter generation headroom
     const genHeadroom = pickMinHeadroom(entry.generation_sync_headroom_mw, entry.generation_inverter_headroom_mw);
 
     records.push({

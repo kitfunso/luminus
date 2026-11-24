@@ -221,7 +221,6 @@ export async function getFloodRisk(
     );
   }
 
-  // SEPA warnings flow into the same bucket as EA warnings so callers see one list.
   for (const err of sepaResult.errors) {
     warnings.push(`sepa-flood: ${err}`);
   }
@@ -229,8 +228,6 @@ export async function getFloodRisk(
   const eaAllFailed = results.every((result) => result.status === "rejected");
   const eaHasAnyFailure = results.some((result) => result.status === "rejected");
   const sepaAttempted = queryScotland;
-  // A fully-successful SEPA query (zero errors) is a confident result even when
-  // SEPA reports zero matches. Only throw when both EA and SEPA have failed.
   const sepaSuccessful = sepaAttempted && sepaResult.errors.length === 0;
 
   if (eaAllFailed && !sepaSuccessful) {

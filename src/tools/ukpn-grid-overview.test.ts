@@ -180,7 +180,6 @@ describe("getUkpnGridOverview", () => {
     expect(result.lon).toBeNull();
     expect(result.radius_km).toBeNull();
 
-    // GSPs
     expect(result.gsps).toHaveLength(2);
     expect(result.gsps[0].gsp).toBe("Barking Grid");
     expect(result.gsps[0].dno).toBe("EPN");
@@ -188,21 +187,18 @@ describe("getUkpnGridOverview", () => {
     expect(result.gsps[0].export_utilisation_pct).toBe(72.5);
     expect(result.gsps[0].distance_km).toBeNull();
 
-    // Flex zones
     expect(result.flex_zones).toHaveLength(2);
     expect(result.flex_zones[0].zone).toBe("Barking Flex Zone");
     expect(result.flex_zones[0].constraint_type).toBe("Thermal");
     expect(result.flex_zones[0].tender_round).toBe("TR5");
     expect(result.flex_zones[0].distance_km).toBeNull();
 
-    // Live faults
     expect(result.live_faults).toHaveLength(2);
     expect(result.live_faults[0].reference).toBe("INCD-12345");
     expect(result.live_faults[0].type).toBe("Unplanned");
     expect(result.live_faults[0].customers_affected).toBe(150);
     expect(result.live_faults[0].operating_zone).toBe("East");
 
-    // Source metadata
     expect(result.source_metadata.gsp_overview.id).toBe("ukpn-gsp-overview");
     expect(result.source_metadata.flex_zones.id).toBe("ukpn-flex-zones");
     expect(result.source_metadata.live_faults.id).toBe("ukpn-live-faults");
@@ -213,7 +209,6 @@ describe("getUkpnGridOverview", () => {
   it("filters and sorts by distance when lat/lon provided", async () => {
     mockFetchAll();
 
-    // Search near Barking (51.535, 0.081) — Barking GSP should be closest
     const result = await getUkpnGridOverview({
       lat: 51.535,
       lon: 0.081,
@@ -224,20 +219,14 @@ describe("getUkpnGridOverview", () => {
     expect(result.lon).toBe(0.081);
     expect(result.radius_km).toBe(10);
 
-    // Barking is at 51.535,0.081 — effectively 0km away
-    // City Road is at 51.528,-0.099 — ~12.6km away, outside 10km radius
     expect(result.gsps).toHaveLength(1);
     expect(result.gsps[0].gsp).toBe("Barking Grid");
     expect(result.gsps[0].distance_km).toBeLessThan(1);
 
-    // Barking Flex Zone at 51.536,0.082 — ~0.1km, inside radius
-    // Canterbury Flex Zone at 51.28,1.08 — far away, outside radius
     expect(result.flex_zones).toHaveLength(1);
     expect(result.flex_zones[0].zone).toBe("Barking Flex Zone");
     expect(result.flex_zones[0].distance_km).toBeLessThan(1);
 
-    // Fault INCD-12345 at 51.534,0.080 — ~0.1km, inside radius
-    // Fault INCD-67890 at 51.52,-0.10 — ~12.7km, outside radius
     expect(result.live_faults).toHaveLength(1);
     expect(result.live_faults[0].reference).toBe("INCD-12345");
     expect(result.live_faults[0].distance_km).toBeLessThan(1);
@@ -254,7 +243,6 @@ describe("getUkpnGridOverview", () => {
     expect(result.flex_zones).toHaveLength(2);
     expect(result.live_faults).toHaveLength(0);
 
-    // Should not have called the faults endpoint
     const fetchMock = vi.mocked(fetch);
     const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
     expect(calledUrls.some((url) => url.includes("ukpn-live-faults"))).toBe(false);
@@ -279,9 +267,6 @@ describe("getUkpnGridOverview", () => {
     await getUkpnGridOverview({});
 
     const fetchMock = vi.mocked(fetch);
-    // First call: 3 fetches (GSP, Flex, Faults). Second call: only Faults (GSP + Flex cached).
-    // Actually, faults are also cached (5min TTL), so second call makes 0 fetches.
-    // But we should verify exactly 3 total fetches (all from first call).
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
@@ -296,7 +281,6 @@ describe("getUkpnGridOverview", () => {
   it("returns empty arrays when search radius excludes all results", async () => {
     mockFetchAll();
 
-    // Search far from any mock data
     const result = await getUkpnGridOverview({
       lat: 55.0,
       lon: -3.0,
@@ -317,7 +301,6 @@ describe("getUkpnGridOverview", () => {
     });
 
     expect(result.radius_km).toBe(50);
-    // Both GSPs should be within 50km of Barking area
     expect(result.gsps.length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -6,16 +6,9 @@ const OVERPASS_ENDPOINTS = [
 
 const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
 
-// ---------------------------------------------------------------------------
-// Rate limiter (module-level singleton, shared across all callers)
-// ---------------------------------------------------------------------------
-
 interface RateLimiterState {
-  /** Timestamps of recent requests (sliding window) */
   readonly windowTimestamps: number[];
-  /** Currently in-flight requests */
   inFlight: number;
-  /** Queue of waiters blocked by the rate limiter */
   readonly queue: Array<() => void>;
 }
 
@@ -121,7 +114,6 @@ async function acquireSlot(): Promise<void> {
     return;
   }
 
-  // Wait in queue until a slot opens
   await new Promise<void>((resolve) => {
     state.queue.push(() => {
       state.inFlight++;
@@ -136,10 +128,6 @@ function releaseSlot(): void {
   state.inFlight--;
   drainQueue();
 }
-
-// ---------------------------------------------------------------------------
-// Error classification
-// ---------------------------------------------------------------------------
 
 const EXPENSIVE_QUERY_PATTERNS = [
   "runtime error",
@@ -156,10 +144,6 @@ function isQueryTooExpensive(body: string): boolean {
   return EXPENSIVE_QUERY_PATTERNS.some((p) => lower.includes(p.toLowerCase()));
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -167,10 +151,6 @@ function sleep(ms: number): Promise<void> {
 function backoffMs(attempt: number): number {
   return Math.min(INITIAL_BACKOFF_MS * 2 ** attempt, MAX_BACKOFF_MS);
 }
-
-// ---------------------------------------------------------------------------
-// Public API  (signature unchanged)
-// ---------------------------------------------------------------------------
 
 export async function fetchOverpassJson<T>(query: string): Promise<T> {
   await acquireSlot();
@@ -188,12 +168,10 @@ async function fetchWithFallbacks<T>(query: string): Promise<T> {
   for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
     const endpoint = OVERPASS_ENDPOINTS[i];
 
-    // Brief delay between fallback endpoint attempts (not before the first)
     if (i > 0) {
       await sleep(FALLBACK_DELAY_MS);
     }
 
-    // Exponential backoff: attempt index drives the delay
     if (i > 0) {
       await sleep(backoffMs(i - 1));
     }
@@ -218,7 +196,6 @@ async function fetchWithFallbacks<T>(query: string): Promise<T> {
       const body = await response.text();
       errors.push(`${endpoint} -> ${response.status}: ${body.slice(0, 180)}`);
 
-      // Non-retryable status: throw immediately, no fallback
       if (!RETRYABLE_STATUS.has(response.status)) {
         if (isQueryTooExpensive(body)) {
           throw new Error(
@@ -232,12 +209,10 @@ async function fetchWithFallbacks<T>(query: string): Promise<T> {
     } catch (err) {
       clearTimeout(timeout);
 
-      // Re-throw non-retryable errors (our own thrown errors above)
       if (err instanceof Error && err.message.startsWith("Overpass")) {
         throw err;
       }
 
-      // AbortController timeout
       if (err instanceof DOMException && err.name === "AbortError") {
         errors.push(`${endpoint} -> timeout after ${REQUEST_TIMEOUT_MS}ms`);
         continue;
@@ -249,7 +224,6 @@ async function fetchWithFallbacks<T>(query: string): Promise<T> {
         continue;
       }
 
-      // Network error or other transient failure
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`${endpoint} -> network error: ${msg}`);
     }

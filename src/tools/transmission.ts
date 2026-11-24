@@ -35,16 +35,9 @@ interface TransmissionLine {
   coordinates: Array<{ lat: number; lon: number }>;
 }
 
-type Bbox = [number, number, number, number]; // [lat_min, lon_min, lat_max, lon_max]
-
-// ---------------------------------------------------------------------------
-// Tiling helpers
-// ---------------------------------------------------------------------------
-
-/** Area threshold in square degrees above which we split into tiles. */
+type Bbox = [number, number, number, number];
 const TILE_AREA_THRESHOLD = 25;
 
-/** Target tile size in degrees per side. */
 const TILE_SIZE_DEG = 5;
 
 /** Max concurrent tile queries to avoid Overpass rate limiting. */
@@ -76,7 +69,6 @@ export function generateTiles(bbox: Bbox): Bbox[] {
   return tiles;
 }
 
-/** Returns true if the bbox area exceeds the tiling threshold. */
 function shouldTile(bbox: Bbox): boolean {
   const latRange = bbox[2] - bbox[0];
   const lonRange = bbox[3] - bbox[1];
@@ -89,7 +81,6 @@ interface OverpassElement {
   geometry?: Array<{ lat: number; lon: number }>;
 }
 
-/** Query a single bbox tile and return raw Overpass elements. */
 async function queryTile(bbox: Bbox): Promise<OverpassElement[]> {
   const bboxStr = `${bbox[0]},${bbox[1]},${bbox[2]},${bbox[3]}`;
   const query = `[out:json][timeout:30];way["power"="line"]["voltage"](${bboxStr});out geom;`;
@@ -97,10 +88,6 @@ async function queryTile(bbox: Bbox): Promise<OverpassElement[]> {
   return Array.isArray(json.elements) ? json.elements : [];
 }
 
-/**
- * Query multiple tiles with bounded concurrency.
- * Runs at most `concurrency` queries in parallel.
- */
 async function queryTilesWithConcurrency(
   tiles: Bbox[],
   concurrency: number,
@@ -119,7 +106,6 @@ async function queryTilesWithConcurrency(
   return allElements;
 }
 
-/** Parse raw Overpass elements into TransmissionLine[], filtering by voltage. */
 function parseElements(
   elements: OverpassElement[],
   minVoltageV: number,
@@ -147,7 +133,6 @@ function parseElements(
   return lines;
 }
 
-/** Deduplicate lines by OSM way ID (tiles may overlap at boundaries). */
 function deduplicateById(lines: TransmissionLine[]): TransmissionLine[] {
   const seen = new Map<number, TransmissionLine>();
   for (const line of lines) {
@@ -157,10 +142,6 @@ function deduplicateById(lines: TransmissionLine[]): TransmissionLine[] {
   }
   return [...seen.values()];
 }
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 export async function getTransmissionLines(
   params: z.infer<typeof transmissionSchema>,

@@ -7,10 +7,6 @@ import {
   _resetSepaFloodCache,
 } from "./sepa-flood.js";
 
-// ---------------------------------------------------------------------------
-// Fetch mock helpers
-// ---------------------------------------------------------------------------
-
 interface MockResponseSpec {
   ok?: boolean;
   status?: number;
@@ -29,11 +25,6 @@ function makeMockResponse(spec: MockResponseSpec): Response {
   } as unknown as Response;
 }
 
-/**
- * URL-matcher based fetch mock. Accepts a list of {match, response} pairs
- * and returns the first matching response for each call. Matching is a
- * substring check on the URL string.
- */
 function mockFetchByUrl(
   rules: Array<{ match: string; response: MockResponseSpec }>,
 ): ReturnType<typeof vi.fn> {
@@ -49,10 +40,6 @@ function mockFetchByUrl(
   return fn;
 }
 
-// ---------------------------------------------------------------------------
-// Setup / teardown
-// ---------------------------------------------------------------------------
-
 beforeEach(() => {
   _resetSepaFloodCache();
 });
@@ -60,10 +47,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
 });
-
-// ---------------------------------------------------------------------------
-// Layer-id discovery
-// ---------------------------------------------------------------------------
 
 describe("resolveExtentLayerId", () => {
   it("returns the id of the first layer whose name contains 'extent'", async () => {
@@ -128,10 +111,6 @@ describe("resolveExtentLayerId", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 });
-
-// ---------------------------------------------------------------------------
-// Point query
-// ---------------------------------------------------------------------------
 
 describe("queryFloodAtPoint", () => {
   it("returns true when returnCountOnly response has count > 0", async () => {
@@ -206,17 +185,10 @@ describe("queryFloodAtPoint", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Aggregate query
-// ---------------------------------------------------------------------------
-
 describe("querySepaFloodAtPoint", () => {
   it("returns only matching services and captures errors for the rest", async () => {
-    // Give every service a working /layers response at id 0, then selectively
-    // return hits, misses, or errors on the point-query endpoints.
     const rules: Array<{ match: string; response: MockResponseSpec }> = [];
 
-    // Layers responses for all 9 services
     for (const service of SEPA_FLOOD_SERVICES) {
       rules.push({
         match: `${service.slug}/FeatureServer/layers`,
@@ -230,8 +202,6 @@ describe("querySepaFloodAtPoint", () => {
       });
     }
 
-    // One hit (river medium), one miss (coastal high), one error (surface water low);
-    // everything else misses.
     for (const service of SEPA_FLOOD_SERVICES) {
       if (service.source === "river" && service.likelihood === "medium") {
         rules.push({

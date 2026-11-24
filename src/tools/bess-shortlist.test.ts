@@ -30,7 +30,6 @@ const getDistributionHeadroomMock = vi.mocked(getDistributionHeadroom);
 describe("shortlistBessSites", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: all DNO operators return no match (called 3x per site: SSEN, NPG, UKPN)
     getDistributionHeadroomMock.mockResolvedValue({
       lat: 0,
       lon: 0,
@@ -482,7 +481,6 @@ describe("shortlistBessSites", () => {
       disclaimer: "dno",
     };
 
-    // Alpha: SSEN returns low headroom, NPG and UKPN return no match
     getDistributionHeadroomMock
       .mockResolvedValueOnce({
         lat: 51.5,
@@ -516,8 +514,8 @@ describe("shortlistBessSites", () => {
         source_metadata: {} as any,
         disclaimer: "dno",
       })
-      .mockResolvedValueOnce(noMatchDno)  // NPG for Alpha
-      .mockResolvedValueOnce(noMatchDno)  // UKPN for Alpha
+      .mockResolvedValueOnce(noMatchDno)
+      .mockResolvedValueOnce(noMatchDno)
       // Bravo: SSEN returns high headroom, NPG and UKPN return no match
       .mockResolvedValueOnce({
         lat: 51.52,
@@ -551,8 +549,8 @@ describe("shortlistBessSites", () => {
         source_metadata: {} as any,
         disclaimer: "dno",
       })
-      .mockResolvedValueOnce(noMatchDno)  // NPG for Bravo
-      .mockResolvedValueOnce(noMatchDno); // UKPN for Bravo
+      .mockResolvedValueOnce(noMatchDno)
+      .mockResolvedValueOnce(noMatchDno);
 
     const result = await shortlistBessSites({
       country: "GB",

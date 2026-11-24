@@ -14,8 +14,6 @@ vi.mock("../lib/auth.js", () => ({
   },
 }));
 
-// ── Mock data ──
-
 const MOCK_QUEUE_RESULTS = [
   {
     unique_id: "Q001",
@@ -84,8 +82,6 @@ const MOCK_CURTAILMENT_RESULTS = [
   },
 ];
 
-// ── Fetch helpers ──
-
 function mockFetchAllOk(): void {
   vi.stubGlobal(
     "fetch",
@@ -128,7 +124,6 @@ function mockFetchWithFilter(): void {
       const url = String(input);
 
       if (url.includes("gsp-queue-position")) {
-        // Return only Chapelcross entries when filter is applied
         const filtered = MOCK_QUEUE_RESULTS.filter(
           (r) => r.gsp_name === "Chapelcross",
         );
@@ -208,8 +203,6 @@ function mockFetchEmptyResults(): void {
   );
 }
 
-// ── Tests ──
-
 describe("getSpenGridIntelligence", () => {
   beforeEach(() => {
     resetSpenGridCacheForTests();
@@ -224,10 +217,8 @@ describe("getSpenGridIntelligence", () => {
 
     const result = await getSpenGridIntelligence({});
 
-    // Null filter when none provided
     expect(result.gsp_filter).toBeNull();
 
-    // Queue section
     expect(result.queue.total_projects).toBe(3);
     expect(result.queue.total_export_mw).toBe(175.5);
     expect(result.queue.type_breakdown["Wind"]).toEqual({
@@ -241,7 +232,6 @@ describe("getSpenGridIntelligence", () => {
     expect(result.queue.entries).toHaveLength(3);
     expect(result.queue.entries[0].gsp_name).toBe("Chapelcross");
 
-    // DG capacity section
     expect(result.dg_capacity.gsps_covered).toBe(2);
     expect(result.dg_capacity.entries).toHaveLength(2);
     expect(result.dg_capacity.entries[0].gsp).toBe("Chapelcross");
@@ -250,7 +240,6 @@ describe("getSpenGridIntelligence", () => {
     expect(result.dg_capacity.entries[0].fault_level_headroom).toBe("Adequate");
     expect(result.dg_capacity.entries[1].fault_level_headroom).toBeNull();
 
-    // Curtailment section
     expect(result.curtailment.period_days).toBe(90);
     expect(result.curtailment.total_events).toBe(3);
     expect(result.curtailment.total_generation_lost_mw).toBe(23.7);
@@ -260,12 +249,10 @@ describe("getSpenGridIntelligence", () => {
     expect(result.curtailment.entries[0].scheme).toBe("ANM");
     expect(result.curtailment.entries[1].scheme).toBeNull();
 
-    // Source metadata
     expect(result.source_metadata.queue.id).toBe("spen-gsp-queue");
     expect(result.source_metadata.dg_capacity.id).toBe("spen-dg-capacity");
     expect(result.source_metadata.curtailment.id).toBe("spen-curtailment");
 
-    // Disclaimer
     expect(result.disclaimer).toContain("SP Energy Networks");
   });
 
@@ -278,24 +265,20 @@ describe("getSpenGridIntelligence", () => {
 
     expect(result.gsp_filter).toBe("Chapelcross");
 
-    // Queue: only Chapelcross entries
     expect(result.queue.total_projects).toBe(2);
     expect(
       result.queue.entries.every((e) => e.gsp_name === "Chapelcross"),
     ).toBe(true);
 
-    // DG: only Chapelcross
     expect(result.dg_capacity.gsps_covered).toBe(1);
     expect(result.dg_capacity.entries[0].gsp).toBe("Chapelcross");
 
-    // Curtailment: only Chapelcross site
     expect(
       result.curtailment.entries.every((e) =>
         e.site_name.includes("Chapelcross"),
       ),
     ).toBe(true);
 
-    // Verify ODS where clause was passed for each URL
     const fetchMock = vi.mocked(fetch);
     const calls = fetchMock.mock.calls.map((c) => String(c[0]));
 
@@ -337,11 +320,9 @@ describe("getSpenGridIntelligence", () => {
 
     const result = await getSpenGridIntelligence({});
 
-    // Queue section should be empty (failed gracefully)
     expect(result.queue.total_projects).toBe(0);
     expect(result.queue.entries).toEqual([]);
 
-    // DG and curtailment should still have data
     expect(result.dg_capacity.entries).toHaveLength(2);
     expect(result.curtailment.entries).toHaveLength(3);
   });
@@ -353,7 +334,6 @@ describe("getSpenGridIntelligence", () => {
 
     expect(result.curtailment.period_days).toBe(30);
 
-    // Verify the date filter was passed in the curtailment URL
     const fetchMock = vi.mocked(fetch);
     const calls = fetchMock.mock.calls.map((c) => String(c[0]));
     const curtailmentCall = calls.find((u) =>
@@ -376,7 +356,6 @@ describe("getSpenGridIntelligence", () => {
     await getSpenGridIntelligence({});
     await getSpenGridIntelligence({});
 
-    // Three datasets fetched once each (first call), then cache hits (second call)
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(3);
   });
 });

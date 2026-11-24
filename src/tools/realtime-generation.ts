@@ -19,7 +19,6 @@ export const realtimeGenerationSchema = z.object({
     .describe("Date in YYYY-MM-DD format. Defaults to today."),
 });
 
-/** ENTSO-E PSR type codes to human-readable fuel names */
 const PSR_TYPES: Record<string, string> = {
   B01: "Biomass",
   B02: "Lignite",
@@ -82,7 +81,6 @@ async function getGbGeneration(date: string): Promise<RealtimeGenerationResult> 
     throw new Error("No GB generation data available from Elexon BMRS.");
   }
 
-  // Group by fuelType, take latest settlement period
   const latestPeriod = Math.max(
     ...rows.map((r) => Number(r.settlementPeriod ?? 0))
   );
@@ -152,7 +150,6 @@ async function getEntsoeGeneration(
     const lastPeriod = periods[periods.length - 1];
     if (!lastPeriod) continue;
 
-    // Track the period start for timestamp
     const periodStartStr = lastPeriod.timeInterval?.start ?? "";
     if (periodStartStr > latestTimestamp) {
       latestTimestamp = periodStartStr;

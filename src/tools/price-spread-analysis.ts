@@ -73,7 +73,6 @@ export async function getPriceSpreadAnalysis(
     };
   }
 
-  // One cycle = one hour of charge at 1C; at finer resolution that's several intervals.
   const resolutionMinutes = priceData.resolution_minutes || 60;
   const intervalsPerCycle = Math.max(1, Math.round((cycles * 60) / resolutionMinutes));
 
@@ -84,7 +83,6 @@ export async function getPriceSpreadAnalysis(
   const chargeStarts = new Set(sorted.slice(0, chargeCount).map((p) => p.interval_start_utc));
   const dischargeStarts = new Set(sorted.slice(-dischargeCount).map((p) => p.interval_start_utc));
 
-  // Resolve conflicts: if the same interval appears in both, remove it from charge.
   for (const start of chargeStarts) {
     if (dischargeStarts.has(start)) {
       chargeStarts.delete(start);
@@ -95,7 +93,6 @@ export async function getPriceSpreadAnalysis(
   const dischargeAvg = sorted.slice(-dischargeCount).reduce((s, p) => s + p.price, 0) / dischargeCount;
 
   const grossSpread = Math.round((dischargeAvg - chargeAvg) * 100) / 100;
-  // Net spread: discharge_price * efficiency - charge_price (efficiency loss on discharge side)
   const netSpread = Math.round((dischargeAvg * efficiency - chargeAvg) * 100) / 100;
   const revenuePerMwDay = Math.round(netSpread * cycles * 100) / 100;
 

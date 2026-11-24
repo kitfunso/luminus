@@ -37,9 +37,6 @@ const DEFAULT_RADIUS_KM = 25;
 const MAX_RADIUS_KM = 50;
 const TOP_TEC_ENTRIES = 5;
 
-// Generous GB bounding box (Isles of Scilly to Shetland, west of Ireland to
-// eastern England). Coordinates outside this box cannot return a meaningful
-// GB connection-intelligence report — every upstream is GB-only today.
 const GB_BBOX = {
   min_lat: 49.5,
   max_lat: 61.0,
@@ -52,11 +49,6 @@ const DISCLAIMER =
   "or Gate 2 decision. Rules and datasets change frequently; always verify with the relevant " +
   "network operator and NESO.";
 
-/**
- * Traffic-light thresholds. Every band is driven by a published upstream
- * signal; anything we cannot derive from a published source returns
- * "unknown". We deliberately avoid inventing capacity-headroom thresholds.
- */
 const TRAFFIC_LIGHT_THRESHOLDS = {
   queue: [
     "green: 0 MW queued at the matched GSP (TEC register + NGED per-GSP signal both return zero entries)",
@@ -281,8 +273,6 @@ function queueTrafficLight(
   ngedMatchedProjects: number | null,
 ): TrafficLight {
   if (tecTotalMw === null && ngedMatchedProjects === null) return "unknown";
-  // Green requires positive evidence of zero entries from BOTH the TEC
-  // register and NGED — absence of data is not the same as absence of queue.
   const tecPositivelyZero = tecTotalMw === 0 && tecProjectCount === 0;
   const ngedPositivelyZero = ngedMatchedProjects === 0;
   if (tecPositivelyZero && ngedPositivelyZero) return "green";
@@ -349,15 +339,11 @@ export async function getSiteConnectionReport(
     );
   }
 
-  // --- TEC queue summary ---
-  // A null connection_queue means "no GSP matched" or "TEC upstream failed"
-  // inside grid-connection-intelligence; both are unknown signals, not zero.
   const tecProjects = (grid?.connection_queue?.projects ?? []) as TecRowInput[];
   const tecTotalMw = grid?.connection_queue?.total_mw_queued ?? null;
   const tecProjectCount = grid?.connection_queue ? tecProjects.length : null;
   const topTecEntries = tecProjects.slice(0, TOP_TEC_ENTRIES).map((row) => normaliseTecRow(row));
 
-  // --- DNO headroom summary ---
   const dnoSite = grid?.distribution_headroom ?? null;
   let dnoCanonical: CanonicalConnectionEntry | null = null;
   if (dnoSite) {
@@ -381,7 +367,6 @@ export async function getSiteConnectionReport(
     canonical: dnoCanonical,
   };
 
-  // --- NGED context summary ---
   const ngedSignal = grid?.nged_connection_signal ?? null;
   const ngedContext: NgedContextSummary | null = ngedSignal
     ? {
@@ -398,7 +383,6 @@ export async function getSiteConnectionReport(
       }
     : null;
 
-  // Surface normalised NGED queue rows as part of the top entries too
   if (ngedSignal?.queue_signal?.projects) {
     const ngedRows = ngedSignal.queue_signal.projects as unknown as NgedQueueRowInput[];
     for (const row of ngedRows.slice(0, TOP_TEC_ENTRIES)) {

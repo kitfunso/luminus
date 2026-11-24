@@ -91,7 +91,6 @@ async function fetchYahooQuote(
       new Date(ts * 1000).toISOString().slice(0, 10)
     );
 
-    // Filter out null/NaN closes
     const valid: { dates: string[]; closes: number[] } = { dates: [], closes: [] };
     for (let i = 0; i < dates.length; i++) {
       if (closes[i] != null && Number.isFinite(closes[i])) {
